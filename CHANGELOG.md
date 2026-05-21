@@ -13,6 +13,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Year 1 sales forecast (`FORECAST.md`) — three scenarios.
 - GTM brief deck (`Major Ambience - Pitch Deck.html` + `.pptx`).
 - Marketing plan with 90‑day action plan (`MARKETING.md`).
+- pnpm workspaces baseline: `pnpm-workspace.yaml`, root `package.json`, `tsconfig.base.json` (TypeScript strict), `.nvmrc`, `.npmrc`.
 
 ### Changed
 - Project renamed from "Music Companion" to **Major Ambience**.
