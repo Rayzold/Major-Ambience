@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Major Ambience — iPhone, Android & Windows</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  html, body { margin: 0; padding: 0; background: #f0eee9; font-family: "Geist", "Inter", -apple-system, system-ui, sans-serif; }
+  .hero {
+    padding: 36px 48px 28px; max-width: 1400px; margin: 0 auto;
+    color: #2a251f;
+  }
+  .hero .eyebrow {
+    font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: rgba(40,30,20,0.5); font-weight: 500;
+  }
+  .hero h1 {
+    margin: 6px 0 4px; font-family: "Cormorant Garamond", Georgia, serif;
+    font-weight: 500; font-size: 44px; letter-spacing: -0.01em; line-height: 1.05;
+  }
+  .hero h1 em { color: #b08038; font-style: italic; }
+  .hero p { margin: 4px 0 0; max-width: 780px; font-size: 14px; line-height: 1.6; color: rgba(40,30,20,0.7); }
+  .pill-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,0.7);
+    font-size: 11px; font-weight: 500; color: rgba(40,30,20,0.7);
+    border: 1px solid rgba(0,0,0,0.06);
+  }
+  .pill .dot { width: 8px; height: 8px; border-radius: 50%; }
+</style>
+</head>
+<body>
+
+<!-- Hero / design rationale -->
+<div class="hero">
+  <div class="eyebrow">Major Ambience · iPhone · Android · Windows 11</div>
+  <h1>From a GM's local hack to a <em>cinematic audio companion</em>.</h1>
+  <p>
+    Same four pillars from the desktop tool — <b>Library</b>, <b>Scenes</b>, <b>Soundboard</b>, <b>Search</b> — but rebuilt across three surfaces. The Windows app is the GM’s primary battle station (three‑pane workspace with persistent transport). The mobile apps are the touch‑first counterpart for one‑hand control while the laptop sits across the table. Every artboard below is interactive — tap categories, scenes, pads, the transport bar, anything.
+  </p>
+  <div class="pill-row">
+    <span class="pill"><span class="dot" style="background:#d96a4a"></span> Combat</span>
+    <span class="pill"><span class="dot" style="background:#e2a154"></span> Tavern</span>
+    <span class="pill"><span class="dot" style="background:#bcae54"></span> Exploration</span>
+    <span class="pill"><span class="dot" style="background:#6fbfa6"></span> Ambient</span>
+    <span class="pill"><span class="dot" style="background:#9a6ed1"></span> Horror</span>
+    <span class="pill"><span class="dot" style="background:#d27a4a"></span> Tension</span>
+    <span class="pill"><span class="dot" style="background:#7d92dd"></span> Rest</span>
+    <span class="pill"><span class="dot" style="background:#5cc4d9"></span> SFX</span>
+  </div>
+</div>
+
+<div id="root"></div>
+
+<!-- React + Babel -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<!-- Data + components -->
+<script src="app/data.js"></script>
+<script type="text/babel" src="app/design-canvas.jsx"></script>
+<script type="text/babel" src="app/ios-frame.jsx"></script>
+<script type="text/babel" src="app/android-frame.jsx"></script>
+<script type="text/babel" src="app/icons.jsx"></script>
+<script type="text/babel" src="app/ui.jsx"></script>
+<script type="text/babel" src="app/screens.jsx"></script>
+<script type="text/babel" src="app/app.jsx"></script>
+<script type="text/babel" src="app/windows-frame.jsx"></script>
+<script type="text/babel" src="app/desktop.jsx"></script>
+
+<!-- Render the canvas -->
+<script type="text/babel">
+function App() {
+  // iOS frame: 402×874, status bar overlaid → safeTop 50
+  // Android frame: 412×892, status bar in flow (40) + nav (24) consume space → safeTop 0
+  return (
+    <DesignCanvas>
+      <DCSection id="windows" title="Windows 11 desktop" subtitle="Three‑pane workspace · 1440×900 — primary GM surface">
+        <DCArtboard id="win-library" label="Library · Combat" width={1440} height={900}>
+          <WindowsWindow width={1440} height={900} title="Major Ambience — MUSIC (4,796 tracks)">
+            <DesktopApp view="library" initialCategory={CATEGORIES[0]}/>
+          </WindowsWindow>
+        </DCArtboard>
+        <DCArtboard id="win-horror" label="Library · Horror" width={1440} height={900}>
+          <WindowsWindow width={1440} height={900} title="Major Ambience — MUSIC (4,796 tracks)">
+            <DesktopApp view="library" initialCategory={CATEGORIES[4]}/>
+          </WindowsWindow>
+        </DCArtboard>
+        <DCArtboard id="win-scenes" label="Scenes" width={1440} height={900}>
+          <WindowsWindow width={1440} height={900} title="Major Ambience — Scenes">
+            <DesktopApp view="scenes" initialCategory={CATEGORIES[0]}/>
+          </WindowsWindow>
+        </DCArtboard>
+        <DCArtboard id="win-soundboard" label="Soundboard" width={1440} height={900}>
+          <WindowsWindow width={1440} height={900} title="Major Ambience — Soundboard">
+            <DesktopApp view="soundboard" initialCategory={CATEGORIES[0]}/>
+          </WindowsWindow>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="iphone" title="iPhone" subtitle="iOS 17 · 6.1″ — primary surface">
+        <DCArtboard id="ios-library" label="Library · Home" width={402} height={874}>
+          <IOSDevice dark={true}>
+            <MobileApp initialTab="library" safeTop={50} safeBottom={24} platform="ios"/>
+          </IOSDevice>
+        </DCArtboard>
+        <DCArtboard id="ios-now-playing" label="Now Playing" width={402} height={874}>
+          <IOSDevice dark={true}>
+            <MobileApp initialTab="library" initialNowPlaying={true} safeTop={50} safeBottom={24} platform="ios"/>
+          </IOSDevice>
+        </DCArtboard>
+        <DCArtboard id="ios-scenes" label="Scenes" width={402} height={874}>
+          <IOSDevice dark={true}>
+            <MobileApp initialTab="scenes" safeTop={50} safeBottom={24} platform="ios"/>
+          </IOSDevice>
+        </DCArtboard>
+        <DCArtboard id="ios-soundboard" label="Soundboard" width={402} height={874}>
+          <IOSDevice dark={true}>
+            <MobileApp initialTab="soundboard" safeTop={50} safeBottom={24} platform="ios"/>
+          </IOSDevice>
+        </DCArtboard>
+        <DCArtboard id="ios-category" label="Category · Combat" width={402} height={874}>
+          <IOSDevice dark={true}>
+            <MobileApp initialTab="library" initialCategory={CATEGORIES[0]} safeTop={50} safeBottom={24} platform="ios"/>
+          </IOSDevice>
+        </DCArtboard>
+        <DCArtboard id="ios-search" label="Search" width={402} height={874}>
+          <IOSDevice dark={true}>
+            <MobileApp initialTab="search" safeTop={50} safeBottom={24} platform="ios"/>
+          </IOSDevice>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="android" title="Android" subtitle="Material 3 frame — same app, native chrome">
+        <DCArtboard id="and-library" label="Library · Home" width={412} height={892}>
+          <AndroidDevice dark={true}>
+            <MobileApp initialTab="library" safeTop={4} safeBottom={0} platform="android"/>
+          </AndroidDevice>
+        </DCArtboard>
+        <DCArtboard id="and-now-playing" label="Now Playing" width={412} height={892}>
+          <AndroidDevice dark={true}>
+            <MobileApp initialTab="library" initialNowPlaying={true} safeTop={4} safeBottom={0} platform="android"/>
+          </AndroidDevice>
+        </DCArtboard>
+        <DCArtboard id="and-scenes" label="Scenes" width={412} height={892}>
+          <AndroidDevice dark={true}>
+            <MobileApp initialTab="scenes" safeTop={4} safeBottom={0} platform="android"/>
+          </AndroidDevice>
+        </DCArtboard>
+        <DCArtboard id="and-soundboard" label="Soundboard" width={412} height={892}>
+          <AndroidDevice dark={true}>
+            <MobileApp initialTab="soundboard" safeTop={4} safeBottom={0} platform="android"/>
+          </AndroidDevice>
+        </DCArtboard>
+        <DCArtboard id="and-category" label="Category · Horror" width={412} height={892}>
+          <AndroidDevice dark={true}>
+            <MobileApp initialTab="library" initialCategory={CATEGORIES[4]} safeTop={4} safeBottom={0} platform="android"/>
+          </AndroidDevice>
+        </DCArtboard>
+        <DCArtboard id="and-search" label="Search" width={412} height={892}>
+          <AndroidDevice dark={true}>
+            <MobileApp initialTab="search" safeTop={4} safeBottom={0} platform="android"/>
+          </AndroidDevice>
+        </DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
