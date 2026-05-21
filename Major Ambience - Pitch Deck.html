@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Major Ambience — GTM Brief</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,500;1,600&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg:      #0b0913;
+    --bgRaise: #15121f;
+    --bgCard:  #1c1828;
+    --bgChip:  rgba(243,236,217,0.06);
+    --ink:     #f3ecd9;
+    --ink2:    #b6a890;
+    --ink3:    #6b5f4b;
+    --gold:    #e3b66a;
+    --gold-soft: rgba(227,182,106,0.14);
+    --gold-edge: rgba(227,182,106,0.35);
+    --rule:    rgba(243,236,217,0.07);
+    --combat:  #d96a4a;
+    --tavern:  #e2a154;
+    --explore: #bcae54;
+    --ambient: #6fbfa6;
+    --horror:  #9a6ed1;
+    --tension: #d27a4a;
+    --rest:    #7d92dd;
+    --sfx:     #5cc4d9;
+    --display: "Cormorant Garamond", Georgia, serif;
+    --ui:      "Geist", system-ui, sans-serif;
+    --mono:    "Geist Mono", ui-monospace, monospace;
+  }
+  html, body { margin: 0; padding: 0; background: #0a0810; font-family: var(--ui); color: var(--ink); }
+  deck-stage:not(:defined) { visibility: hidden; }
+
+  /* ─── Slide chrome ─────────────────────────────────────── */
+  .slide {
+    width: 1920px; height: 1080px;
+    background: var(--bg); color: var(--ink);
+    padding: 96px 112px;
+    box-sizing: border-box;
+    position: relative; overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .slide::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(140% 80% at 50% 0%, rgba(227,182,106,0.05) 0%, transparent 60%);
+  }
+  .slide::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background-image: radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 4px 4px; opacity: 0.5;
+  }
+  .slide > * { position: relative; z-index: 1; }
+
+  /* page header chrome */
+  .topbar {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 64px;
+  }
+  .topbar .brand {
+    display: flex; align-items: center; gap: 14px;
+    font-family: var(--display); font-size: 28px; font-weight: 600;
+  }
+  .topbar .brand em { color: var(--gold); font-style: italic; }
+  .topbar .brand .seal {
+    width: 30px; height: 30px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--gold), #b9842a);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .topbar .brand .seal svg { width: 18px; height: 18px; }
+  .topbar .meta {
+    font-family: var(--mono); font-size: 24px; color: var(--ink3);
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+
+  /* page number footer */
+  .footer {
+    position: absolute; left: 112px; right: 112px; bottom: 56px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--mono); font-size: 24px; color: var(--ink3);
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+
+  /* ─── Type ─────────────────────────────────────────────── */
+  .eyebrow {
+    font-family: var(--ui); font-size: 24px; font-weight: 500;
+    letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold);
+    margin: 0 0 24px;
+  }
+  .display {
+    font-family: var(--display); font-weight: 500; line-height: 1.02;
+    letter-spacing: -0.012em; color: var(--ink);
+    margin: 0; text-wrap: pretty;
+  }
+  .display.huge { font-size: 184px; }
+  .display.xl   { font-size: 140px; }
+  .display.lg   { font-size: 104px; }
+  .display.md   { font-size: 72px; }
+  .display.sm   { font-size: 52px; }
+  .display em   { font-style: italic; color: var(--gold); font-weight: 500; }
+  .lede {
+    font-family: var(--ui); font-size: 30px; line-height: 1.45;
+    color: var(--ink2); max-width: 1280px; margin: 0;
+    font-weight: 300;
+  }
+  .body { font-family: var(--ui); font-size: 24px; line-height: 1.5; color: var(--ink2); }
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  b { color: var(--ink); font-weight: 600; }
+
+  /* ─── Cover ────────────────────────────────────────────── */
+  .cover {
+    align-items: center; justify-content: center; text-align: center;
+    padding: 96px;
+  }
+  .cover .eyebrow { color: var(--ink3); margin-bottom: 48px; font-size: 24px; }
+  .cover .display { font-size: 200px; }
+  .cover .sub {
+    font-family: var(--display); font-style: italic; font-size: 56px;
+    color: var(--gold); margin-top: 36px;
+  }
+  .cover .stamp {
+    position: absolute; bottom: 80px; left: 0; right: 0;
+    text-align: center;
+    font-family: var(--mono); font-size: 24px; color: var(--ink3);
+    letter-spacing: 0.18em; text-transform: uppercase;
+  }
+  .cover .orb {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+    width: 1200px; height: 1200px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(227,182,106,0.10) 0%, transparent 55%);
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ─── Layout primitives ────────────────────────────────── */
+  .stack { display: flex; flex-direction: column; }
+  .row   { display: flex; }
+  .gap-16 { gap: 16px; } .gap-24 { gap: 24px; } .gap-40 { gap: 40px; } .gap-64 { gap: 64px; }
+  .grow  { flex: 1; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 36px; }
+  .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 32px; }
+  .grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 28px; }
+
+  /* ─── Cards ────────────────────────────────────────────── */
+  .card {
+    background: var(--bgCard); border: 1px solid var(--rule);
+    border-radius: 22px; padding: 36px; position: relative; overflow: hidden;
+  }
+  .card .label {
+    font-family: var(--ui); font-size: 24px; font-weight: 500;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink3);
+    margin-bottom: 16px;
+  }
+  .card .price {
+    font-family: var(--display); font-size: 96px; font-weight: 600; color: var(--ink);
+    line-height: 1; margin: 4px 0 6px;
+  }
+  .card .price .cur { font-family: var(--ui); font-size: 40px; vertical-align: super; color: var(--ink2); }
+  .card .title {
+    font-family: var(--display); font-size: 44px; font-weight: 600; color: var(--gold);
+    font-style: italic; margin: 0 0 24px;
+  }
+  .card ul { margin: 0; padding: 0; list-style: none; }
+  .card ul li {
+    font-family: var(--ui); font-size: 24px; color: var(--ink2);
+    padding: 10px 0; border-bottom: 1px solid var(--rule);
+    display: flex; align-items: flex-start; gap: 10px;
+  }
+  .card ul li:last-child { border-bottom: 0; }
+  .card ul li::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--gold); flex-shrink: 0; margin-top: 14px;
+  }
+  .card.hero { background: linear-gradient(160deg, rgba(227,182,106,0.18) 0%, var(--bgCard) 60%); border-color: var(--gold-edge); }
+  .card.hero .title { color: var(--gold); }
+
+  /* ─── Stat blocks ──────────────────────────────────────── */
+  .stat {
+    text-align: left;
+  }
+  .stat .num {
+    font-family: var(--display); font-size: 168px; font-weight: 600;
+    line-height: 1; color: var(--ink); letter-spacing: -0.02em;
+  }
+  .stat .num em { font-style: italic; color: var(--gold); }
+  .stat .num.sm { font-size: 112px; }
+  .stat .label {
+    font-family: var(--ui); font-size: 24px; font-weight: 500; color: var(--ink2);
+    margin-top: 16px; line-height: 1.4;
+  }
+  .stat .sub {
+    font-family: var(--ui); font-size: 24px; color: var(--ink3); margin-top: 8px;
+  }
+
+  /* ─── Tables ───────────────────────────────────────────── */
+  table.t {
+    width: 100%; border-collapse: collapse; font-family: var(--ui);
+  }
+  table.t thead th {
+    text-align: left; font-size: 24px; font-weight: 500;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink3);
+    padding: 16px 18px 14px; border-bottom: 1px solid var(--rule);
+  }
+  table.t tbody td {
+    padding: 18px 18px; border-bottom: 1px solid var(--rule);
+    font-size: 24px; color: var(--ink); vertical-align: top;
+  }
+  table.t tbody td.muted { color: var(--ink2); }
+  table.t tbody td.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  table.t tbody tr:last-child td { border-bottom: 0; }
+  table.t .right { text-align: right; }
+  table.t .accent { color: var(--gold); font-weight: 500; }
+
+  /* ─── Chart ────────────────────────────────────────────── */
+  .chart {
+    display: grid; grid-template-columns: repeat(12, 1fr);
+    gap: 18px; align-items: end;
+    height: 460px; margin-top: 48px; position: relative;
+  }
+  .chart::before {
+    content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px;
+    background: linear-gradient(to right, transparent, var(--rule) 10%, var(--rule) 90%, transparent);
+  }
+  .chart .col { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 12px; height: 100%; }
+  .chart .col .bar {
+    width: 100%; min-height: 10px; border-radius: 6px 6px 0 0;
+    background: linear-gradient(180deg, var(--gold) 0%, #b9842a 100%);
+    box-shadow: 0 0 30px rgba(227,182,106,0.3);
+    position: relative;
+  }
+  .chart .col.muted .bar { background: var(--bgChip); box-shadow: none; }
+  .chart .col .amt {
+    font-family: var(--mono); font-size: 24px; color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .chart .col.muted .amt { color: var(--ink3); }
+  .chart .col .mo {
+    font-family: var(--ui); font-size: 24px; color: var(--ink2);
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .chart .col .tag {
+    font-family: var(--ui); font-size: 24px; color: var(--ink3);
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .chart .col.peak .bar { background: linear-gradient(180deg, var(--gold) 0%, #d96a4a 100%); box-shadow: 0 0 40px rgba(227,182,106,0.5); }
+
+  /* ─── Comparison table ───────────────────────────────── */
+  .compare {
+    display: grid; grid-template-columns: 220px 1fr 1fr 1fr 1fr;
+    gap: 0; margin-top: 36px;
+    border: 1px solid var(--rule); border-radius: 18px; overflow: hidden;
+  }
+  .compare > div {
+    padding: 22px 24px; border-bottom: 1px solid var(--rule); border-right: 1px solid var(--rule);
+    font-family: var(--ui); font-size: 24px; color: var(--ink2); line-height: 1.35;
+  }
+  .compare > div:nth-child(5n) { border-right: 0; }
+  .compare .head {
+    background: var(--bgChip); color: var(--ink); font-weight: 500;
+    font-size: 24px;
+  }
+  .compare .head.us { color: var(--gold); font-family: var(--display); font-style: italic; font-size: 30px; }
+  .compare .row-label { color: var(--ink3); font-size: 24px; letter-spacing: 0.1em; text-transform: uppercase; }
+  .compare .us-cell { color: var(--ink); }
+
+  /* ─── Phase timeline ───────────────────────────────────── */
+  .timeline {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    gap: 24px; margin-top: 48px;
+  }
+  .timeline .phase {
+    background: var(--bgCard); border: 1px solid var(--rule); border-radius: 18px;
+    padding: 28px 24px; position: relative;
+  }
+  .timeline .phase .num {
+    font-family: var(--display); font-size: 80px; font-weight: 600;
+    color: var(--gold); line-height: 1; margin-bottom: 12px; font-style: italic;
+  }
+  .timeline .phase .name {
+    font-family: var(--display); font-size: 32px; font-weight: 600; color: var(--ink);
+    margin-bottom: 6px;
+  }
+  .timeline .phase .when {
+    font-family: var(--mono); font-size: 24px; color: var(--ink3);
+    letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 20px;
+  }
+  .timeline .phase .what {
+    font-family: var(--ui); font-size: 24px; color: var(--ink2); line-height: 1.45;
+  }
+  .timeline .phase.peak { background: linear-gradient(160deg, rgba(217,106,74,0.2) 0%, var(--bgCard) 70%); border-color: rgba(217,106,74,0.4); }
+  .timeline .phase.peak .num { color: var(--combat); }
+
+  /* ─── Bullets and lists ────────────────────────────────── */
+  .channel-list { list-style: none; padding: 0; margin: 0; }
+  .channel-list li {
+    display: flex; align-items: flex-start; gap: 28px;
+    padding: 16px 0; border-bottom: 1px solid var(--rule);
+  }
+  .channel-list li:last-child { border-bottom: 0; }
+  .channel-list .rank {
+    font-family: var(--display); font-size: 44px; font-weight: 600; font-style: italic;
+    color: var(--gold); line-height: 1; flex-shrink: 0; width: 70px;
+  }
+  .channel-list .ctx { flex: 1; }
+  .channel-list .ctx .name {
+    font-family: var(--display); font-size: 32px; font-weight: 600; color: var(--ink);
+  }
+  .channel-list .ctx .note {
+    font-family: var(--ui); font-size: 24px; color: var(--ink2); margin-top: 6px;
+    line-height: 1.4;
+  }
+  .channel-list .leverage {
+    font-family: var(--ui); font-size: 24px; color: var(--ink3);
+    text-transform: uppercase; letter-spacing: 0.12em; padding-top: 16px;
+    flex-shrink: 0;
+  }
+
+  /* ─── Sidebar callout ──────────────────────────────────── */
+  .callout {
+    background: var(--gold-soft); border: 1px solid var(--gold-edge);
+    border-radius: 18px; padding: 28px 32px;
+  }
+  .callout .head {
+    font-family: var(--ui); font-size: 24px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--gold); margin-bottom: 12px;
+  }
+  .callout .body {
+    font-family: var(--display); font-size: 32px; line-height: 1.25; color: var(--ink);
+  }
+
+  /* ─── Budget/numbers block ─────────────────────────────── */
+  .totals { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; }
+  .totals .col h3 {
+    font-family: var(--ui); font-size: 24px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--ink3); margin: 0 0 24px;
+  }
+  .totals .line {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 12px 0; border-bottom: 1px solid var(--rule);
+    font-family: var(--ui); font-size: 24px;
+  }
+  .totals .line:last-child { border-bottom: 0; padding-top: 22px; }
+  .totals .line .lbl { color: var(--ink2); }
+  .totals .line .val { color: var(--ink); font-family: var(--mono); }
+  .totals .line.total { padding-top: 22px; }
+  .totals .line.total .lbl { color: var(--ink); font-weight: 600; }
+  .totals .line.total .val { color: var(--gold); font-size: 36px; font-weight: 600; }
+  .totals .col.rev .line.total .val { color: var(--gold); }
+  .totals .col.cost .line.total .val { color: var(--combat); }
+</style>
+</head>
+<body>
+
+<deck-stage width="1920" height="1080">
+
+  <!-- ───────────────── SLIDE 1 — COVER ───────────────── -->
+  <section class="slide cover" data-label="Cover">
+    <div class="orb"></div>
+    <div class="eyebrow">Major Ambience · GTM Brief · 2026</div>
+    <h1 class="display">Pay once. <em>Own</em> forever.</h1>
+    <div class="sub">Score every scene.</div>
+    <div class="stamp">A go‑to‑market plan for the GM's audio companion</div>
+  </section>
+
+  <!-- ───────────────── SLIDE 2 — PRODUCT ───────────────── -->
+  <section class="slide" data-label="Product">
+    <div class="topbar">
+      <div class="brand"><span class="seal"><svg viewBox="0 0 16 16" fill="none"><path d="M5 2v8M11 4v6" stroke="#1a1108" stroke-width="1.8" stroke-linecap="round"/><circle cx="5" cy="11" r="1.4" fill="#1a1108"/><circle cx="11" cy="11" r="1.4" fill="#1a1108"/></svg></span>Major <em>Ambience</em></div>
+      <div class="meta">02 / 14 · Product</div>
+    </div>
+    <div class="grow stack gap-40" style="justify-content: center;">
+      <div class="eyebrow">What we're shipping</div>
+      <h1 class="display xl">An audio companion <em>for tabletop RPGs</em>.</h1>
+      <p class="lede">
+        A desktop app (then mobile) that turns a GM's music folder into a working audio studio — scenes, soundboard, weighted shuffle, ducking SFX, crossfade. Built for the four hours every week when the table is live.
+      </p>
+      <div class="row gap-40" style="margin-top: 36px; padding-top: 36px; border-top: 1px solid var(--rule);">
+        <div class="stack">
+          <div class="eyebrow" style="margin-bottom: 6px;">Tier 1 · Entry</div>
+          <div class="display sm">$14.99 <span style="color: var(--gold); font-style: italic;">Minor</span></div>
+        </div>
+        <div class="stack">
+          <div class="eyebrow" style="margin-bottom: 6px;">Tier 2 · Pro</div>
+          <div class="display sm">$29.99 <span style="color: var(--gold); font-style: italic;">Major</span></div>
+        </div>
+        <div class="stack">
+          <div class="eyebrow" style="margin-bottom: 6px;">Add‑on</div>
+          <div class="display sm">$4.99 <span style="color: var(--gold); font-style: italic;">DM Toolkit</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────── SLIDE 3 — WEDGE ───────────────── -->
+  <section class="slide" data-label="The Wedge">
+    <div class="topbar">
+      <div class="brand"><span class="seal"><svg viewBox="0 0 16 16" fill="none"><path d="M5 2v8M11 4v6" stroke="#1a1108" stroke-width="1.8" stroke-linecap="round"/><circle cx="5" cy="11" r="1.4" fill="#1a1108"/><circle cx="11" cy="11" r="1.4" fill="#1a1108"/></svg></span>Major <em>Ambience</em></div>
+      <div class="meta">03 / 14 · Positioning</div>
+    </div>
+    <div class="eyebrow">The wedge</div>
+    <h1 class="display lg">Others rent you mood. <em>We tune yours.</em></h1>
+    <p class="lede" style="margin-top: 24px;">
+      Every direct competitor charges monthly. Major Ambience is a one‑time purchase. Customers bring their library; we tune it.
+    </p>
+    <div class="compare">
+      <div class="row-label"></div>
+      <div class="head">Syrinscape</div>
+      <div class="head">Tabletop Audio</div>
+      <div class="head">Spotify + Bots</div>
+      <div class="head us">Major Ambience</div>
+
+      <div class="row-label">Model</div>
+      <div>Subscription</div>
+      <div>Free, ad‑supported</div>
+      <div>Subscription</div>
+      <div class="us-cell">One‑time purchase</div>
+
+      <div class="row-label">Price</div>
+      <div>~$10/mo</div>
+      <div>$0</div>
+      <div>~$10/mo</div>
+      <div class="us-cell">$14.99 · $29.99</div>
+
+      <div class="row-label">Your library</div>
+      <div>Their catalog only</div>
+      <div>Their catalog only</div>
+      <div>Whole world</div>
+      <div class="us-cell">Yours, fully</div>
+
+      <div class="row-label">Tabletop UX</div>
+      <div>Scene‑based</div>
+      <div>Single‑track</div>
+      <div>None</div>
+      <div class="us-cell">Built for the table</div>
+    </div>
+  </section>
+
+  <!-- ───────────────── SLIDE 4 — MARKET SIZING ───────────────── -->
+  <section class="slide" data-label="Market">
+    <div class="topbar">
+      <div class="brand"><span class="seal"><svg viewBox="0 0 16 16" fill="none"><path d="M5 2v8M11 4v6" stroke="#1a1108" stroke-width="1.8" stroke-linecap="round"/><circle cx="5" cy="11" r="1.4" fill="#1a1108"/><circle cx="11" cy="11" r="1.4" fill="#1a1108"/></svg></span>Major <em>Ambience</em></div>
+      <div class="meta">04 / 14 · Market</div>
+    </div>
+    <div class="eyebrow">Addressable market</div>
+    <h1 class="display md" style="margin-bottom: 64px;">A funnel that ends in <em>tens of thousands</em>, not millions.</h1>
+    <div class="grid-3" style="margin-top: 32px;">
+      <div class="stat">
+        <div class="num"><em>40</em>M</div>
+        <div class="label">D&D players worldwide</div>
+        <div class="sub">Hasbro/WotC mid‑2020s estimate</div>
+      </div>
+      <div class="stat">
+        <div class="num"><em>3–5</em>M</div>
+        <div class="label">Active GMs</div>
+        <div class="sub">~10% of players run games</div>
+      </div>
+      <div class="stat">
+        <div class="num"><em>100–500</em>K</div>
+        <div class="label">Pay for audio tools</div>
+        <div class="sub">Inferred from competitor customer counts</div>
+      </div>
+    </div>
+    <div class="callout" style="margin-top: 80px;">
+      <div class="head">Year 1 capture target</div>
+      <div class="body"><b>8,000 – 30,000 customers</b> at $14.99–$29.99 blended → <b>$250K – $900K revenue</b>.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────── SLIDE 5 — PRICING ───────────────── -->
+  <section class="slide" data-label="Pricing">
+    <div class="topbar">
+      <div class="brand"><span class="seal"><svg viewBox="0 0 16 16" fill="none"><path d="M5 2v8M11 4v6" stroke="#1a1108" stroke-width="1.8" stroke-linecap="round"/><circle cx="5" cy="11" r="1.4" fill="#1a1108"/><circle cx="11" cy="11" r="1.4" fill="#1a1108"/></svg></span>Major <em>Ambience</em></div>
+      <div class="meta">05 / 14 · Pricing</div>
+    </div>
+    <div class="eyebrow">Tiers · D&D spell convention</div>
+    <h1 class="display md" style="margin-bottom: 36px;">Three tiers shipping. <em>Epic held for v2.</em></h1>
+    <div class="grid-3" style="margin-top: 24px;">
+      <div class="card">
+        <div class="label">Tier I · Entry</div>
+        <div class="title">Minor Ambience</div>
+        <div class="price"><span class="cur">$</span>14.99</div>
+        <ul>
+          <li>Full library playback</li>
+          <li>Crossfade · ducking · grading</li>
+          <li>Up to 5 scenes</li>
+          <li>Soundboard page A (8 slots)</li>
+        </ul>
+      </div>
+      <div class="card hero">
+        <div class="label" style="color: var(--gold);">Tier II · Pro · Default</div>
+        <div class="title">Major Ambience</div>
+        <div class="price"><span class="cur">$</span>29.99</div>
+        <ul>
+          <li>Unlimited scenes</li>
+          <li>Soundboard A / B / C (24 slots)</li>
+          <li>Cloud sync · DM Mode · Themes</li>
+          <li>SFX layer · per‑category mix</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="label">Add‑on · Works with any tier</div>
+        <div class="title">DM Toolkit</div>
+        <div class="price"><span class="cur">$</span>4.99</div>
+        <ul>
+          <li>NPC name generator</li>
+          <li>Dice roller</li>
+          <li>Initiative tracker</li>
+          <li><b>Turn sounds</b> — per‑player audio cues</li>
+        </ul>
+      </div>
+    </div>
+    <div style="margin-top: 56px; display: flex; justify-content: space-between; align-items: center;">
+      <div class="body" style="color: var(--ink3); font-size: 24px;">Epic Ambience ($49.99) — VTT integration, Stream Deck, MIDI, collaborative GM — held for v2.</div>
+      <div class="display sm" style="color: var(--gold); font-style: italic;">No subscriptions. Ever.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────── SLIDE 6 — Y1 FORECAST CHART ───────────────── -->
+  <section class="slide" data-label="Year 1 Forecast">
+    <div class="topbar">
+      <div class="brand"><span class="seal"><svg viewBox="0 0 16 16" fill="none"><path d="M5 2v8M11 4v6" stroke="#1a1108" stroke-width="1.8" stroke-linecap="round"/><circle cx="5" cy="11" r="1.4" fill="#1a1108"/><circle cx="11" cy="11" r="1.4" fill="#1a1108"/></svg></span>Major <em>Ambience</em></div>
+      <div class="meta">06 / 14 · Year 1 base case</div>
+    </div>
+    <div class="row gap-64" style="align-items: flex-end;">
+      <div class="stack" style="flex: 1;">
+        <div class="eyebrow">Year 1 · Base case</div>
+        <h1 class="display xl"><em>$317K</em> net.</h1>
+        <p class="lede" style="margin-top: 16px;">
+          14,800 customers · $21.46 net per customer · across 9 active selling months.
+        </p>
+      </div>
+      <div class="stack gap-16" style="flex-shrink: 0; align-items: flex-end;">
+        <div class="mono" style="font-size: 24px; color: var(--ink3); letter-spacing: 0.08em; text-transform: uppercase;">Blended ARPU</div>
+        <div class="display md mono">$25.49</div>
+        <div class="mono" style="font-size: 24px; color: var(--ink3); margin-top: 12px;">40% Minor · 60% Major · 30% DM Toolkit attach</div>
+      </div>
+    </div>
+
+    <div class="chart">
+      <div class="col muted"><div class="amt">—</div><div class="bar" style="height: 2px;"></div><div class="mo">M1</div><div class="tag">Pre-launch</div></div>
+      <div class="col muted"><div class="amt">—</div><div class="bar" style="height: 2px;"></div><div class="mo">M2</div><div class="tag">List build</div></div>
+      <div class="col muted"><div class="amt">—</div><div class="bar" style="height: 2px;"></div><div class="mo">M3</div><div class="tag">Alpha</div></div>
+      <div class="col peak"><div class="amt">$43K</div><div class="bar" style="height: 72%;"></div><div class="mo">M4</div><div class="tag">Launch</div></div>
+      <div class="col"><div class="amt">$26K</div><div class="bar" style="height: 43%;"></div><div class="mo">M5</div><div class="tag">Sustain</div></div>
+      <div class="col"><div class="amt">$30K</div><div class="bar" style="height: 50%;"></div><div class="mo">M6</div><div class="tag">DM Toolkit</div></div>
+      <div class="col"><div class="amt">$21K</div><div class="bar" style="height: 36%;"></div><div class="mo">M7</div><div class="tag">Steady</div></div>
+      <div class="col"><div class="amt">$28K</div><div class="bar" style="height: 47%;"></div><div class="mo">M8</div><div class="tag">Mobile beta</div></div>
+      <div class="col peak"><div class="amt">$60K</div><div class="bar" style="height: 100%;"></div><div class="mo">M9</div><div class="tag">Mobile launch</div></div>
+      <div class="col"><div class="amt">$32K</div><div class="bar" style="height: 54%;"></div><div class="mo">M10</div><div class="tag">Sustain</div></div>
+      <div class="col"><div class="amt">$24K</div><div class="bar" style="height: 40%;"></div><div class="mo">M11</div><div class="tag">Pre‑BF</div></div>
+      <div class="col peak"><div class="amt">$54K</div><div class="bar" style="height: 90%;"></div><div class="mo">M12</div><div class="tag">Black Friday</div></div>
+    </div>
+  </section>
+
+  <!-- ───────────────── SLIDE 7 — THREE SCENARIOS ───────────────── -->
+  <section class="slide" data-label="Scenarios">
+    <div class="topbar">
+      <div class="brand"><span class="seal"><svg viewBox="0 0 16 16" fill="none"><path d="M5 2v8M11 4v6" stroke="#1a1108" stroke-width="1.8" stroke-linecap="round"/><circle cx="5" cy="11" r="1.4" fill="#1a1108"/><circle cx="11" cy="11" r="1.4" fill="#1a1108"/></svg></span>Major <em>Ambience</em></div>
+      <div class="meta">07 / 14 · Scenarios</div>
+    </div>
+    <div class="eyebrow">Three scenarios</div>
+    <h1 class="display md" style="margin-bottom: 48px;">Plan for base. <em>Build for upside.</em></h1>
+    <div class="grid-3">
+      <div class="card">
+        <div class="label">Conservative · −50%</div>
+        <div class="title" style="color: var(--ink);">Lukewarm reception</div>
+        <div style="margin: 32px 0 16px;">
+          <div class="display md mono">$134K</div>
+          <div class="body">net after marketing</div>
+        </div>
+        <ul>
+          <li>7,400 customers</li>
+          <li>3 of 8 Tier‑2 placements land</li>
+          <li>Reddit launch lukewarm</li>
+          <li>10 active affiliates</li>
+        </ul>
+      </div>
+      <div class="card hero">
+        <div class="label" style="color: var(--gold);">Base · Planning case</div>
+        <div class="title">On‑plan execution</div>
+        <div style="margin: 32px 0 16px;">
+          <div class="display md mono" style="color: var(--gold);">$293K</div>
+          <div class="body">net after marketing</div>
+        </div>
+        <ul>
+          <li>14,800 customers</li>
+          <li>8 of 8 Tier‑2 placements</li>
+          <li>500‑upvote Reddit launch</li>
+          <li>30 active affiliates</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="label">Optimistic · +69%</div>
+        <div class="title" style="color: var(--ink);">A Tier‑1 placement lands</div>
+        <div style="margin: 32px 0 16px;">
+          <div class="display md mono">$512K</div>
+          <div class="body">net after marketing</div>
+        </div>
+        <ul>
+          <li>25,000 customers</li>
+          <li>One Tier‑1 creator covers it</li>
+          <li>Apple / Google features mobile</li>
+          <li>80 active affiliates</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────── SLIDE 8 — BIGGEST LEVER ───────────────── -->
+  <section class="slide" data-label="Biggest Lever">
+    <div class="topbar">
+      <div class="brand"><span class="seal"><svg viewBox="0 0 16 16" fill="none"><path d="M5 2v8M11 4v6" stroke="#1a1108" stroke-width="1.8" stroke-linecap="round"/><circle cx="5" cy="11" r="1.4" fill="#1a1108"/><circle cx="11" cy="11" r="1.4" fill="#1a1108"/></svg></span>Major <em>Ambience</em></div>
+      <div class="meta">08 / 14 · Sensitivity</div>
+    </div>
+    <div class="eyebrow">Sensitivity analysis</div>
+    <h1 class="display lg">One Tier‑1 video = <em>+$50–100K</em>.</h1>
+    <p class="lede" style="margin-top: 24px; max-width: 1380px;">
+      The biggest single swing factor in Year 1 isn't channel mix or tier split — it's whether one large content creator makes a video. Everything else is incremental.
+    </p>
+
+    <table class="t" style="margin-top: 56px;">
+      <thead>
+        <tr><th>Variable</th><th>Change</th><th class="right">Y1 revenue impact</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Tier mix shift to Major</td><td class="muted">40/60 → 30/70</td><td class="right mono">+$22K</td></tr>
+        <tr><td>DM Toolkit attach</td><td class="muted">30% → 40%</td><td class="right mono">+$7K</td></tr>
+        <tr><td>Direct sales mix</td><td class="muted">60% → 80% direct</td><td class="right mono">+$18K</td></tr>
+        <tr><td>Mobile launch volume</td><td class="muted">2.8K → 3.8K customers</td><td class="right mono">+$21K</td></tr>
+        <tr><td>Black Friday volume</td><td class="muted">2.5K → 3.5K customers</td><td class="right mono">+$21K</td></tr>
+        <tr><td class="accent">Tier‑1 creator placement</td><td class="muted">One Matt‑Colville‑sized video</td><td class="right mono accent" style="font-size: 32px;">+$50–100K</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ───────────────── SLIDE 9 — MARKETING PHASES ───────────────── -->
+  <section class="slide" data-label="Phases">
+    <div class="topbar">
+      <div class="brand"><span class="seal"><svg viewBox="0 0 16 16" fill="none"><path d="M5 2v8M11 4v6" stroke="#1a1108" stroke-width="1.8" stroke-linecap="round"/><circle cx="5" cy="11" r="1.4" fill="#1a1108"/><circle cx="11" cy="11" r="1.4" fill="#1a1108"/></svg></span>Major <em>Ambience</em></div>
+      <div class="meta">09 / 14 · Phases</div>
+    </div>
+    <div class="eyebrow">Go‑to‑market phases</div>
+    <h1 class="display md">Five phases, <em>keyed to engineering</em>.</h1>
+
+    <div class="timeline">
+      <div class="phase">
+        <div class="num">0</div>
+        <div class="name">Foundation</div>
+        <div class="when">Months 1–3</div>
+        <div class="what">Landing page, email list, build‑in‑public, 50‑creator warmup, demo video.</div>
+      </div>
+      <div class="phase">
+        <div class="num">1</div>
+        <div class="name">Alpha</div>
+        <div class="when">Month 3</div>
+        <div class="what">50 GMs in closed alpha. Testimonials, press kit, Steam page submitted.</div>
+      </div>
+      <div class="phase peak">
+        <div class="num">2</div>
+        <div class="name">Launch</div>
+        <div class="when">Month 4 · D‑0 to D+7</div>
+        <div class="what">Coordinated 7‑day push. 8 creator placements, Reddit, HN, ProductHunt.</div>
+      </div>
+      <div class="phase">
+        <div class="num">3</div>
+        <div class="name">Sustain</div>
+        <div class="when">Months 4–8</div>
+        <div class="what">Bug fixes, DM Toolkit drop, affiliate program, content engine, GM Appreciation sale.</div>
+      </div>
+      <div class="phase peak">
+        <div class="num">4</div>
+        <div class="name">Mobile + Scale</div>
+        <div class="when">Months 8–12</div>
+        <div class="what">Mobile launch, conventions, Black Friday, Year 2 roadmap drops.</div>
+      </div>
+    </div>
+
+    <div class="callout" style="margin-top: 56px;">
+      <div class="head">Cadence</div>
+      <div class="body">Plan in 90‑day chunks. Every quarter ships one news‑worthy thing.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────── SLIDE 10 — CHANNELS ───────────────── -->
+  <section class="slide" data-label="Channels">
+    <div class="topbar">
+      <div class="brand"><span class="seal"><svg viewBox="0 0 16 16" fill="none"><path d="M5 2v8M11 4v6" stroke="#1a1108" stroke-width="1.8" stroke-linecap="round"/><circle cx="5" cy="11" r="1.4" fill="#1a1108"/><circle cx="11" cy="11" r="1.4" fill="#1a1108"/></svg></span>Major <em>Ambience</em></div>
+      <div class="meta">10 / 14 · Channels</div>
+    </div>
+    <div class="row gap-64">
+      <div class="stack" style="flex: 2;">
+        <div class="eyebrow">Channel mix by leverage</div>
+        <h1 class="display md" style="margin-bottom: 16px;">Top‑down, <em>not balanced</em>.</h1>
+        <ul class="channel-list">
+          <li>
+            <span class="rank">01</span>
+            <div class="ctx">
+              <div class="name">TTRPG content creators</div>
+              <div class="note">8 Tier‑2 sponsored placements + 30 Tier‑3 affiliate adoptions. One Matt Colville mention beats a month of Reddit.</div>
+            </div>
+            <span class="leverage">Highest</span>
+          </li>
+          <li>
+            <span class="rank">02</span>
+            <div class="ctx">
+              <div class="name">Reddit organic</div>
+              <div class="note">r/DnD, r/DMAcademy, r/rpg. Lead with the work, not the pitch. One post per sub per launch wave.</div>
+            </div>
+            <span class="leverage">High</span>
+          </li>
+          <li>
+            <span class="rank">03</span>
+            <div class="ctx">
+              <div class="name">Direct sales</div>
+              <div class="note">Push customers to the website. 5% fee instead of Steam's 30% — 22% more margin per sale.</div>
+            </div>
+            <span class="leverage">High</span>
+          </li>
+          <li>
+            <span class="rank">04</span>
+            <div class="ctx">
+              <div class="name">Affiliate program</div>
+              <div class="note">20% commission, 180‑day cookie. Open at week 2 post‑launch. Manual approval for the first 100.</div>
+            </div>
+            <span class="leverage">Medium</span>
+          </li>
+          <li>
+            <span class="rank">05</span>
+            <div class="ctx">
+              <div class="name">Discord + community</div>
+              <div class="note">5,000 members by month 12. Streamer channel, support, feature requests, audio‑share.</div>
+            </div>
+            <span class="leverage">Medium</span>
+          </li>
+        </ul>
+      </div>
+      <div class="stack gap-24" style="flex: 1; padding-top: 80px;">
+        <div class="callout">
+          <div class="head">Skipped Year 1</div>
+          <div class="body" style="font-size: 26px;">
+            Paid acquisition burns in TTRPG niche. Revisit only if creator marketing plateaus.
+          </div>
+        </div>
+        <div class="callout" style="background: rgba(217,106,74,0.12); border-color: rgba(217,106,74,0.35);">
+          <div class="head" style="color: var(--combat);">Held for Year 2</div>
+          <div class="body" style="font-size: 26px;">
+            Gen Con booth ($8–15K). Worth it only after creator marketing has paid for it.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────── SLIDE 11 — BUDGET vs REVENUE ───────────────── -->
+  <section class="slide" data-label="Budget">
+    <div class="topbar">
+      <div class="brand"><span class="seal"><svg viewBox="0 0 16 16" fill="none"><path d="M5 2v8M11 4v6" stroke="#1a1108" stroke-width="1.8" stroke-linecap="round"/><circle cx="5" cy="11" r="1.4" fill="#1a1108"/><circle cx="11" cy="11" r="1.4" fill="#1a1108"/></svg></span>Major <em>Ambience</em></div>
+      <div class="meta">11 / 14 · Math</div>
+    </div>
+    <div class="eyebrow">Budget vs. revenue · base case</div>
+    <h1 class="display md" style="margin-bottom: 48px;">Break‑even at <em>~600 customers</em>.</h1>
+
+    <div class="totals">
+      <div class="col cost">
+        <h3>Year 1 costs</h3>
+        <div class="line"><span class="lbl">Domain · hosting · email</span><span class="val">$700</span></div>
+        <div class="line"><span class="lbl">Cloud sync (Workers + KV)</span><span class="val">$0–200</span></div>
+        <div class="line"><span class="lbl">Sentry · Plausible</span><span class="val">$200</span></div>
+        <div class="line"><span class="lbl">Code signing · dev accounts</span><span class="val">$549</span></div>
+        <div class="line"><span class="lbl">Demo Pack commissioning</span><span class="val">$2–4K</span></div>
+        <div class="line"><span class="lbl">Creator sponsorships</span><span class="val">$5–10K</span></div>
+        <div class="line"><span class="lbl">Press kit · launch trailer</span><span class="val">$1–3K</span></div>
+        <div class="line"><span class="lbl">Legal · accounting</span><span class="val">$1–2K</span></div>
+        <div class="line total"><span class="lbl">Total · Year 1</span><span class="val">$18–35K</span></div>
+      </div>
+      <div class="col rev">
+        <h3>Year 1 net revenue · base</h3>
+        <div class="line"><span class="lbl">14,800 customers · gross</span><span class="val">$377K</span></div>
+        <div class="line"><span class="lbl">− 3% refunds</span><span class="val">−$11K</span></div>
+        <div class="line"><span class="lbl">− Blended channel cut (13.2%)</span><span class="val">−$48K</span></div>
+        <div class="line"><span class="lbl">Net revenue</span><span class="val">$318K</span></div>
+        <div class="line"><span class="lbl">− Marketing budget (mid)</span><span class="val">−$25K</span></div>
+        <div class="line total"><span class="lbl">Net before founder pay · break‑even at  ~600 customers</span><span class="val">$293K</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────── SLIDE 12 — 90 DAY PLAN ───────────────── -->
+  <section class="slide" data-label="90-Day Plan">
+    <div class="topbar">
+      <div class="brand"><span class="seal"><svg viewBox="0 0 16 16" fill="none"><path d="M5 2v8M11 4v6" stroke="#1a1108" stroke-width="1.8" stroke-linecap="round"/><circle cx="5" cy="11" r="1.4" fill="#1a1108"/><circle cx="11" cy="11" r="1.4" fill="#1a1108"/></svg></span>Major <em>Ambience</em></div>
+      <div class="meta">12 / 14 · Action</div>
+    </div>
+    <div class="eyebrow">First 90 days · marketing</div>
+    <h1 class="display md" style="margin-bottom: 48px;">Start <em>Monday</em>. Three blocks of four weeks.</h1>
+
+    <div class="grid-3">
+      <div class="card">
+        <div class="label">Weeks 1 – 4</div>
+        <div class="title">Foundation</div>
+        <ul>
+          <li>Register <span class="mono">majorambience.com</span></li>
+          <li>Landing page + email signup live</li>
+          <li>Twitter/X + Bluesky + Discord skeleton</li>
+          <li>50‑creator target spreadsheet</li>
+          <li>3 build‑in‑public posts / week</li>
+          <li>Rough 60‑sec demo from prototype</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="label">Weeks 5 – 8</div>
+        <div class="title">Warm‑up</div>
+        <ul>
+          <li>Email list at 250+</li>
+          <li>Engage Tier‑2 creators publicly (no pitch)</li>
+          <li>Polished demo video</li>
+          <li>10 Tier‑3 codes sent</li>
+          <li>Press kit drafted</li>
+          <li>First Reddit survey post</li>
+        </ul>
+      </div>
+      <div class="card hero">
+        <div class="label" style="color: var(--gold);">Weeks 9 – 12</div>
+        <div class="title">Ignition</div>
+        <ul>
+          <li>Email list at 600+</li>
+          <li>Tier‑2 outreach · 8 creators</li>
+          <li>3 sponsored placements confirmed</li>
+          <li>Alpha opens to 50 GMs</li>
+          <li>Press kit live · Steam page submitted</li>
+          <li>Engineering Phase 1 wraps · launch ready</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────── SLIDE 13 — RISKS ───────────────── -->
+  <section class="slide" data-label="Risks">
+    <div class="topbar">
+      <div class="brand"><span class="seal"><svg viewBox="0 0 16 16" fill="none"><path d="M5 2v8M11 4v6" stroke="#1a1108" stroke-width="1.8" stroke-linecap="round"/><circle cx="5" cy="11" r="1.4" fill="#1a1108"/><circle cx="11" cy="11" r="1.4" fill="#1a1108"/></svg></span>Major <em>Ambience</em></div>
+      <div class="meta">13 / 14 · Risks</div>
+    </div>
+    <div class="eyebrow">What could go wrong</div>
+    <h1 class="display md">Five risks. <em>Five mitigations.</em></h1>
+
+    <table class="t" style="margin-top: 48px;">
+      <thead>
+        <tr><th style="width: 38%;">Risk</th><th style="width: 12%;" class="right">Likelihood</th><th>Mitigation</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Bad creator review tanks launch week</td>
+          <td class="right muted">Medium</td>
+          <td class="muted">Never depend on a single Tier‑1 placement. Diversify to 8 Tier‑2 + 30 Tier‑3.</td>
+        </tr>
+        <tr>
+          <td>Apple/Google reject mobile build</td>
+          <td class="right muted">Medium</td>
+          <td class="muted">Submit early. Conservative copy. No copyrighted track names in screenshots.</td>
+        </tr>
+        <tr>
+          <td>Subscription competitor cuts price to match</td>
+          <td class="right muted">Medium</td>
+          <td class="muted">Lean harder into ownership messaging — their move sharpens our wedge.</td>
+        </tr>
+        <tr>
+          <td>Solo‑dev burnout</td>
+          <td class="right muted">High</td>
+          <td class="muted">90‑day cycles with rest weeks. Outsource support after month 3.</td>
+        </tr>
+        <tr>
+          <td>Refund storms from buggy release</td>
+          <td class="right muted">Low</td>
+          <td class="muted">Phase‑gate releases through alpha cohort. Pause sales on critical bugs.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ───────────────── SLIDE 14 — YEAR 2 + CLOSE ───────────────── -->
+  <section class="slide" data-label="Year 2">
+    <div class="topbar">
+      <div class="brand"><span class="seal"><svg viewBox="0 0 16 16" fill="none"><path d="M5 2v8M11 4v6" stroke="#1a1108" stroke-width="1.8" stroke-linecap="round"/><circle cx="5" cy="11" r="1.4" fill="#1a1108"/><circle cx="11" cy="11" r="1.4" fill="#1a1108"/></svg></span>Major <em>Ambience</em></div>
+      <div class="meta">14 / 14 · Beyond Year 1</div>
+    </div>
+    <div class="eyebrow">Year 2 outlook</div>
+    <h1 class="display lg" style="margin-bottom: 32px;"><em>$400 – $800K</em> Year 2.</h1>
+    <p class="lede" style="max-width: 1380px;">
+      Year 2 unlocks three growth vectors Year 1 doesn't have: returning customers buying upgrades, the held‑back Epic tier, and a full twelve months of mobile sales.
+    </p>
+
+    <div class="grid-3" style="margin-top: 56px;">
+      <div class="card">
+        <div class="label">Lever 1</div>
+        <div class="title" style="font-size: 36px;">Minor → Major upgrades</div>
+        <div class="body" style="margin-top: 16px;">20% of Year 1 Minor buyers upgrade at $15 difference → <b>+$18K</b>.</div>
+      </div>
+      <div class="card">
+        <div class="label">Lever 2</div>
+        <div class="title" style="font-size: 36px;">Epic tier release</div>
+        <div class="body" style="margin-top: 16px;">$49.99 — VTT, Stream Deck, MIDI. 5% adoption → <b>+$35K</b>.</div>
+      </div>
+      <div class="card hero">
+        <div class="label" style="color: var(--gold);">Lever 3</div>
+        <div class="title" style="font-size: 36px;">Mobile full year</div>
+        <div class="body" style="margin-top: 16px;">Full year of mobile vs. Year 1's three months → <b>+$180K+</b>.</div>
+      </div>
+    </div>
+
+    <div style="margin-top: 80px; padding-top: 56px; border-top: 1px solid var(--rule); text-align: center;">
+      <p class="display sm" style="color: var(--ink); margin: 0;">
+        Major Ambience is a <em>five‑year product</em>, not a launch event.
+      </p>
+      <p class="mono" style="font-size: 24px; color: var(--ink3); margin-top: 24px; letter-spacing: 0.12em; text-transform: uppercase;">
+        majorambience.com · github.com/Rayzold/Major‑Ambience
+      </p>
+    </div>
+  </section>
+
+</deck-stage>
+
+<script src="deck-stage.js"></script>
+</body>
+</html>

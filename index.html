@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Major Ambience — Pay once. Own forever. Score every scene.</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="An audio companion app for tabletop RPGs. Bring your music library. Score scenes, fire effects, crossfade between moods. One-time purchase, no subscription. Windows first, mobile coming.">
+<meta property="og:title" content="Major Ambience — pay once, own forever">
+<meta property="og:description" content="The GM audio companion for tabletop RPGs. Your library. Your scenes. No subscription.">
+<meta property="og:image" content="docs/screenshots/01-hero.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,500;1,600;1,700&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg:      #0b0913;
+    --bgRaise: #15121f;
+    --bgCard:  #1c1828;
+    --bgChip:  rgba(243,236,217,0.06);
+    --ink:     #f3ecd9;
+    --ink2:    #b6a890;
+    --ink3:    #6b5f4b;
+    --gold:    #e3b66a;
+    --gold-deep: #b9842a;
+    --gold-soft: rgba(227,182,106,0.14);
+    --gold-edge: rgba(227,182,106,0.35);
+    --rule:    rgba(243,236,217,0.07);
+    --combat:  #d96a4a;
+    --tavern:  #e2a154;
+    --explore: #bcae54;
+    --ambient: #6fbfa6;
+    --horror:  #9a6ed1;
+    --tension: #d27a4a;
+    --rest:    #7d92dd;
+    --sfx:     #5cc4d9;
+    --display: "Cormorant Garamond", Georgia, serif;
+    --ui:      "Geist", -apple-system, system-ui, sans-serif;
+    --mono:    "Geist Mono", ui-monospace, monospace;
+    --gutter:  clamp(20px, 5vw, 64px);
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--ui); font-size: 17px; line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  a { color: var(--gold); text-decoration: none; }
+  a:hover { color: #f0caa0; }
+  em { color: var(--gold); font-style: italic; font-weight: 500; }
+  b { color: var(--ink); font-weight: 600; }
+
+  /* ── Grain overlay ─────────────────────────────────── */
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 100;
+    background-image: radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 3px 3px;
+    mix-blend-mode: overlay;
+  }
+
+  /* ── Type ──────────────────────────────────────────── */
+  .eyebrow {
+    font-family: var(--ui); font-size: 12px; font-weight: 500;
+    letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink3);
+    margin: 0 0 12px;
+  }
+  .display {
+    font-family: var(--display); font-weight: 500; line-height: 1.02;
+    letter-spacing: -0.012em; color: var(--ink);
+    text-wrap: pretty; margin: 0;
+  }
+  .lede {
+    font-family: var(--ui); font-size: clamp(17px, 2vw, 22px); line-height: 1.55;
+    color: var(--ink2); font-weight: 300; max-width: 60ch; margin: 0;
+  }
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  /* ── Layout ─────────────────────────────────────────── */
+  .wrap { width: 100%; max-width: 1240px; margin: 0 auto; padding: 0 var(--gutter); }
+  section { position: relative; }
+
+  /* ── Nav ────────────────────────────────────────────── */
+  .nav {
+    position: sticky; top: 0; z-index: 50;
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    background: rgba(11,9,19,0.7);
+    border-bottom: 1px solid var(--rule);
+  }
+  .nav .inner {
+    max-width: 1240px; margin: 0 auto; padding: 14px var(--gutter);
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; font-family: var(--display); font-size: 24px; font-weight: 600; }
+  .brand em { color: var(--gold); font-style: italic; }
+  .brand .seal {
+    width: 28px; height: 28px; border-radius: 7px;
+    background: linear-gradient(135deg, var(--gold), var(--gold-deep));
+    display: inline-flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 12px rgba(227,182,106,0.3);
+  }
+  .brand .seal svg { width: 16px; height: 16px; }
+  .nav-links { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+  .nav-links a {
+    padding: 8px 14px; border-radius: 8px; color: var(--ink2);
+    transition: color 0.12s, background 0.12s;
+  }
+  .nav-links a:hover { color: var(--ink); background: var(--bgChip); }
+  .nav-cta {
+    padding: 8px 16px !important; border-radius: 999px !important;
+    background: var(--gold); color: #1a1108 !important; font-weight: 600;
+  }
+  .nav-cta:hover { background: #f0caa0 !important; }
+  @media (max-width: 720px) { .nav-links a:not(.nav-cta) { display: none; } }
+
+  /* ── Hero ───────────────────────────────────────────── */
+  .hero {
+    padding: clamp(80px, 12vw, 160px) 0 clamp(60px, 10vw, 120px);
+    position: relative; overflow: hidden; text-align: center;
+  }
+  .hero::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background:
+      radial-gradient(50% 60% at 50% 40%, rgba(227,182,106,0.08) 0%, transparent 70%),
+      radial-gradient(80% 80% at 50% 0%, rgba(217,106,74,0.06) 0%, transparent 50%);
+  }
+  .hero .orb {
+    position: absolute; left: 50%; top: 35%; transform: translate(-50%, -50%);
+    width: 800px; height: 800px; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle, rgba(227,182,106,0.05) 0%, transparent 60%);
+    z-index: 0;
+  }
+  .hero .eyebrow {
+    display: inline-block; padding: 7px 14px; border-radius: 999px;
+    background: var(--gold-soft); border: 1px solid var(--gold-edge);
+    color: var(--gold); margin-bottom: 32px;
+  }
+  .hero h1 {
+    font-family: var(--display); font-weight: 500;
+    font-size: clamp(56px, 11vw, 132px); line-height: 0.98;
+    letter-spacing: -0.02em;
+    margin: 0; text-wrap: balance;
+  }
+  .hero h1 em { color: var(--gold); font-style: italic; font-weight: 500; }
+  .hero .sub {
+    font-family: var(--display); font-style: italic;
+    font-size: clamp(28px, 4.5vw, 52px); color: var(--gold);
+    margin-top: 20px; font-weight: 500;
+  }
+  .hero p.lede {
+    margin: 36px auto 0; font-size: clamp(17px, 2vw, 22px); line-height: 1.5;
+    max-width: 56ch;
+  }
+  .hero .ctas {
+    display: flex; gap: 14px; justify-content: center; align-items: center; flex-wrap: wrap;
+    margin-top: 44px;
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 16px 28px; border-radius: 999px;
+    font-family: var(--ui); font-weight: 600; font-size: 16px;
+    border: 0; cursor: pointer; transition: all 0.12s;
+    text-decoration: none;
+  }
+  .btn-primary {
+    background: var(--gold); color: #1a1108;
+    box-shadow: 0 8px 24px rgba(227,182,106,0.35);
+  }
+  .btn-primary:hover { background: #f0caa0; color: #1a1108; transform: translateY(-1px); box-shadow: 0 12px 32px rgba(227,182,106,0.45); }
+  .btn-secondary {
+    background: var(--bgCard); color: var(--ink); border: 1px solid var(--rule);
+  }
+  .btn-secondary:hover { background: var(--bgRaise); color: var(--ink); border-color: var(--gold-edge); }
+  .hero .stamps {
+    display: flex; gap: 28px; justify-content: center; flex-wrap: wrap;
+    margin-top: 36px;
+    font-family: var(--mono); font-size: 12px; color: var(--ink3);
+    letter-spacing: 0.12em; text-transform: uppercase;
+  }
+  .hero .stamps span { display: inline-flex; align-items: center; gap: 8px; }
+  .hero .stamps span::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--gold);
+    box-shadow: 0 0 8px var(--gold);
+  }
+
+  /* ── Hero screenshot ────────────────────────────────── */
+  .hero-shot {
+    margin-top: clamp(60px, 8vw, 100px);
+    padding: 0 var(--gutter); position: relative;
+    max-width: 1400px; margin-left: auto; margin-right: auto;
+  }
+  .hero-shot::before {
+    content: ""; position: absolute; left: 50%; top: -40px; transform: translateX(-50%);
+    width: 80%; height: 60%; pointer-events: none;
+    background: radial-gradient(60% 70% at 50% 50%, rgba(227,182,106,0.2) 0%, transparent 70%);
+    filter: blur(40px); z-index: 0;
+  }
+  .hero-shot img {
+    width: 100%; height: auto; display: block;
+    border-radius: 14px; position: relative;
+    border: 1px solid var(--rule);
+    box-shadow: 0 40px 100px rgba(0,0,0,0.6), 0 0 0 1px rgba(227,182,106,0.1);
+  }
+
+  /* ── Sections ───────────────────────────────────────── */
+  section.s {
+    padding: clamp(80px, 12vw, 140px) 0;
+    position: relative;
+  }
+  .s h2 {
+    font-family: var(--display); font-weight: 500;
+    font-size: clamp(40px, 6.5vw, 80px); line-height: 1.02;
+    letter-spacing: -0.01em; margin: 0 0 24px;
+    max-width: 18ch; text-wrap: balance;
+  }
+  .s h2 em { color: var(--gold); font-style: italic; }
+  .s .section-lede {
+    font-size: clamp(17px, 2vw, 22px); line-height: 1.55;
+    color: var(--ink2); max-width: 62ch; margin: 0 0 64px;
+  }
+
+  /* ── Wedge section ──────────────────────────────────── */
+  .wedge { background: var(--bgRaise); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+  .wedge::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(60% 100% at 100% 0%, rgba(217,106,74,0.06) 0%, transparent 50%);
+  }
+  .compare-table {
+    margin-top: 48px; border: 1px solid var(--rule); border-radius: 18px;
+    overflow: hidden; background: var(--bgCard);
+  }
+  .compare-row { display: grid; grid-template-columns: 200px 1fr 1fr; align-items: center; }
+  .compare-row > div {
+    padding: 22px 24px; border-bottom: 1px solid var(--rule); font-size: 16px;
+  }
+  .compare-row > div:not(:last-child) { border-right: 1px solid var(--rule); }
+  .compare-row:last-child > div { border-bottom: 0; }
+  .compare-row.head > div { background: var(--bgChip); font-weight: 600; color: var(--ink); font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .compare-row.head .us { color: var(--gold); font-family: var(--display); font-style: italic; font-size: 22px; text-transform: none; letter-spacing: 0; font-weight: 600; }
+  .compare-row .label { color: var(--ink3); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .compare-row .them { color: var(--ink2); }
+  .compare-row .us-cell { color: var(--ink); font-weight: 500; }
+  @media (max-width: 720px) {
+    .compare-row { grid-template-columns: 1fr 1fr; }
+    .compare-row .label { display: none; }
+    .compare-row.head .label { display: block; grid-column: 1 / -1; }
+  }
+
+  /* ── Features grid ──────────────────────────────────── */
+  .feat-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 18px; margin-top: 56px;
+  }
+  .feat {
+    position: relative; overflow: hidden;
+    padding: 28px; border-radius: 18px;
+    background: var(--bgCard); border: 1px solid var(--rule);
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .feat:hover { border-color: var(--gold-edge); transform: translateY(-2px); }
+  .feat .icon {
+    width: 44px; height: 44px; border-radius: 11px;
+    background: linear-gradient(140deg, var(--gold), var(--gold-deep));
+    display: inline-flex; align-items: center; justify-content: center;
+    color: #1a1108; margin-bottom: 18px;
+  }
+  .feat .icon svg { width: 22px; height: 22px; }
+  .feat h3 {
+    font-family: var(--display); font-weight: 600; font-size: 26px;
+    margin: 0 0 8px; color: var(--ink); line-height: 1.1;
+  }
+  .feat p { margin: 0; color: var(--ink2); font-size: 15px; line-height: 1.55; }
+  /* Per-category accent on the corner */
+  .feat[data-cat]::before {
+    content: ""; position: absolute; top: 0; right: 0; width: 80px; height: 80px;
+    background: radial-gradient(circle at top right, var(--accent) 0%, transparent 70%);
+    opacity: 0.35; pointer-events: none;
+  }
+  .feat[data-cat="combat"]  { --accent: var(--combat); }
+  .feat[data-cat="tavern"]  { --accent: var(--tavern); }
+  .feat[data-cat="horror"]  { --accent: var(--horror); }
+  .feat[data-cat="ambient"] { --accent: var(--ambient); }
+  .feat[data-cat="sfx"]     { --accent: var(--sfx); }
+  .feat[data-cat="rest"]    { --accent: var(--rest); }
+
+  /* ── Screenshot showcase ────────────────────────────── */
+  .showcase {
+    margin-top: 56px; position: relative;
+  }
+  .showcase img { width: 100%; display: block; border-radius: 16px; border: 1px solid var(--rule); }
+  .showcase .row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 18px;
+  }
+  @media (max-width: 720px) { .showcase .row { grid-template-columns: 1fr; } }
+  .shot-card {
+    position: relative; overflow: hidden; border-radius: 16px;
+    border: 1px solid var(--rule); background: var(--bgCard);
+  }
+  .shot-card .label {
+    position: absolute; top: 16px; left: 16px;
+    padding: 6px 12px; border-radius: 999px;
+    background: rgba(11,9,19,0.7); backdrop-filter: blur(8px);
+    font-family: var(--ui); font-size: 11px; font-weight: 500;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink);
+    border: 1px solid var(--rule);
+  }
+  .shot-card img { border: 0; border-radius: 0; }
+
+  /* ── Pricing ────────────────────────────────────────── */
+  .pricing {
+    background: linear-gradient(180deg, var(--bg) 0%, var(--bgRaise) 100%);
+    border-top: 1px solid var(--rule);
+  }
+  .price-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px; margin-top: 56px; align-items: start;
+  }
+  .pcard {
+    position: relative; overflow: hidden;
+    background: var(--bgCard); border: 1px solid var(--rule);
+    border-radius: 22px; padding: 36px 32px;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .pcard:hover { border-color: var(--gold-edge); transform: translateY(-2px); }
+  .pcard.hero {
+    background: linear-gradient(160deg, rgba(227,182,106,0.16) 0%, var(--bgCard) 70%);
+    border-color: var(--gold-edge);
+    transform: translateY(-12px);
+  }
+  .pcard.hero::before {
+    content: "Recommended"; position: absolute; top: 16px; right: 16px;
+    padding: 4px 10px; border-radius: 999px;
+    background: var(--gold); color: #1a1108;
+    font-family: var(--ui); font-size: 10px; font-weight: 700;
+    letter-spacing: 0.14em; text-transform: uppercase;
+  }
+  .pcard .ptier {
+    font-family: var(--ui); font-size: 12px; font-weight: 500;
+    letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink3);
+    margin-bottom: 8px;
+  }
+  .pcard .pname {
+    font-family: var(--display); font-style: italic; font-weight: 600;
+    font-size: 36px; color: var(--gold); margin: 0 0 16px; line-height: 1.05;
+  }
+  .pcard.muted .pname { color: var(--ink2); font-style: normal; }
+  .pcard .pprice {
+    font-family: var(--display); font-size: 72px; font-weight: 600;
+    color: var(--ink); line-height: 1; margin: 8px 0 4px;
+  }
+  .pcard .pprice .cur { font-family: var(--ui); font-size: 28px; vertical-align: super; color: var(--ink2); }
+  .pcard .ponce { font-family: var(--ui); font-size: 13px; color: var(--ink3); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 24px; }
+  .pcard ul { margin: 0; padding: 0; list-style: none; }
+  .pcard ul li {
+    font-size: 15px; color: var(--ink2); padding: 11px 0;
+    border-bottom: 1px solid var(--rule);
+    display: flex; align-items: flex-start; gap: 10px;
+  }
+  .pcard ul li:last-child { border-bottom: 0; }
+  .pcard ul li::before {
+    content: ""; flex-shrink: 0; margin-top: 8px;
+    width: 5px; height: 5px; border-radius: 50%; background: var(--gold);
+  }
+  .pcard.muted ul li::before { background: var(--ink3); }
+  .pcard .pcta {
+    margin-top: 28px; width: 100%; justify-content: center;
+  }
+  .pricing .footnote {
+    text-align: center; margin-top: 56px;
+    font-family: var(--ui); font-size: 14px; color: var(--ink3);
+    max-width: 60ch; margin-left: auto; margin-right: auto;
+  }
+  .pricing .footnote em { font-family: var(--display); color: var(--gold); }
+
+  /* ── Newsletter ─────────────────────────────────────── */
+  .news {
+    background: var(--bg); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule);
+    text-align: center; padding: clamp(80px, 12vw, 140px) 0;
+  }
+  .news::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(50% 100% at 50% 0%, rgba(227,182,106,0.08) 0%, transparent 60%);
+  }
+  .news h2 { margin-left: auto; margin-right: auto; }
+  .news form {
+    margin-top: 36px; display: flex; gap: 10px; max-width: 480px; margin-left: auto; margin-right: auto;
+  }
+  .news input[type="email"] {
+    flex: 1; padding: 16px 20px; border-radius: 999px;
+    background: var(--bgCard); border: 1px solid var(--rule);
+    color: var(--ink); font-family: var(--ui); font-size: 15px;
+    outline: none; transition: border-color 0.15s;
+  }
+  .news input[type="email"]:focus { border-color: var(--gold-edge); }
+  .news input[type="email"]::placeholder { color: var(--ink3); }
+  .news button {
+    padding: 16px 28px;
+  }
+  .news .small {
+    margin-top: 18px; font-size: 13px; color: var(--ink3);
+    font-family: var(--mono); letter-spacing: 0.06em; text-transform: uppercase;
+  }
+
+  /* ── FAQ ────────────────────────────────────────────── */
+  .faq-grid {
+    margin-top: 56px;
+    display: grid; gap: 12px;
+  }
+  details.q {
+    background: var(--bgCard); border: 1px solid var(--rule);
+    border-radius: 14px; padding: 0; overflow: hidden;
+    transition: border-color 0.15s;
+  }
+  details.q[open] { border-color: var(--gold-edge); }
+  details.q summary {
+    padding: 22px 24px; cursor: pointer; list-style: none;
+    display: flex; justify-content: space-between; align-items: center; gap: 16px;
+    font-family: var(--display); font-size: 22px; font-weight: 600; color: var(--ink);
+  }
+  details.q summary::-webkit-details-marker { display: none; }
+  details.q summary::after {
+    content: ""; width: 14px; height: 14px; flex-shrink: 0;
+    border-right: 2px solid var(--ink2); border-bottom: 2px solid var(--ink2);
+    transform: rotate(45deg); transition: transform 0.2s, border-color 0.2s;
+    margin-top: -4px;
+  }
+  details.q[open] summary::after { transform: rotate(-135deg); margin-top: 4px; border-color: var(--gold); }
+  details.q .ans {
+    padding: 0 24px 22px; color: var(--ink2); font-size: 16px; line-height: 1.6;
+  }
+
+  /* ── Footer ─────────────────────────────────────────── */
+  footer.f {
+    background: var(--bg); border-top: 1px solid var(--rule);
+    padding: 64px 0 32px;
+  }
+  footer.f .top {
+    display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 48px; margin-bottom: 48px;
+  }
+  @media (max-width: 720px) {
+    footer.f .top { grid-template-columns: 1fr 1fr; gap: 32px; }
+    footer.f .col-brand { grid-column: 1 / -1; }
+  }
+  footer.f h4 {
+    font-family: var(--ui); font-size: 12px; font-weight: 500;
+    letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink3);
+    margin: 0 0 16px;
+  }
+  footer.f ul { margin: 0; padding: 0; list-style: none; }
+  footer.f ul li { margin-bottom: 10px; }
+  footer.f a { color: var(--ink2); font-size: 14px; transition: color 0.12s; }
+  footer.f a:hover { color: var(--gold); }
+  footer.f .brand-block { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  footer.f .brand-block .name { font-family: var(--display); font-size: 24px; font-weight: 600; }
+  footer.f .brand-block em { color: var(--gold); font-style: italic; }
+  footer.f .tagline { color: var(--ink2); font-size: 14px; max-width: 28ch; }
+  footer.f .bottom {
+    padding-top: 24px; border-top: 1px solid var(--rule);
+    display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink3);
+  }
+</style>
+</head>
+<body>
+
+<!-- ─────────────────────────── NAV ─────────────────────────── -->
+<nav class="nav">
+  <div class="inner">
+    <a class="brand" href="#top" aria-label="Major Ambience home">
+      <span class="seal" aria-hidden="true">
+        <svg viewBox="0 0 16 16" fill="none"><path d="M5 2v8M11 4v6" stroke="#1a1108" stroke-width="1.6" stroke-linecap="round"/><circle cx="5" cy="11" r="1.3" fill="#1a1108"/><circle cx="11" cy="11" r="1.3" fill="#1a1108"/></svg>
+      </span>
+      Major <em>Ambience</em>
+    </a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#screens">Screens</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#newsletter" class="nav-cta">Get notified</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ─────────────────────────── HERO ─────────────────────────── -->
+<section class="hero" id="top">
+  <div class="orb" aria-hidden="true"></div>
+  <div class="wrap" style="position: relative; z-index: 1;">
+    <span class="eyebrow">Coming Q3 2026 · Windows first · Mobile next</span>
+    <h1 class="display">Pay once.<br/><em>Own</em> forever.</h1>
+    <div class="sub">Score every scene.</div>
+    <p class="lede">
+      An audio companion for tabletop RPGs. Bring your music folder. Snapshot scenes, fire effects, crossfade between moods. Built for the four hours every week when the table is live.
+    </p>
+    <div class="ctas">
+      <a href="#newsletter" class="btn btn-primary">
+        Get launch notified
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7h8M7 3l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+      <a href="#features" class="btn btn-secondary">See how it works</a>
+    </div>
+    <div class="stamps">
+      <span>No subscription</span>
+      <span>Your library</span>
+      <span>Offline first</span>
+    </div>
+  </div>
+  <div class="hero-shot">
+    <img src="docs/screenshots/05-desktop-library.png" alt="Major Ambience for Windows — Library view">
+  </div>
+</section>
+
+<!-- ─────────────────────────── WEDGE ─────────────────────────── -->
+<section class="s wedge" id="wedge">
+  <div class="wrap" style="position: relative; z-index: 1;">
+    <span class="eyebrow">The wedge</span>
+    <h2>Other tools rent you mood.<br/><em>We tune yours.</em></h2>
+    <p class="section-lede">
+      Every direct competitor charges monthly and ships their own audio catalog. Major Ambience is a one‑time purchase. You bring the library. We turn it into a studio.
+    </p>
+    <div class="compare-table">
+      <div class="compare-row head">
+        <div class="label">&nbsp;</div>
+        <div>Subscription audio tools</div>
+        <div class="us">Major Ambience</div>
+      </div>
+      <div class="compare-row">
+        <div class="label">Cost</div>
+        <div class="them">$10 / month, forever</div>
+        <div class="us-cell">$14.99 or $29.99 · once</div>
+      </div>
+      <div class="compare-row">
+        <div class="label">Library</div>
+        <div class="them">Their catalog only</div>
+        <div class="us-cell">Your music folder, yours</div>
+      </div>
+      <div class="compare-row">
+        <div class="label">Offline</div>
+        <div class="them">Requires internet</div>
+        <div class="us-cell">100% offline after install</div>
+      </div>
+      <div class="compare-row">
+        <div class="label">If they shut down</div>
+        <div class="them">Library gone</div>
+        <div class="us-cell">Your scenes still play</div>
+      </div>
+      <div class="compare-row">
+        <div class="label">Tabletop UX</div>
+        <div class="them">Scene‑based browsing</div>
+        <div class="us-cell">Scenes · soundboard · ducking · DM mode</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────── FEATURES ─────────────────────────── -->
+<section class="s" id="features">
+  <div class="wrap">
+    <span class="eyebrow">What you get</span>
+    <h2>Built for the table, <em>not the playlist</em>.</h2>
+    <p class="section-lede">
+      Every feature exists because a GM at a real table needed it. Open the library, fire a stinger, snapshot the moment, crossfade to the next scene — all without breaking eye contact with your players.
+    </p>
+    <div class="feat-grid">
+      <div class="feat" data-cat="combat">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l5-5 M5 19l2 2 M16 8l5-5 M3 3l8 8 M13 13l8 8 M11 11l2-2 M13 13l-2 2"/></svg></div>
+        <h3>Auto‑categorized library</h3>
+        <p>Drop your music folder in. The app sorts thousands of tracks into ten buckets — Combat, Tavern, Horror, Rest, SFX — using the rules a working GM would write.</p>
+      </div>
+      <div class="feat" data-cat="tavern">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h11v10a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V8z"/><path d="M16 11h2a2.5 2.5 0 0 1 0 5h-2"/></svg></div>
+        <h3>Scenes you can restore in one tap</h3>
+        <p>Snapshot the current category, soundboard layout, fade, and volumes into a named scene. Tap it next week and the whole table mood comes back.</p>
+      </div>
+      <div class="feat" data-cat="sfx">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg></div>
+        <h3>Soundboard for instant triggers</h3>
+        <p>24 pads across three pages. Drag any track onto a slot, fire it with one click. Pads glow when active, loop on demand, and the music bus ducks automatically.</p>
+      </div>
+      <div class="feat" data-cat="horror">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18l7-12 M21 18l-7-12 M10 18h4"/></svg></div>
+        <h3>Crossfade & ducking</h3>
+        <p>Smooth transitions between tracks with a slider. SFX ride over the music while it dips automatically — your stinger never gets buried.</p>
+      </div>
+      <div class="feat" data-cat="ambient">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg></div>
+        <h3>Search every track</h3>
+        <p>Full‑text across the whole library, with filters for grade, length, and category. Find the right cue mid‑combat without breaking flow.</p>
+      </div>
+      <div class="feat" data-cat="rest">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10 M18 6h2 M4 12h2 M10 12h10 M4 18h14 M18 18h2"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="18" r="2"/></svg></div>
+        <h3>Grade what works</h3>
+        <p>Rate tracks S through F as you use them. The weighted shuffle learns: S tracks come up 6× more than C tracks. F tracks never play again.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────── SCREENS ─────────────────────────── -->
+<section class="s" id="screens" style="background: var(--bgRaise); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule);">
+  <div class="wrap">
+    <span class="eyebrow">The product</span>
+    <h2>Windows now. <em>Phone next.</em></h2>
+    <p class="section-lede">
+      Three‑pane workspace on the desktop — categories, tracks, now playing — with a persistent transport bar. Mobile is the touch‑first companion: mini‑player, swipe‑up Now Playing, twenty‑four tactile soundboard pads. Same design system, same library, same scenes.
+    </p>
+    <div class="showcase">
+      <div class="shot-card" style="margin-bottom: 18px;">
+        <span class="label">Windows · Library</span>
+        <img src="docs/screenshots/05-desktop-library.png" alt="Library screen on Windows">
+      </div>
+      <div class="row">
+        <div class="shot-card">
+          <span class="label">Windows · Soundboard</span>
+          <img src="docs/screenshots/06-desktop-soundboard.png" alt="Soundboard with active pads">
+        </div>
+        <div class="shot-card">
+          <span class="label">Mobile · Library + Player</span>
+          <img src="docs/screenshots/02-mobile-library-nowplaying.png" alt="Mobile library and now playing">
+        </div>
+      </div>
+      <div class="row">
+        <div class="shot-card">
+          <span class="label">Mobile · Soundboard</span>
+          <img src="docs/screenshots/03-mobile-nowplaying-soundboard.png" alt="Mobile soundboard">
+        </div>
+        <div class="shot-card">
+          <span class="label">Mobile · Scenes</span>
+          <img src="docs/screenshots/04-mobile-category-scenes.png" alt="Mobile scenes">
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────── PRICING ─────────────────────────── -->
+<section class="s pricing" id="pricing">
+  <div class="wrap">
+    <span class="eyebrow">Pricing</span>
+    <h2>Three tiers. <em>No subscriptions.</em></h2>
+    <p class="section-lede">
+      Pick the tier that matches how often you run. Tier names follow the spell‑level convention because the magic is supposed to feel obvious.
+    </p>
+    <div class="price-grid">
+      <div class="pcard muted">
+        <div class="ptier">Tier I · Entry</div>
+        <h3 class="pname">Minor Ambience</h3>
+        <div class="pprice"><span class="cur">$</span>14.99</div>
+        <div class="ponce">One‑time · Yours forever</div>
+        <ul>
+          <li>Full library playback</li>
+          <li>Crossfade · ducking · grading</li>
+          <li>Up to 5 scenes</li>
+          <li>Soundboard page A (8 slots)</li>
+          <li>SFX layer with auto‑ducking</li>
+        </ul>
+        <a href="#newsletter" class="btn btn-secondary pcta">Get notified</a>
+      </div>
+      <div class="pcard hero">
+        <div class="ptier" style="color: var(--gold);">Tier II · Pro · Most popular</div>
+        <h3 class="pname">Major Ambience</h3>
+        <div class="pprice"><span class="cur">$</span>29.99</div>
+        <div class="ponce">One‑time · Yours forever</div>
+        <ul>
+          <li>Everything in Minor</li>
+          <li>Unlimited scenes</li>
+          <li>Soundboard A / B / C (24 slots)</li>
+          <li>Cloud sync · DM Mode · Themes</li>
+          <li>Per‑category volume offsets</li>
+          <li>Track notes</li>
+        </ul>
+        <a href="#newsletter" class="btn btn-primary pcta">Get notified</a>
+      </div>
+      <div class="pcard muted">
+        <div class="ptier">Add‑on · Works with any tier</div>
+        <h3 class="pname">DM Toolkit</h3>
+        <div class="pprice"><span class="cur">$</span>4.99</div>
+        <div class="ponce">One‑time · Yours forever</div>
+        <ul>
+          <li>NPC name generator</li>
+          <li>Dice roller with history</li>
+          <li>Initiative tracker</li>
+          <li><b>Turn sounds</b> — per‑player audio cues</li>
+        </ul>
+        <a href="#newsletter" class="btn btn-secondary pcta">Get notified</a>
+      </div>
+    </div>
+    <p class="footnote">
+      A free <em>Demo Pack</em> lets you try the app with a built‑in starter library before you pay. Major includes free upgrades to mobile when it launches. <em>Epic Ambience</em> ($49.99 with VTT, Stream Deck, MIDI) drops in v2 — not at launch.
+    </p>
+  </div>
+</section>
+
+<!-- ─────────────────────────── NEWSLETTER ─────────────────────────── -->
+<section class="news" id="newsletter">
+  <div class="wrap" style="position: relative; z-index: 1;">
+    <span class="eyebrow">Launch notifications</span>
+    <h2>Be there on <em>day one</em>.</h2>
+    <p class="section-lede" style="margin-left: auto; margin-right: auto; text-align: center;">
+      We'll email you twice before launch — once a month before, once on launch day. Founder's discount for the first week, only for subscribers.
+    </p>
+    <form action="https://buttondown.email/api/emails/embed-subscribe/majorambience" method="post" target="popupwindow" onsubmit="window.open('https://buttondown.email/majorambience', 'popupwindow')">
+      <input type="email" name="email" required placeholder="gm@your-table.com" aria-label="Email address">
+      <button type="submit" class="btn btn-primary">Notify me</button>
+    </form>
+    <p class="small">No spam · Unsubscribe with one click · Plain text only</p>
+  </div>
+</section>
+
+<!-- ─────────────────────────── FAQ ─────────────────────────── -->
+<section class="s" id="faq">
+  <div class="wrap">
+    <span class="eyebrow">Questions</span>
+    <h2>What GMs <em>actually ask</em>.</h2>
+    <div class="faq-grid">
+      <details class="q">
+        <summary>Is my music library safe? Do you store any of it?</summary>
+        <div class="ans">No. Major Ambience never uploads, hosts, or syncs your audio files. The app reads your local folder, builds an index on your device, and that's it. Even your grades and scenes only sync if you turn on cloud sync (Major tier).</div>
+      </details>
+      <details class="q">
+        <summary>Do I need to be online?</summary>
+        <div class="ans">After install, no. Major Ambience runs fully offline. The only online features are cloud sync (optional) and checking for updates.</div>
+      </details>
+      <details class="q">
+        <summary>What music does it work with?</summary>
+        <div class="ans">Any MP3, WAV, FLAC, OGG, or M4A file you have on your hard drive. Curated packs (Battle Bards, AudioHero, Tabletop Audio downloads, your Spotify rips, your commissioned scores) — all yours.</div>
+      </details>
+      <details class="q">
+        <summary>What if I already paid for Syrinscape or Tabletop Audio?</summary>
+        <div class="ans">You can use Major Ambience alongside them. If you've downloaded packs from those services, the auto‑categorizer will sort them straight into the right buckets.</div>
+      </details>
+      <details class="q">
+        <summary>When does the mobile app land?</summary>
+        <div class="ans">Q1 2027 — public beta on TestFlight and Play Internal Testing about three months after the Windows launch. Free upgrade for anyone who owns Major.</div>
+      </details>
+      <details class="q">
+        <summary>What about Mac and Linux?</summary>
+        <div class="ans">Not at launch. The desktop app is built with Tauri 2, which ships Mac and Linux builds for free — the question is support burden. Likely Q2–Q3 2027 if Windows sales support it.</div>
+      </details>
+      <details class="q">
+        <summary>Refunds?</summary>
+        <div class="ans">Yes. 14 days, no questions asked, regardless of where you bought it. Email and we'll handle it.</div>
+      </details>
+      <details class="q">
+        <summary>Is there a subscription option?</summary>
+        <div class="ans">No, and there never will be. One‑time purchase is a positioning commitment, not just a price tag.</div>
+      </details>
+      <details class="q">
+        <summary>What about VTT integration (Foundry, Roll20, Owlbear)?</summary>
+        <div class="ans">Held for the Epic tier in v2. Major Ambience is architected with a TriggerAPI that VTT plugins will hook into — full details when the v2 plan lands.</div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────── FOOTER ─────────────────────────── -->
+<footer class="f">
+  <div class="wrap">
+    <div class="top">
+      <div class="col-brand">
+        <div class="brand-block">
+          <span class="seal" aria-hidden="true" style="width: 28px; height: 28px; border-radius: 7px; background: linear-gradient(135deg, var(--gold), var(--gold-deep)); display: inline-flex; align-items: center; justify-content: center;">
+            <svg viewBox="0 0 16 16" fill="none" width="16" height="16"><path d="M5 2v8M11 4v6" stroke="#1a1108" stroke-width="1.6" stroke-linecap="round"/><circle cx="5" cy="11" r="1.3" fill="#1a1108"/><circle cx="11" cy="11" r="1.3" fill="#1a1108"/></svg>
+          </span>
+          <span class="name">Major <em>Ambience</em></span>
+        </div>
+        <p class="tagline">Audio companion for tabletop RPGs. Built independently by a GM, for GMs.</p>
+      </div>
+      <div>
+        <h4>Product</h4>
+        <ul>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#screens">Screens</a></li>
+          <li><a href="#pricing">Pricing</a></li>
+          <li><a href="ROADMAP.md">Roadmap</a></li>
+          <li><a href="CHANGELOG.md">Changelog</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Resources</h4>
+        <ul>
+          <li><a href="https://github.com/Rayzold/Major-Ambience">GitHub</a></li>
+          <li><a href="PRESS_KIT.md">Press kit</a></li>
+          <li><a href="docs/BUILD_GUIDE.md">Build guide</a></li>
+          <li><a href="DESIGN.md">Design doc</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Connect</h4>
+        <ul>
+          <li><a href="#newsletter">Newsletter</a></li>
+          <li><a href="#">Discord</a></li>
+          <li><a href="#">X / Bluesky</a></li>
+          <li><a href="mailto:hello@majorambience.com">hello@majorambience.com</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="bottom">
+      <div>© 2026 Rayzold · MIT licensed · Made with care for GMs</div>
+      <div>
+        <a href="#">Privacy</a> · <a href="#">Terms</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
