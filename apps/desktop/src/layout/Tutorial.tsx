@@ -103,7 +103,7 @@ export function Tutorial({ steps, onComplete, onDismiss }: TutorialProps) {
             width: rect.width,
             height: rect.height,
             borderRadius: 10,
-            boxShadow: `0 0 0 9999px rgba(0,0,0,0.7), 0 0 0 2px ${T.gold}88, 0 0 30px ${T.gold}44`,
+            boxShadow: `0 0 0 9999px var(--mc-modalBackdrop), 0 0 0 2px var(--mc-goldEdge), 0 0 30px var(--mc-goldSoft)`,
             pointerEvents: "auto",
             zIndex: 200,
             cursor: "pointer",
@@ -116,7 +116,7 @@ export function Tutorial({ steps, onComplete, onDismiss }: TutorialProps) {
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.7)",
+            background: T.modalBackdrop,
             zIndex: 200,
             cursor: "pointer",
           }}

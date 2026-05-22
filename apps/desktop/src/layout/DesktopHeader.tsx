@@ -61,7 +61,7 @@ export function DesktopHeader({
         justifyContent: "space-between",
         padding: "0 18px",
         borderBottom: `1px solid ${T.rule}`,
-        background: "rgba(11,9,19,0.6)",
+        background: T.chromeBg,
         backdropFilter: "blur(20px)",
       }}
     >

@@ -25,7 +25,7 @@ import {
   setGrade as persistGrade,
   upsertSlot,
 } from "@mc/data";
-import { CATEGORIES, findCategory } from "@mc/ui";
+import { applyTheme, CATEGORIES, findCategory, type ThemeId } from "@mc/ui";
 import { scanFolderToTracks } from "./lib/scan.js";
 import { getAudioBackend } from "./lib/audio.js";
 import { DesktopHeader } from "./layout/DesktopHeader.js";
@@ -53,6 +53,8 @@ import {
 const DEFAULT_FADE_MS = 2000;
 const DEFAULT_VOLUME = 0.85;
 const DEFAULT_DUCKING = 0.4;
+const DEFAULT_THEME: ThemeId = "gold-dark";
+const KNOWN_THEMES: readonly ThemeId[] = ["gold-dark", "parchment", "arcane"];
 const GRADE_CYCLE: Grade[] = ["S", "A", "B", "C", "D", "F", null];
 
 type PlaybackState = {
@@ -95,6 +97,7 @@ export function Library() {
   >(null);
   const [activeTutorialId, setActiveTutorialId] = useState<string | null>(null);
   const [seenTutorials, setSeenTutorials] = useState<Set<string>>(new Set());
+  const [theme, setTheme] = useState<ThemeId>(DEFAULT_THEME);
 
   // ── Derived ─────────────────────────────────────────────────────────────
   const currentTrack = useMemo(
@@ -159,6 +162,13 @@ export function Library() {
         const seenRaw = await getConfig(db, "tutorials_seen");
         if (seenRaw) {
           setSeenTutorials(new Set(seenRaw.split(",").filter(Boolean)));
+        }
+        const themeRaw = (await getConfig(db, "theme")) as ThemeId | undefined;
+        if (themeRaw && KNOWN_THEMES.includes(themeRaw)) {
+          setTheme(themeRaw);
+          applyTheme(themeRaw);
+        } else {
+          applyTheme(DEFAULT_THEME);
         }
       } catch (err) {
         console.error("[library] init failed:", err);
@@ -392,6 +402,14 @@ export function Library() {
     setPadDuckingPct(pct);
     const db = await getDb();
     await setConfig(db, "ducking_pct", String(pct));
+  }
+
+  // ── Themes ─────────────────────────────────────────────────────────────
+  async function handlePickTheme(id: ThemeId) {
+    setTheme(id);
+    applyTheme(id);
+    const db = await getDb();
+    await setConfig(db, "theme", id);
   }
 
   // ── Tutorials ──────────────────────────────────────────────────────────
@@ -682,10 +700,10 @@ export function Library() {
             zIndex: 6,
             padding: "6px 12px",
             borderRadius: 999,
-            background: "rgba(11,9,19,0.85)",
+            background: "var(--mc-chromeBg)",
             backdropFilter: "blur(8px)",
-            border: "1px solid rgba(227,182,106,0.25)",
-            color: "#e3b66a",
+            border: "1px solid var(--mc-goldEdge)",
+            color: "var(--mc-gold)",
             fontSize: 11,
             maxWidth: 580,
             overflow: "hidden",
@@ -703,7 +721,9 @@ export function Library() {
           tutorials={TUTORIALS}
           seen={seenTutorials}
           anchor={tutorialsMenu}
-          onPick={(id) => startTutorial(id)}
+          currentTheme={theme}
+          onPickTheme={(id) => void handlePickTheme(id)}
+          onPickTutorial={(id) => startTutorial(id)}
           onDismiss={() => setTutorialsMenu(null)}
         />
       ) : null}

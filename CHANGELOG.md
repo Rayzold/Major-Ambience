@@ -8,7 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-Nothing yet — Phase 2 work lands here.
+### Added — Phase 2
+
+- **Themes** (`DESIGN.md § 5.5`) — three locked themes wired end-to-end: **Gold & Dark** (canonical default), **Parchment** (light variant with cream surfaces + deep brown ink + brass accent), **Arcane** (Horror palette as the surface ramp, gold accent unchanged). Category palette and gold accent stay consistent across all three per spec.
+- Theme switching is a single class toggle on `<html>`. `T` in `@mc/ui` now exports `var(--mc-…)` strings instead of hex values, so swapping themes never triggers a React re-render cascade.
+- New theme-aware tokens: `chromeBg` (translucent header / transport), `popoverBg` (search, pin menu, settings popup), `modalBackdrop` (save-scene modal, tutorial overlay) — all per-theme so light + dark + violet popovers all read correctly.
+- Settings icon popup grew a **Themes** section above Tutorials with a mini palette swatch per theme and a check mark on the active one. Persisted as `theme` in `config`.
 
 ---
 

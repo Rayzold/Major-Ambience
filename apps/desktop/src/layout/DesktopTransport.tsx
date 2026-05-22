@@ -63,7 +63,7 @@ export function DesktopTransport({
         flexShrink: 0,
         height: 88,
         borderTop: `1px solid ${T.rule}`,
-        background: "rgba(11,9,19,0.75)",
+        background: T.chromeBg,
         backdropFilter: "blur(20px)",
         display: "flex",
         alignItems: "center",

@@ -77,7 +77,7 @@ export function PinToSlotMenu({
         top: position.y,
         zIndex: 80,
         width: 360,
-        background: "rgba(21,18,31,0.97)",
+        background: T.popoverBg,
         backdropFilter: "blur(16px)",
         WebkitBackdropFilter: "blur(16px)",
         border: `1px solid ${T.rule}`,
