@@ -366,6 +366,118 @@ describe("categorize — ancestor folder walk", () => {
   });
 });
 
+describe("categorize — pack-name defaults (flat library layout)", () => {
+  // Every documented pack from CATEGORIZATION_GUIDE.md "Packs Already
+  // Processed", classified by its dominant category. Tracks with names
+  // that don't match any keyword should now resolve via the pack folder.
+
+  it.each([
+    ["actionpacked_audiohero", "combat", "battle"],
+    ["adrenalinerush_audiohero", "combat", "battle"],
+    ["grandfleet_audiohero", "combat", "battle"],
+  ])("%s routes to combat/battle", (pack, category, sub) => {
+    expect(categorize("Track_001.mp3", pack)).toEqual({
+      category,
+      subcategory: sub,
+    });
+  });
+
+  it.each([
+    ["atmosphericburn_audiohero", "ambient"],
+    ["drama_audiohero", "ambient"],
+    ["orchestraldreams_audiohero", "ambient"],
+    ["spacehord_audiohero", "ambient"],
+    ["symphonicmajestic_audiohero", "ambient"],
+    ["dramascenes_audiohero", "ambient"],
+    ["romanticemotional_audiohero", "ambient"],
+  ])("%s routes to ambient", (pack, category) => {
+    expect(categorize("Track_001.mp3", pack)).toEqual({ category });
+  });
+
+  it.each([
+    ["conflictbattle_audiohero", "sfx"],
+    ["droneswarm_audiohero", "sfx"],
+    ["weatherwounds_audiohero", "sfx"],
+  ])("%s routes to sfx", (pack, category) => {
+    expect(categorize("Track_001.mp3", pack)).toEqual({ category });
+  });
+
+  it("enchantedlands_audiohero routes to rest", () => {
+    expect(categorize("Track_001.mp3", "enchantedlands_audiohero")).toEqual({
+      category: "rest",
+    });
+  });
+
+  it.each([
+    ["hauntedharmonies_audiohero", "horror"],
+    ["shadowsfall_audiohero", "horror"],
+  ])("%s routes to horror", (pack, category) => {
+    expect(categorize("Track_001.mp3", pack)).toEqual({ category });
+  });
+
+  it.each([
+    ["herosjourney_audiohero", "exploration"],
+    ["legendarythemes_audiohero", "exploration"],
+    ["blockbusterbeasts_audiohero", "exploration"],
+  ])("%s routes to exploration", (pack, category) => {
+    expect(categorize("Track_001.mp3", pack)).toEqual({ category });
+  });
+
+  it("legendroundtable_audiohero routes to tavern", () => {
+    expect(categorize("Track_001.mp3", "legendroundtable_audiohero")).toEqual({
+      category: "tavern",
+    });
+  });
+
+  it("ominousovertures_audiohero routes to tension", () => {
+    expect(categorize("Track_001.mp3", "ominousovertures_audiohero")).toEqual({
+      category: "tension",
+    });
+  });
+
+  it("is case- and separator-insensitive", () => {
+    expect(categorize("X.mp3", "ShadowsFall_AudioHero")).toEqual({
+      category: "horror",
+    });
+    expect(categorize("X.mp3", "shadowsfall-audiohero")).toEqual({
+      category: "horror",
+    });
+    expect(categorize("X.mp3", "SHADOWSFALL_AUDIOHERO")).toEqual({
+      category: "horror",
+    });
+  });
+
+  it("filename match still beats pack default", () => {
+    // "Mighty Seas" hits COMBAT_BATTLE keyword. atmosphericburn pack
+    // defaults to ambient. Filename wins.
+    expect(categorize("Mighty Seas.mp3", "atmosphericburn_audiohero")).toEqual({
+      category: "combat",
+      subcategory: "battle",
+    });
+  });
+
+  it("ancestor folder match still beats pack default", () => {
+    // MUSIC/Horror/atmosphericburn_audiohero/track.mp3 — ancestor "Horror"
+    // matches HORROR keyword before pack default fires.
+    expect(
+      categorize("Track_001.mp3", "/MUSIC/Horror/atmosphericburn_audiohero"),
+    ).toEqual({ category: "horror" });
+  });
+
+  it("unknown pack still falls back to exploration", () => {
+    expect(categorize("Random.mp3", "totally_made_up_pack")).toEqual({
+      category: "exploration",
+    });
+  });
+
+  it("pack default works for nested layouts too (substring)", () => {
+    // User-added suffix like a year folder shouldn't break recognition.
+    expect(
+      categorize("Track.mp3", "/MUSIC/2026/shadowsfall_audiohero_v2"),
+    ).toEqual({ category: "horror" });
+  });
+});
+
 describe("categorize — precedence rules", () => {
   it("SFX override wins over Combat keyword", () => {
     // "Cannon" is in SFX_OVERRIDE; would otherwise hit Combat via no match.
