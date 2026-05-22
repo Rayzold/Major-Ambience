@@ -246,13 +246,18 @@ const SCIFI = [
 const VOICES = ["voice", "narration", "monster sound"];
 
 // Non-musical SFX overrides. Match anywhere in name or pack folder.
+//
+// Note: bare weather words (rain, snow, wind, thunder, lightning) intentionally
+// excluded — they show up in song titles constantly ("Reflections on the Snow",
+// "Wind Beneath My Wings"). Real weather SFX packs always carry "weather" or
+// "weatherwounds" in the pack folder name, which still triggers the override
+// in the file+parent check, so genuine weather SFX still classify correctly.
 const SFX_OVERRIDE = [
-  "rain",
-  "thunder",
-  "wind",
-  "snow",
   "weather",
-  "lightning",
+  "weatherwounds",
+  "sfx",
+  "sound effect",
+  "foley",
   "gunfire",
   "explosion",
   "weapon",
@@ -260,7 +265,6 @@ const SFX_OVERRIDE = [
   "crowd",
   "propeller",
   "torpedo",
-  "weatherwounds",
 ];
 
 // Specific composer/piece overrides. Each entry: matcher → result.

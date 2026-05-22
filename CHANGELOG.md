@@ -30,6 +30,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Weighted shuffle queue: category-hero "Shuffle weighted" button calls `weightedShuffle` from `@mc/core`, queues that category, advances on end and via prev/next.
 - Fade duration and master volume now persisted to the `config` table.
 
+### Fixed
+- `categorize.ts` — bare weather words (rain, snow, wind, thunder, lightning) no longer trigger SFX override on their own. Surfaced when "Reflections on the Snow" (piano piece) classified as SFX. Real weather SFX packs still route correctly because the pack folder name carries "weather" or "weatherwounds". Also added "sfx" as a strong ancestor-folder signal.
+
 ### Changed
 - Project renamed from "Music Companion" to **Major Ambience**.
 

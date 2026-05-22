@@ -178,21 +178,53 @@ describe("categorize — scifi", () => {
 });
 
 describe("categorize — SFX override", () => {
-  // Weather and weapon SFX override even when in a "Combat" or "Drama" pack.
+  // Pack-folder signal still routes weather effects to SFX.
   it.each([
     ["Rain Loop.wav", "Weather Wounds"],
     ["Thunder Crash.wav", "Weather Wounds"],
     ["Heavy Wind.mp3", "Weather Wounds"],
     ["Lightning Strike.wav", "Weather Wounds"],
     ["Snow Storm.mp3", "Weather Wounds"],
+  ])("weather pack folder triggers SFX for %s", (filename, parent) => {
+    expect(categorize(filename, parent)).toEqual({ category: "sfx" });
+  });
+
+  // Weapons / specific SFX phrases override via filename alone.
+  it.each([
     ["Gunfire Burst.wav", "Conflict Battle"],
     ["Cannon Volley.wav", "Conflict Battle"],
     ["Explosion Distant.wav", "Conflict Battle"],
     ["Crowd Battle.wav", "Conflict Battle"],
     ["Weapon Clash.wav", "Conflict Battle"],
     ["Propeller Drone.wav", "Drone Swarm Behavior"],
-  ])("classifies %s as sfx regardless of pack", (filename, parent) => {
+  ])("weapon/effect keyword in filename triggers SFX for %s", (filename, parent) => {
     expect(categorize(filename, parent)).toEqual({ category: "sfx" });
+  });
+
+  // SFX top-level ancestor folder catches anything inside it.
+  it("ancestor 'SFX' folder classifies the whole subtree", () => {
+    expect(categorize("Untitled_07.mp3", "/MUSIC/SFX/somepack")).toEqual({ category: "sfx" });
+  });
+
+  // The regression that started this pass: piano music in an ambient/rest
+  // pack must NOT be classified as SFX just because the title contains a
+  // weather word.
+  it("song titles with weather words don't trigger SFX without folder context", () => {
+    expect(
+      categorize(
+        "6 - Phat Phrog Studio - Alpine Peaks - Reflections on the Snow.mp3",
+        "alpinepeaks_rpgpianomusiccollection",
+      ).category,
+    ).not.toBe("sfx");
+    expect(
+      categorize("Rainy Mountain.mp3", "ambient_collection").category,
+    ).not.toBe("sfx");
+    expect(
+      categorize("Wind Beneath My Wings.mp3", "epic_film_score").category,
+    ).not.toBe("sfx");
+    expect(
+      categorize("Thunder of Hooves.mp3", "battle_score").category,
+    ).not.toBe("sfx");
   });
 });
 
