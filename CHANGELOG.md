@@ -12,6 +12,18 @@ Nothing yet — Phase 2 mobile + sync work continues here.
 
 ---
 
+## [0.0.5] — 2026‑05‑23 — Categorize: pack-name lookup for flat libraries
+
+### Fixed
+
+- Auto-categorization for **flat library layouts** where AudioHero packs sit directly under the music root (e.g. `MUSIC/shadowsfall_audiohero/...`) rather than nested under category folders (`MUSIC/Horror/shadowsfall_audiohero/...`). Real-world test on a 5,317-track library had 74 % of tracks falling into the Exploration fallback because the ancestor walk had no category folder to recognize.
+- Added `PACK_DEFAULTS` table in `categorize.ts` mapping all 14 documented AudioHero packs from `CATEGORIZATION_GUIDE.md` to their dominant category, plus 4 commonly-seen variants. Fires after the filename keyword check + ancestor walk but before the Exploration fallback — track-name and explicit category folders still win.
+- Pack-name lookup beats the file+immediate-parent keyword check so packs whose names accidentally contain category keywords (`conflictbattle` has "battle", `droneswarm` has "drone", `spacehord` has "space") route to the documented category instead of the coincident substring.
+- Normalized matching: case-insensitive, separator-stripped. So `ShadowsFall_AudioHero`, `shadowsfall-audiohero`, and `shadowsfall_audiohero_v2` all match the same entry.
+- **169/169 vitest cases pass** (up from 143; 26 new pack-default cases).
+
+---
+
 ## [0.0.4] — 2026‑05‑23 — Hotfix: orphan-delete fails on second scan
 
 ### Fixed
@@ -149,7 +161,9 @@ Initial repository commit. Pre‑production state: design and spec only, no prod
 
 ---
 
-[Unreleased]: https://github.com/Rayzold/Major-Ambience/compare/v0.0.3...HEAD
+[Unreleased]: https://github.com/Rayzold/Major-Ambience/compare/v0.0.5...HEAD
+[0.0.5]: https://github.com/Rayzold/Major-Ambience/compare/v0.0.4...v0.0.5
+[0.0.4]: https://github.com/Rayzold/Major-Ambience/compare/v0.0.3...v0.0.4
 [0.0.3]: https://github.com/Rayzold/Major-Ambience/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/Rayzold/Major-Ambience/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/Rayzold/Major-Ambience/releases/tag/v0.0.1

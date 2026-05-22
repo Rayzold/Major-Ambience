@@ -267,6 +267,61 @@ const SFX_OVERRIDE = [
   "torpedo",
 ];
 
+// Pack-name → dominant category. Source: docs/CATEGORIZATION_GUIDE.md
+// "Packs Already Processed" table. For mixed packs the most common
+// category wins (e.g. orchestraldreams_audiohero is split across Ambient
+// / Tavern / Rest / Exploration / Tension but is mostly Ambient).
+//
+// Keys are normalized — lowercase, alphanumeric only — so user folders
+// with spaces, hyphens, or different capitalization still match.
+const PACK_DEFAULTS_RAW: Record<string, CategorizeResult> = {
+  // Documented packs (14)
+  actionpacked_audiohero: { category: "combat", subcategory: "battle" },
+  adrenalinerush_audiohero: { category: "combat", subcategory: "battle" },
+  atmosphericburn_audiohero: { category: "ambient" },
+  conflictbattle_audiohero: { category: "sfx" },
+  drama_audiohero: { category: "ambient" },
+  droneswarm_audiohero: { category: "sfx" },
+  enchantedlands_audiohero: { category: "rest" },
+  grandfleet_audiohero: { category: "combat", subcategory: "battle" },
+  hauntedharmonies_audiohero: { category: "horror" },
+  herosjourney_audiohero: { category: "exploration" },
+  legendroundtable_audiohero: { category: "tavern" },
+  ominousovertures_audiohero: { category: "tension" },
+  orchestraldreams_audiohero: { category: "ambient" },
+  shadowsfall_audiohero: { category: "horror" },
+  spacehord_audiohero: { category: "ambient" },
+  symphonicmajestic_audiohero: { category: "ambient" },
+  weatherwounds_audiohero: { category: "sfx" },
+  // Additional packs commonly seen in libraries (best-effort defaults)
+  legendarythemes_audiohero: { category: "exploration" },
+  dramascenes_audiohero: { category: "ambient" },
+  romanticemotional_audiohero: { category: "ambient" },
+  blockbusterbeasts_audiohero: { category: "exploration" },
+};
+
+const PACK_DEFAULTS: ReadonlyMap<string, CategorizeResult> = new Map(
+  Object.entries(PACK_DEFAULTS_RAW).map(([k, v]) => [normalizeFolderName(k), v]),
+);
+
+function normalizeFolderName(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function packDefaultFor(segment: string): CategorizeResult | undefined {
+  if (!segment) return undefined;
+  const norm = normalizeFolderName(segment);
+  if (norm.length === 0) return undefined;
+  // Exact match first
+  const exact = PACK_DEFAULTS.get(norm);
+  if (exact) return exact;
+  // Then substring (e.g. user folder "shadowsfall_audiohero_2" still hits)
+  for (const [key, val] of PACK_DEFAULTS) {
+    if (norm.includes(key)) return val;
+  }
+  return undefined;
+}
+
 // Specific composer/piece overrides. Each entry: matcher → result.
 // Listed in priority order; first hit wins.
 const COMPOSER_PIECES: Array<{ match: string[]; result: CategorizeResult }> = [
@@ -311,22 +366,37 @@ export function categorize(
   const fileMatch = match(normalizedFile);
   if (fileMatch) return fileMatch;
 
-  // 2. Filename + immediate parent (the pack folder).
+  // 2. Ancestor folder walk (closest first, excluding immediate parent).
+  //    Explicit category folders like /MUSIC/Horror/<pack>/ should beat
+  //    everything except a filename match. Also catches MUSIC/Combat/
+  //    Battle/<pack>/track.mp3 where the grandparent supplies the
+  //    subcategory.
+  for (let i = segments.length - 2; i >= 0; i--) {
+    const combined = `${normalizedFile} ${segments[i]!}`.trim();
+    const m = match(combined);
+    if (m) return m;
+  }
+
+  // 3. Known pack default on the immediate parent. Beats the
+  //    file+immediate-parent keyword check below so packs whose names
+  //    accidentally contain category keywords ("conflictbattle" has
+  //    "battle", "droneswarm" has "drone", "spacehord" has "space")
+  //    route to the documented category instead of the coincident one.
+  const immediatePack = packDefaultFor(immediate);
+  if (immediatePack) return immediatePack;
+
+  // 4. Filename + immediate parent keyword check — catches packs not in
+  //    PACK_DEFAULTS but whose folder names carry useful keywords.
   const fileParent = `${normalizedFile} ${immediate}`.trim();
   if (fileParent !== normalizedFile) {
     const m = match(fileParent);
     if (m) return m;
   }
 
-  // 3. Walk ancestor folders, closest first. A library laid out as
-  //    MUSIC/Combat/Battle/pack/track.mp3 lets the grandparent "Battle"
-  //    settle category + subcategory even when filename + pack are mute.
+  // 5. Pack default on deeper ancestors — catches nested layouts where
+  //    the user wrapped a pack in extra folders (year, batch, etc.).
   for (let i = segments.length - 2; i >= 0; i--) {
-    const seg = segments[i]!;
-    // Combine with filename so a per-file boss/skirmish keyword can still
-    // pick the subcategory inside an ancestor like "Combat".
-    const combined = `${normalizedFile} ${seg}`.trim();
-    const m = match(combined);
+    const m = packDefaultFor(segments[i]!);
     if (m) return m;
   }
 
