@@ -8,15 +8,53 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-### Added — Phase 2
+Nothing yet — Phase 2 mobile + sync work continues here.
 
-- **Themes** (`DESIGN.md § 5.5`) — three locked themes wired end-to-end: **Gold & Dark** (canonical default), **Parchment** (light variant with cream surfaces + deep brown ink + brass accent), **Arcane** (Horror palette as the surface ramp, gold accent unchanged). Category palette and gold accent stay consistent across all three per spec.
+---
+
+## [0.0.4] — 2026‑05‑23 — Hotfix: orphan-delete fails on second scan
+
+### Fixed
+
+- `deleteTracksNotIn` (in `@mc/data/tracks-repo`) was using a `TEMP` table named `keep_ids` to hold the keep-set, then running `DELETE FROM tracks WHERE id NOT IN (SELECT id FROM keep_ids)`. `tauri-plugin-sql` v2 returns a different pool connection per `db.execute()`, and SQLite `TEMP` tables are connection-local — so the DELETE ran on a connection that didn't see the helper table and panicked with `(code: 1) no such table: keep_ids`. Same root cause as the v0.0.2 SQLITE_BUSY transaction bug.
+- Switched to a regular (non-TEMP) helper table named `_mc_keep_ids`, created + populated + read + dropped in a `try/finally` so a crash mid-flow doesn't leak the table.
+- Bumped desktop version `0.0.1` → `0.0.4` in `tauri.conf.json`, `package.json`, and `Cargo.toml` so MSI bundle filenames line up with the tag.
+
+### Note
+
+The CHANGELOG entries for v0.0.3 (Themes, DM Mode, DM Toolkit) live under the [0.0.3] section below. Previous versions of this file had those entries stuck under `[Unreleased]` because of a PR-squash artifact; that's resolved as part of this release.
+
+---
+
+## [0.0.3] — 2026‑05‑22 — Phase 2 begins: Themes, DM Mode, DM Toolkit
+
+First Phase 2 milestone. Three locked DESIGN.md features that round out the desktop product before mobile + sync land.
+
+### Added — Themes (`DESIGN.md § 5.5`)
+
+- Three locked themes wired end-to-end: **Gold & Dark** (canonical default), **Parchment** (light variant with cream surfaces + deep brown ink + brass accent), **Arcane** (Horror palette as the surface ramp, gold accent unchanged). Category palette and gold accent stay consistent across all three per spec.
 - Theme switching is a single class toggle on `<html>`. `T` in `@mc/ui` now exports `var(--mc-…)` strings instead of hex values, so swapping themes never triggers a React re-render cascade.
 - New theme-aware tokens: `chromeBg` (translucent header / transport), `popoverBg` (search, pin menu, settings popup), `modalBackdrop` (save-scene modal, tutorial overlay) — all per-theme so light + dark + violet popovers all read correctly.
 - Settings icon popup grew a **Themes** section above Tutorials with a mini palette swatch per theme and a check mark on the active one. Persisted as `theme` in `config`.
-- **DM Toolkit** (`DESIGN.md § 6.3`) — fourth header tab. Three-column desktop layout: **Names** (race-aware NPC generator across Any / Human / Elf / Dwarf / Orc / Halfling — click name to copy, last 30 in history), **Dice** (d4–d100 polyhedrals with count + modifier + advantage / disadvantage for d20, last 30 rolls with nat 1 / nat 20 highlighting), **Initiative** (add combatants with init + condition, sort descending, next / prev turn buttons, drag a track from the Library onto a combatant to set a turn sound). Turn sounds fire through the soundboard bus on turn advance — auto-ducks the music just like a regular pad. All three histories + the combatant roster persisted in the config table.
-- Right-click pin menu grew a **"Set as turn sound"** section below the soundboard grid. Lists every combatant in the initiative tracker with their current turn sound (if any). Avoids the cross-tab drag-and-drop problem when the Library and DM Tools tabs are mutually exclusive.
-- **DM Mode** (`DESIGN.md § 6.2`) — single toggle on the theatre icon in the header. Red "DM MODE" pill appears next to the logo with a soft red glow when on. Hides editing affordances that would either distract at the table or reveal private GM judgment: grade chips (track rows, transport, right rail), play counts, right-click pin menu + drag-to-assign, Save current scene, scene delete chip, per-pad clear/loop/volume controls, settings icon, Open Folder, DM Toolkit. Keeps every player-facing affordance visible: category sidebar, track list, search, scenes/soundboard tabs, fade/duck/volume sliders, prev/play/next, scrubber. Persisted as `dm_mode` in `config`; reopening any popovers is blocked while DM Mode is on.
+
+### Added — DM Mode (`DESIGN.md § 6.2`)
+
+- Single toggle on the theatre icon in the header. Red "DM MODE" pill next to the logo with a soft red glow when on.
+- Hides editing affordances that would either distract at the table or reveal private GM judgment: grade chips (track rows, transport, right rail), play counts, right-click pin menu + drag-to-assign, Save current scene, scene delete chip, per-pad clear/loop/volume controls, settings icon, Open Folder, DM Toolkit.
+- Keeps player-facing affordances visible: category sidebar, track list, search, scenes/soundboard tabs, fade/duck/volume sliders, prev/play/next, scrubber, orb visualizer.
+- Persisted as `dm_mode` in `config`.
+
+### Added — DM Toolkit (`DESIGN.md § 6.3`)
+
+- Fourth header tab + entry from the dice icon in the right cluster.
+- Three-column desktop layout: **Names** (race-aware NPC generator), **Dice** (d4–d100 with adv/dis on d20, nat-20/nat-1 highlighting), **Initiative** (add combatants with init + condition, sort descending, prev/next cycle).
+- **Turn sounds** — drag a track onto a combatant *or* right-click any track in the Library and pick a combatant from a new "Set as turn sound" section. On turn advance, the active combatant's turn sound fires through the soundboard bus — auto-ducks the music exactly like a regular pad.
+- All three histories + the combatant roster persisted in the `config` table.
+
+### Changed
+
+- Right-click pin menu grew a "Set as turn sound" section below the soundboard grid.
+- Hardcoded `rgba(11,9,19,0.x)` translucent backgrounds replaced with theme-aware `T.chromeBg` / `T.popoverBg` / `T.modalBackdrop` references.
 
 ---
 

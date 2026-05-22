@@ -104,7 +104,12 @@ export async function setDuration(db: Db, trackId: string, durationMs: number): 
  * drop tracks that no longer exist on disk (renamed, moved, or junk like
  * macOS `._` files indexed before the scanner filtered them).
  *
- * Chunked because SQLite's default SQLITE_MAX_VARIABLE_NUMBER is 999.
+ * Uses a regular helper table (not TEMP) because tauri-plugin-sql v2
+ * returns a different pool connection per execute(), and TEMP tables
+ * are connection-local in SQLite. We create + populate + delete from +
+ * drop the helper table; the connection that runs the DELETE
+ * `WHERE id NOT IN (SELECT id FROM helper)` may differ from the
+ * connection that created it, so the helper has to be real.
  */
 export async function deleteTracksNotIn(db: Db, keepIds: readonly string[]): Promise<number> {
   if (keepIds.length === 0) {
@@ -112,20 +117,24 @@ export async function deleteTracksNotIn(db: Db, keepIds: readonly string[]): Pro
     await db.execute("DELETE FROM tracks");
     return before;
   }
-  // Build a temp table of ids to keep, then delete the complement. Safer
-  // than 5,000 placeholders in a single statement.
-  await db.execute("CREATE TEMP TABLE IF NOT EXISTS keep_ids (id TEXT PRIMARY KEY)");
-  await db.execute("DELETE FROM keep_ids");
-  for (const id of keepIds) {
-    await db.execute("INSERT OR IGNORE INTO keep_ids (id) VALUES ($1)", [id]);
+  // Best-effort drop in case a prior crashed run left the helper behind.
+  await db.execute("DROP TABLE IF EXISTS _mc_keep_ids");
+  await db.execute("CREATE TABLE _mc_keep_ids (id TEXT PRIMARY KEY)");
+  try {
+    for (const id of keepIds) {
+      await db.execute("INSERT OR IGNORE INTO _mc_keep_ids (id) VALUES ($1)", [id]);
+    }
+    const beforeRows = await db.select<Array<{ n: number }>>(
+      "SELECT COUNT(*) AS n FROM tracks WHERE id NOT IN (SELECT id FROM _mc_keep_ids)",
+    );
+    const removed = beforeRows[0]?.n ?? 0;
+    await db.execute(
+      "DELETE FROM tracks WHERE id NOT IN (SELECT id FROM _mc_keep_ids)",
+    );
+    return removed;
+  } finally {
+    await db.execute("DROP TABLE IF EXISTS _mc_keep_ids");
   }
-  const beforeRows = await db.select<Array<{ n: number }>>(
-    "SELECT COUNT(*) AS n FROM tracks WHERE id NOT IN (SELECT id FROM keep_ids)",
-  );
-  const removed = beforeRows[0]?.n ?? 0;
-  await db.execute("DELETE FROM tracks WHERE id NOT IN (SELECT id FROM keep_ids)");
-  await db.execute("DROP TABLE keep_ids");
-  return removed;
 }
 
 function rowToTrack(row: TrackRow): Track {
