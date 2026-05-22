@@ -35,6 +35,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added (post-MVP, Phase 1)
 - **Search** — FTS5 across title / pack / note. Spotlight-style overlay drops below the header search input. Debounced 120ms. Click result to play (and dismiss). Ctrl+K focuses search from anywhere, ESC closes. `searchTracks(db, query, limit)` in `@mc/data` builds a prefix-match AND-chain ("mighty seas" → `mighty* seas*`).
+- **Scenes** — first version of `prototype/app/screens.jsx` Scenes view. Save the current category, queue, fade, and master volume as a named snapshot; restore it in one click. `scenes-repo.ts` in `@mc/data` serializes Scene objects to the JSON payload column. Scenes tab in the header is now live with a 3-column card grid, save-current-scene modal, and per-card restore + delete.
 
 ### Changed
 - Project renamed from "Music Companion" to **Major Ambience**.

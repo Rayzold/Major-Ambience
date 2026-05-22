@@ -4,16 +4,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import type { CategoryId, Grade, Track, TrackHandle } from "@mc/core";
+import type { CategoryId, Grade, Scene, Track, TrackHandle } from "@mc/core";
 import { crossfade, weightedShuffle } from "@mc/core";
 import {
   bumpPlayCount,
+  deleteScene,
   deleteTracksNotIn,
   getConfig,
   getConfigNumber,
   getDb,
   insertTracks,
+  listScenes,
   listTracks,
+  saveScene,
   searchTracks,
   setConfig,
   setDuration,
@@ -26,7 +29,9 @@ import { DesktopHeader } from "./layout/DesktopHeader.js";
 import { DesktopSidebar } from "./layout/DesktopSidebar.js";
 import { DesktopLibraryView } from "./layout/DesktopLibraryView.js";
 import { DesktopRightRail } from "./layout/DesktopRightRail.js";
+import { DesktopScenesView } from "./layout/DesktopScenesView.js";
 import { DesktopTransport } from "./layout/DesktopTransport.js";
+import { SaveSceneDialog } from "./layout/SaveSceneDialog.js";
 import { SearchOverlay } from "./layout/SearchOverlay.js";
 
 const DEFAULT_FADE_MS = 2000;
@@ -58,6 +63,9 @@ export function Library() {
   const [searchResults, setSearchResults] = useState<Track[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const [scenes, setScenes] = useState<Scene[]>([]);
+  const [activeSceneId, setActiveSceneId] = useState<string | undefined>(undefined);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
 
   // ── Derived ─────────────────────────────────────────────────────────────
   const currentTrack = useMemo(
@@ -112,6 +120,8 @@ export function Library() {
         getAudioBackend().setMasterGain(vol);
         const root = await getConfig(db, "root_folder_name");
         setRootFolderName(root);
+        const loadedScenes = await listScenes(db);
+        setScenes(loadedScenes);
       } catch (err) {
         console.error("[library] init failed:", err);
       }
@@ -334,6 +344,83 @@ export function Library() {
     await setConfig(db, "master_volume", String(v));
   }
 
+  // ── Scenes ─────────────────────────────────────────────────────────────
+  async function handleSaveScene(name: string) {
+    // Top non-primary categories from the active queue become accents.
+    const accentCounts = new Map<CategoryId, number>();
+    for (const t of queue) {
+      if (t.category === activeCategory) continue;
+      accentCounts.set(t.category, (accentCounts.get(t.category) ?? 0) + 1);
+    }
+    const accents = Array.from(accentCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 2)
+      .map(([id]) => id);
+
+    const scene: Scene = {
+      id: cryptoRandomId(),
+      name,
+      primaryCategory: activeCategory,
+      accentCategories: accents,
+      trackIds: queue.map((t) => t.id),
+      soundboardPage: "A",
+      fadeMs,
+      duckingPct: 40,
+      volumes: { [activeCategory]: masterVolume } as Partial<
+        Record<CategoryId, number>
+      >,
+      createdAt: Date.now(),
+    };
+
+    const db = await getDb();
+    await saveScene(db, scene);
+    const refreshed = await listScenes(db);
+    setScenes(refreshed);
+    setActiveSceneId(scene.id);
+    setSaveDialogOpen(false);
+    setScanStatus(`Saved scene "${scene.name}".`);
+  }
+
+  async function handleRestoreScene(scene: Scene) {
+    setActiveCategory(scene.primaryCategory);
+    setFadeMs(scene.fadeMs);
+    const db = await getDb();
+    await setConfig(db, "fade_ms", String(scene.fadeMs));
+    const sceneVol = scene.volumes[scene.primaryCategory];
+    if (typeof sceneVol === "number") {
+      setMasterVolume(sceneVol);
+      await setConfig(db, "master_volume", String(sceneVol));
+    }
+    setActiveSceneId(scene.id);
+    setTab("library");
+
+    // Rebuild the queue: prefer the saved trackIds (in saved order),
+    // fall back to a fresh weighted shuffle of the primary category.
+    const saved =
+      scene.trackIds.length > 0
+        ? scene.trackIds
+            .map((id) => tracks.find((t) => t.id === id))
+            .filter((t): t is Track => t !== undefined)
+        : [];
+    const restoredQueue =
+      saved.length > 0
+        ? saved
+        : weightedShuffle(tracks.filter((t) => t.category === scene.primaryCategory));
+    setQueue(restoredQueue);
+    const first = restoredQueue[0];
+    if (first) {
+      await handlePlayTrack(first);
+    }
+    setScanStatus(`Restored scene "${scene.name}".`);
+  }
+
+  async function handleDeleteScene(scene: Scene) {
+    const db = await getDb();
+    await deleteScene(db, scene.id);
+    setScenes((prev) => prev.filter((s) => s.id !== scene.id));
+    if (activeSceneId === scene.id) setActiveSceneId(undefined);
+  }
+
   // ── Render ──────────────────────────────────────────────────────────────
   return (
     <div
@@ -388,6 +475,15 @@ export function Library() {
             onPlayTrack={(t) => void handlePlayTrack(t)}
             onShuffleCategory={() => void handleShuffleCategory()}
           />
+        ) : tab === "scenes" ? (
+          <DesktopScenesView
+            scenes={scenes}
+            activeSceneId={activeSceneId}
+            canSave={tracks.length > 0}
+            onOpenSave={() => setSaveDialogOpen(true)}
+            onRestore={(s) => void handleRestoreScene(s)}
+            onDelete={(s) => void handleDeleteScene(s)}
+          />
         ) : (
           <PlaceholderTab tab={tab} />
         )}
@@ -426,6 +522,17 @@ export function Library() {
         >
           {scanStatus}
         </div>
+      ) : null}
+
+      {saveDialogOpen ? (
+        <SaveSceneDialog
+          primaryCategory={activeCategory}
+          queueLength={queue.length}
+          fadeMs={fadeMs}
+          masterVolume={masterVolume}
+          onSave={(name) => void handleSaveScene(name)}
+          onCancel={() => setSaveDialogOpen(false)}
+        />
       ) : null}
 
       {searchOpen ? (
@@ -485,7 +592,7 @@ function AmbientBackground({ category }: { category: CategoryId }) {
   );
 }
 
-function PlaceholderTab({ tab }: { tab: "scenes" | "soundboard" }) {
+function PlaceholderTab({ tab }: { tab: "soundboard" }) {
   return (
     <div
       style={{
@@ -503,12 +610,19 @@ function PlaceholderTab({ tab }: { tab: "scenes" | "soundboard" }) {
     >
       <div className="mc-eyebrow">Coming in Phase 2</div>
       <div>
-        {tab === "scenes"
-          ? "Save and recall multi-category scenes."
-          : "A/B/C pages with 24 drag-to-assign pads."}
+        {tab === "soundboard"
+          ? "A/B/C pages with 24 drag-to-assign pads."
+          : ""}
       </div>
     </div>
   );
+}
+
+function cryptoRandomId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `s_${Date.now().toString(36)}_${Math.floor(Math.random() * 1e9).toString(36)}`;
 }
 
 function tallyCategories(tracks: Track[]): string {
