@@ -5,7 +5,7 @@
 import type { CSSProperties, Ref } from "react";
 import { Glyph, T } from "@mc/ui";
 
-type Tab = "library" | "scenes" | "soundboard";
+type Tab = "library" | "scenes" | "soundboard" | "dm";
 
 export type DesktopHeaderProps = {
   tab: Tab;
@@ -28,6 +28,7 @@ const tabs: Array<{ id: Tab; label: string; icon: string }> = [
   { id: "library", label: "Library", icon: "library" },
   { id: "scenes", label: "Scenes", icon: "scenes" },
   { id: "soundboard", label: "Soundboard", icon: "soundboard" },
+  { id: "dm", label: "DM Tools", icon: "dice" },
 ];
 
 const iconBtn: CSSProperties = {
@@ -132,7 +133,9 @@ export function DesktopHeader({
                   ? "scenes-tab"
                   : t.id === "soundboard"
                     ? "soundboard-tab"
-                    : undefined
+                    : t.id === "dm"
+                      ? "dm-tab"
+                      : undefined
               }
               style={{
                 display: "inline-flex",
@@ -234,7 +237,14 @@ export function DesktopHeader({
           </button>
         )}
         {dmMode ? null : (
-          <button style={iconBtn} title="DM Toolkit — coming in Phase 2">
+          <button
+            onClick={() => onTabChange("dm")}
+            style={{
+              ...iconBtn,
+              color: tab === "dm" ? T.gold : T.ink2,
+            }}
+            title="DM Toolkit"
+          >
             <Glyph name="dice" size={16} />
           </button>
         )}

@@ -28,6 +28,7 @@ import {
 import { applyTheme, CATEGORIES, findCategory, type ThemeId } from "@mc/ui";
 import { scanFolderToTracks } from "./lib/scan.js";
 import { getAudioBackend } from "./lib/audio.js";
+import { DesktopDmToolkit } from "./layout/DesktopDmToolkit.js";
 import { DesktopHeader } from "./layout/DesktopHeader.js";
 import { DesktopSidebar } from "./layout/DesktopSidebar.js";
 import { DesktopLibraryView } from "./layout/DesktopLibraryView.js";
@@ -35,6 +36,9 @@ import { DesktopRightRail } from "./layout/DesktopRightRail.js";
 import { DesktopScenesView } from "./layout/DesktopScenesView.js";
 import { DesktopSoundboardView } from "./layout/DesktopSoundboardView.js";
 import { DesktopTransport } from "./layout/DesktopTransport.js";
+import type { Combatant } from "./layout/dm/InitiativeTracker.js";
+import type { RolledName } from "./layout/dm/NameGenerator.js";
+import type { RollResult } from "./lib/dm-dice.js";
 import { PinToSlotMenu } from "./layout/PinToSlotMenu.js";
 import { SaveSceneDialog } from "./layout/SaveSceneDialog.js";
 import { SearchOverlay } from "./layout/SearchOverlay.js";
@@ -68,7 +72,7 @@ export function Library() {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [rootFolderName, setRootFolderName] = useState<string | undefined>(undefined);
   const [activeCategory, setActiveCategory] = useState<CategoryId>("combat");
-  const [tab, setTab] = useState<"library" | "scenes" | "soundboard">("library");
+  const [tab, setTab] = useState<"library" | "scenes" | "soundboard" | "dm">("library");
   const [playback, setPlayback] = useState<PlaybackState | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -99,6 +103,10 @@ export function Library() {
   const [seenTutorials, setSeenTutorials] = useState<Set<string>>(new Set());
   const [theme, setTheme] = useState<ThemeId>(DEFAULT_THEME);
   const [dmMode, setDmMode] = useState(false);
+  const [nameHistory, setNameHistory] = useState<RolledName[]>([]);
+  const [rollHistory, setRollHistory] = useState<RollResult[]>([]);
+  const [combatants, setCombatants] = useState<Combatant[]>([]);
+  const [currentTurnIdx, setCurrentTurnIdx] = useState(0);
 
   // ── Derived ─────────────────────────────────────────────────────────────
   const currentTrack = useMemo(
@@ -173,6 +181,30 @@ export function Library() {
         }
         const dmRaw = await getConfig(db, "dm_mode");
         if (dmRaw === "true") setDmMode(true);
+        const namesRaw = await getConfig(db, "dm_name_history");
+        if (namesRaw) {
+          try {
+            setNameHistory(JSON.parse(namesRaw) as RolledName[]);
+          } catch {
+            /* swallow */
+          }
+        }
+        const rollsRaw = await getConfig(db, "dm_roll_history");
+        if (rollsRaw) {
+          try {
+            setRollHistory(JSON.parse(rollsRaw) as RollResult[]);
+          } catch {
+            /* swallow */
+          }
+        }
+        const combRaw = await getConfig(db, "dm_combatants");
+        if (combRaw) {
+          try {
+            setCombatants(JSON.parse(combRaw) as Combatant[]);
+          } catch {
+            /* swallow */
+          }
+        }
       } catch (err) {
         console.error("[library] init failed:", err);
       }
@@ -413,6 +445,40 @@ export function Library() {
     applyTheme(id);
     const db = await getDb();
     await setConfig(db, "theme", id);
+  }
+
+  // ── DM Toolkit ─────────────────────────────────────────────────────────
+  async function handleNameHistoryChange(next: RolledName[]) {
+    setNameHistory(next);
+    const db = await getDb();
+    await setConfig(db, "dm_name_history", JSON.stringify(next));
+  }
+
+  async function handleRollHistoryChange(next: RollResult[]) {
+    setRollHistory(next);
+    const db = await getDb();
+    await setConfig(db, "dm_roll_history", JSON.stringify(next));
+  }
+
+  async function handleCombatantsChange(next: Combatant[]) {
+    setCombatants(next);
+    const db = await getDb();
+    await setConfig(db, "dm_combatants", JSON.stringify(next));
+  }
+
+  function handleTurnChange(newIdx: number) {
+    setCurrentTurnIdx(newIdx);
+    // Fire turn sound through soundboard bus (auto-ducks music).
+    const sorted = [...combatants].sort((a, b) => b.initiative - a.initiative);
+    const next = sorted[newIdx];
+    if (next?.turnSoundTrackId) {
+      const track = tracks.find((t) => t.id === next.turnSoundTrackId);
+      if (track) {
+        // Reserve a special pseudo-pad slot for turn sounds so it shares the
+        // soundboard bus + auto-ducking, but doesn't collide with real pads.
+        void firePad("A", 99 + newIdx, track, { loop: false, volume: 0.95 });
+      }
+    }
   }
 
   // ── DM Mode ────────────────────────────────────────────────────────────
@@ -686,7 +752,7 @@ export function Library() {
             onDelete={(s) => void handleDeleteScene(s)}
             dmMode={dmMode}
           />
-        ) : (
+        ) : tab === "soundboard" ? (
           <DesktopSoundboardView
             key={padPlayingTick}
             page={soundboardPage}
@@ -701,6 +767,18 @@ export function Library() {
             onSetLoop={(p, s, l) => void handlePadSetLoop(p, s, l)}
             onSetVolume={(p, s, v) => void handlePadSetVolume(p, s, v)}
             dmMode={dmMode}
+          />
+        ) : (
+          <DesktopDmToolkit
+            nameHistory={nameHistory}
+            onNameHistory={(next) => void handleNameHistoryChange(next)}
+            rollHistory={rollHistory}
+            onRollHistory={(next) => void handleRollHistoryChange(next)}
+            combatants={combatants}
+            currentTurnIdx={currentTurnIdx}
+            tracksById={tracksById}
+            onCombatantsChange={(next) => void handleCombatantsChange(next)}
+            onTurnChange={handleTurnChange}
           />
         )}
 
