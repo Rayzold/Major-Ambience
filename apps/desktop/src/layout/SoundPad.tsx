@@ -17,6 +17,7 @@ export type SoundPadProps = {
   onClear: () => void;
   onSetLoop: (loop: boolean) => void;
   onSetVolume: (v: number) => void;
+  dmMode: boolean;
 };
 
 export function SoundPad({
@@ -30,6 +31,7 @@ export function SoundPad({
   onClear,
   onSetLoop,
   onSetVolume,
+  dmMode,
 }: SoundPadProps) {
   const [dragHover, setDragHover] = useState(false);
   const cat = track ? findCategory(track.category) : undefined;
@@ -37,6 +39,7 @@ export function SoundPad({
   const dark = cat?.dark ?? T.bgCard;
 
   function handleDragOver(e: React.DragEvent<HTMLDivElement>) {
+    if (dmMode) return;
     if (e.dataTransfer.types.includes("application/x-mc-track")) {
       e.preventDefault();
       e.dataTransfer.dropEffect = "copy";
@@ -44,6 +47,7 @@ export function SoundPad({
   }
 
   function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    if (dmMode) return;
     setDragHover(false);
     const trackId = e.dataTransfer.getData("application/x-mc-track");
     if (trackId) {
@@ -157,6 +161,7 @@ export function SoundPad({
             ) : null}
           </button>
 
+          {dmMode ? null : (
           <div
             style={{
               position: "absolute",
@@ -233,6 +238,7 @@ export function SoundPad({
               <Glyph name="close" size={11} />
             </button>
           </div>
+          )}
         </>
       ) : (
         <div

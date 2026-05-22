@@ -25,9 +25,10 @@ import {
   setGrade as persistGrade,
   upsertSlot,
 } from "@mc/data";
-import { CATEGORIES, findCategory } from "@mc/ui";
+import { applyTheme, CATEGORIES, findCategory, type ThemeId } from "@mc/ui";
 import { scanFolderToTracks } from "./lib/scan.js";
 import { getAudioBackend } from "./lib/audio.js";
+import { DesktopDmToolkit } from "./layout/DesktopDmToolkit.js";
 import { DesktopHeader } from "./layout/DesktopHeader.js";
 import { DesktopSidebar } from "./layout/DesktopSidebar.js";
 import { DesktopLibraryView } from "./layout/DesktopLibraryView.js";
@@ -35,6 +36,9 @@ import { DesktopRightRail } from "./layout/DesktopRightRail.js";
 import { DesktopScenesView } from "./layout/DesktopScenesView.js";
 import { DesktopSoundboardView } from "./layout/DesktopSoundboardView.js";
 import { DesktopTransport } from "./layout/DesktopTransport.js";
+import type { Combatant } from "./layout/dm/InitiativeTracker.js";
+import type { RolledName } from "./layout/dm/NameGenerator.js";
+import type { RollResult } from "./lib/dm-dice.js";
 import { PinToSlotMenu } from "./layout/PinToSlotMenu.js";
 import { SaveSceneDialog } from "./layout/SaveSceneDialog.js";
 import { SearchOverlay } from "./layout/SearchOverlay.js";
@@ -53,6 +57,8 @@ import {
 const DEFAULT_FADE_MS = 2000;
 const DEFAULT_VOLUME = 0.85;
 const DEFAULT_DUCKING = 0.4;
+const DEFAULT_THEME: ThemeId = "gold-dark";
+const KNOWN_THEMES: readonly ThemeId[] = ["gold-dark", "parchment", "arcane"];
 const GRADE_CYCLE: Grade[] = ["S", "A", "B", "C", "D", "F", null];
 
 type PlaybackState = {
@@ -66,7 +72,7 @@ export function Library() {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [rootFolderName, setRootFolderName] = useState<string | undefined>(undefined);
   const [activeCategory, setActiveCategory] = useState<CategoryId>("combat");
-  const [tab, setTab] = useState<"library" | "scenes" | "soundboard">("library");
+  const [tab, setTab] = useState<"library" | "scenes" | "soundboard" | "dm">("library");
   const [playback, setPlayback] = useState<PlaybackState | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -95,6 +101,12 @@ export function Library() {
   >(null);
   const [activeTutorialId, setActiveTutorialId] = useState<string | null>(null);
   const [seenTutorials, setSeenTutorials] = useState<Set<string>>(new Set());
+  const [theme, setTheme] = useState<ThemeId>(DEFAULT_THEME);
+  const [dmMode, setDmMode] = useState(false);
+  const [nameHistory, setNameHistory] = useState<RolledName[]>([]);
+  const [rollHistory, setRollHistory] = useState<RollResult[]>([]);
+  const [combatants, setCombatants] = useState<Combatant[]>([]);
+  const [currentTurnIdx, setCurrentTurnIdx] = useState(0);
 
   // ── Derived ─────────────────────────────────────────────────────────────
   const currentTrack = useMemo(
@@ -159,6 +171,39 @@ export function Library() {
         const seenRaw = await getConfig(db, "tutorials_seen");
         if (seenRaw) {
           setSeenTutorials(new Set(seenRaw.split(",").filter(Boolean)));
+        }
+        const themeRaw = (await getConfig(db, "theme")) as ThemeId | undefined;
+        if (themeRaw && KNOWN_THEMES.includes(themeRaw)) {
+          setTheme(themeRaw);
+          applyTheme(themeRaw);
+        } else {
+          applyTheme(DEFAULT_THEME);
+        }
+        const dmRaw = await getConfig(db, "dm_mode");
+        if (dmRaw === "true") setDmMode(true);
+        const namesRaw = await getConfig(db, "dm_name_history");
+        if (namesRaw) {
+          try {
+            setNameHistory(JSON.parse(namesRaw) as RolledName[]);
+          } catch {
+            /* swallow */
+          }
+        }
+        const rollsRaw = await getConfig(db, "dm_roll_history");
+        if (rollsRaw) {
+          try {
+            setRollHistory(JSON.parse(rollsRaw) as RollResult[]);
+          } catch {
+            /* swallow */
+          }
+        }
+        const combRaw = await getConfig(db, "dm_combatants");
+        if (combRaw) {
+          try {
+            setCombatants(JSON.parse(combRaw) as Combatant[]);
+          } catch {
+            /* swallow */
+          }
         }
       } catch (err) {
         console.error("[library] init failed:", err);
@@ -394,6 +439,62 @@ export function Library() {
     await setConfig(db, "ducking_pct", String(pct));
   }
 
+  // ── Themes ─────────────────────────────────────────────────────────────
+  async function handlePickTheme(id: ThemeId) {
+    setTheme(id);
+    applyTheme(id);
+    const db = await getDb();
+    await setConfig(db, "theme", id);
+  }
+
+  // ── DM Toolkit ─────────────────────────────────────────────────────────
+  async function handleNameHistoryChange(next: RolledName[]) {
+    setNameHistory(next);
+    const db = await getDb();
+    await setConfig(db, "dm_name_history", JSON.stringify(next));
+  }
+
+  async function handleRollHistoryChange(next: RollResult[]) {
+    setRollHistory(next);
+    const db = await getDb();
+    await setConfig(db, "dm_roll_history", JSON.stringify(next));
+  }
+
+  async function handleCombatantsChange(next: Combatant[]) {
+    setCombatants(next);
+    const db = await getDb();
+    await setConfig(db, "dm_combatants", JSON.stringify(next));
+  }
+
+  function handleTurnChange(newIdx: number) {
+    setCurrentTurnIdx(newIdx);
+    // Fire turn sound through soundboard bus (auto-ducks music).
+    const sorted = [...combatants].sort((a, b) => b.initiative - a.initiative);
+    const next = sorted[newIdx];
+    if (next?.turnSoundTrackId) {
+      const track = tracks.find((t) => t.id === next.turnSoundTrackId);
+      if (track) {
+        // Reserve a special pseudo-pad slot for turn sounds so it shares the
+        // soundboard bus + auto-ducking, but doesn't collide with real pads.
+        void firePad("A", 99 + newIdx, track, { loop: false, volume: 0.95 });
+      }
+    }
+  }
+
+  // ── DM Mode ────────────────────────────────────────────────────────────
+  async function handleToggleDmMode() {
+    const next = !dmMode;
+    setDmMode(next);
+    // Close any open popovers/menus that are no longer reachable.
+    if (next) {
+      setPinMenu(null);
+      setTutorialsMenu(null);
+      setSaveDialogOpen(false);
+    }
+    const db = await getDb();
+    await setConfig(db, "dm_mode", next ? "true" : "false");
+  }
+
   // ── Tutorials ──────────────────────────────────────────────────────────
   const hasUnseenTutorials =
     TUTORIALS.some((t) => !seenTutorials.has(t.id));
@@ -609,6 +710,8 @@ export function Library() {
         searchInputRef={searchInputRef}
         hasUnseenTutorials={hasUnseenTutorials}
         onOpenTutorials={(anchor) => setTutorialsMenu(anchor)}
+        dmMode={dmMode}
+        onToggleDmMode={() => void handleToggleDmMode()}
       />
 
       <div
@@ -634,7 +737,10 @@ export function Library() {
             playingTrackId={playback?.trackId}
             onPlayTrack={(t) => void handlePlayTrack(t)}
             onShuffleCategory={() => void handleShuffleCategory()}
-            onTrackContextMenu={(t, x, y) => setPinMenu({ track: t, x, y })}
+            onTrackContextMenu={(t, x, y) =>
+              dmMode ? undefined : setPinMenu({ track: t, x, y })
+            }
+            dmMode={dmMode}
           />
         ) : tab === "scenes" ? (
           <DesktopScenesView
@@ -644,8 +750,9 @@ export function Library() {
             onOpenSave={() => setSaveDialogOpen(true)}
             onRestore={(s) => void handleRestoreScene(s)}
             onDelete={(s) => void handleDeleteScene(s)}
+            dmMode={dmMode}
           />
-        ) : (
+        ) : tab === "soundboard" ? (
           <DesktopSoundboardView
             key={padPlayingTick}
             page={soundboardPage}
@@ -659,6 +766,19 @@ export function Library() {
             onClear={(p, s) => void handlePadClear(p, s)}
             onSetLoop={(p, s, l) => void handlePadSetLoop(p, s, l)}
             onSetVolume={(p, s, v) => void handlePadSetVolume(p, s, v)}
+            dmMode={dmMode}
+          />
+        ) : (
+          <DesktopDmToolkit
+            nameHistory={nameHistory}
+            onNameHistory={(next) => void handleNameHistoryChange(next)}
+            rollHistory={rollHistory}
+            onRollHistory={(next) => void handleRollHistoryChange(next)}
+            combatants={combatants}
+            currentTurnIdx={currentTurnIdx}
+            tracksById={tracksById}
+            onCombatantsChange={(next) => void handleCombatantsChange(next)}
+            onTurnChange={handleTurnChange}
           />
         )}
 
@@ -670,6 +790,7 @@ export function Library() {
           onCycleGrade={handleCycleGrade}
           onSetGrade={handleSetGrade}
           upNext={upNext}
+          dmMode={dmMode}
         />
       </div>
 
@@ -682,10 +803,10 @@ export function Library() {
             zIndex: 6,
             padding: "6px 12px",
             borderRadius: 999,
-            background: "rgba(11,9,19,0.85)",
+            background: "var(--mc-chromeBg)",
             backdropFilter: "blur(8px)",
-            border: "1px solid rgba(227,182,106,0.25)",
-            color: "#e3b66a",
+            border: "1px solid var(--mc-goldEdge)",
+            color: "var(--mc-gold)",
             fontSize: 11,
             maxWidth: 580,
             overflow: "hidden",
@@ -703,7 +824,9 @@ export function Library() {
           tutorials={TUTORIALS}
           seen={seenTutorials}
           anchor={tutorialsMenu}
-          onPick={(id) => startTutorial(id)}
+          currentTheme={theme}
+          onPickTheme={(id) => void handlePickTheme(id)}
+          onPickTutorial={(id) => startTutorial(id)}
           onDismiss={() => setTutorialsMenu(null)}
         />
       ) : null}
@@ -727,11 +850,30 @@ export function Library() {
           track={pinMenu.track}
           slots={soundboard}
           tracksById={tracksById}
+          combatants={combatants}
           onPin={(page, slot) => {
             void handlePadAssign(page, slot, pinMenu.track.id);
             setPinMenu(null);
             setScanStatus(
               `Pinned "${pinMenu.track.title}" to ${page}·${slot}.`,
+            );
+          }}
+          onSetTurnSound={(combatantId) => {
+            const target = combatants.find((c) => c.id === combatantId);
+            if (!target) {
+              setPinMenu(null);
+              return;
+            }
+            void handleCombatantsChange(
+              combatants.map((c) =>
+                c.id === combatantId
+                  ? { ...c, turnSoundTrackId: pinMenu.track.id }
+                  : c,
+              ),
+            );
+            setPinMenu(null);
+            setScanStatus(
+              `Set "${pinMenu.track.title}" as turn sound for ${target.name}.`,
             );
           }}
           onDismiss={() => setPinMenu(null)}
@@ -784,6 +926,7 @@ export function Library() {
         onSetFadeMs={(ms) => void handleSetFade(ms)}
         onSetVolume={(v) => void handleSetVolume(v)}
         onSetDuckingPct={(p) => void handleSetDucking(p)}
+        dmMode={dmMode}
       />
     </div>
   );

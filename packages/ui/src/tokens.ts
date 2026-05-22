@@ -1,22 +1,29 @@
-// Design tokens ported from prototype/app/ui.jsx — DESIGN.md § 5.1.
-// Treat these values as locked; the prototype is the canonical reference.
+// Design tokens. DESIGN.md § 5.1.
+//
+// T values are CSS custom property references so swapping a theme is one
+// class flip on <html> rather than a re-render cascade. The actual values
+// per theme live in themes.ts and get emitted by installGlobalStyles().
 
 export const T = {
   // surfaces
-  bg: "#0b0913",
-  bgRaise: "#15121f",
-  bgCard: "#1c1828",
-  bgChip: "rgba(243,236,217,0.06)",
-  // ink (warm parchment)
-  ink: "#f3ecd9",
-  ink2: "#b6a890",
-  ink3: "#6b5f4b",
+  bg: "var(--mc-bg)",
+  bgRaise: "var(--mc-bgRaise)",
+  bgCard: "var(--mc-bgCard)",
+  bgChip: "var(--mc-bgChip)",
+  // ink (warm parchment by default)
+  ink: "var(--mc-ink)",
+  ink2: "var(--mc-ink2)",
+  ink3: "var(--mc-ink3)",
   // accent
-  gold: "#e3b66a",
-  goldSoft: "rgba(227,182,106,0.14)",
-  goldEdge: "rgba(227,182,106,0.35)",
+  gold: "var(--mc-gold)",
+  goldSoft: "var(--mc-goldSoft)",
+  goldEdge: "var(--mc-goldEdge)",
   // dividers
-  rule: "rgba(243,236,217,0.07)",
+  rule: "var(--mc-rule)",
+  // chrome / overlays (theme-aware translucent backgrounds)
+  chromeBg: "var(--mc-chromeBg)",
+  popoverBg: "var(--mc-popoverBg)",
+  modalBackdrop: "var(--mc-modalBackdrop)",
 } as const;
 
 export const FONT_DISPLAY =

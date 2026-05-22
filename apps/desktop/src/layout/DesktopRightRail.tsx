@@ -12,6 +12,7 @@ export type DesktopRightRailProps = {
   onCycleGrade: () => void;
   onSetGrade: (g: Grade) => void;
   upNext: Track[];
+  dmMode: boolean;
 };
 
 const GRADES: Array<Exclude<Grade, null>> = ["S", "A", "B", "C", "D", "F"];
@@ -23,6 +24,7 @@ export function DesktopRightRail({
   playing,
   onSetGrade,
   upNext,
+  dmMode,
 }: DesktopRightRailProps) {
   if (!track) {
     return (
@@ -88,7 +90,7 @@ export function DesktopRightRail({
           >
             <CatChip catId={track.category} />
             <span className="mc-mono" style={{ fontSize: 10, color: T.ink3 }}>
-              {track.playCount}× played
+              {dmMode ? "" : `${track.playCount}× played`}
             </span>
           </div>
           <div style={{ display: "flex", justifyContent: "center", padding: "14px 0 6px" }}>
@@ -146,6 +148,7 @@ export function DesktopRightRail({
             <span>−{mins(Math.max(0, durationSec - currentSec))}</span>
           </div>
 
+          {dmMode ? null : (
           <div
             data-mc-tour="grade-row"
             style={{
@@ -181,6 +184,7 @@ export function DesktopRightRail({
               );
             })}
           </div>
+          )}
         </div>
       </div>
 

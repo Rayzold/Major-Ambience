@@ -12,6 +12,7 @@ export type DesktopScenesViewProps = {
   onOpenSave: () => void;
   onRestore: (s: Scene) => void;
   onDelete: (s: Scene) => void;
+  dmMode: boolean;
 };
 
 export function DesktopScenesView({
@@ -21,6 +22,7 @@ export function DesktopScenesView({
   onOpenSave,
   onRestore,
   onDelete,
+  dmMode,
 }: DesktopScenesViewProps) {
   return (
     <div
@@ -63,26 +65,28 @@ export function DesktopScenesView({
             restore everything in one move.
           </p>
         </div>
-        <button
-          onClick={onOpenSave}
-          disabled={!canSave}
-          title={canSave ? "Save the current view as a scene" : "Open a folder first"}
-          style={{
-            padding: "10px 16px",
-            borderRadius: 999,
-            background: canSave ? T.gold : T.bgChip,
-            color: canSave ? "#1a1108" : T.ink3,
-            fontWeight: 600,
-            fontSize: 13,
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-            cursor: canSave ? "pointer" : "not-allowed",
-            flexShrink: 0,
-          }}
-        >
-          <Glyph name="plus" size={14} /> Save current scene
-        </button>
+        {dmMode ? null : (
+          <button
+            onClick={onOpenSave}
+            disabled={!canSave}
+            title={canSave ? "Save the current view as a scene" : "Open a folder first"}
+            style={{
+              padding: "10px 16px",
+              borderRadius: 999,
+              background: canSave ? T.gold : T.bgChip,
+              color: canSave ? "#1a1108" : T.ink3,
+              fontWeight: 600,
+              fontSize: 13,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              cursor: canSave ? "pointer" : "not-allowed",
+              flexShrink: 0,
+            }}
+          >
+            <Glyph name="plus" size={14} /> Save current scene
+          </button>
+        )}
       </div>
 
       {scenes.length === 0 ? (
@@ -119,6 +123,7 @@ export function DesktopScenesView({
               isActive={s.id === activeSceneId}
               onTap={() => onRestore(s)}
               onDelete={() => onDelete(s)}
+              dmMode={dmMode}
             />
           ))}
         </div>
@@ -132,11 +137,13 @@ function SceneCardLarge({
   isActive,
   onTap,
   onDelete,
+  dmMode,
 }: {
   scene: Scene;
   isActive: boolean;
   onTap: () => void;
   onDelete: () => void;
+  dmMode: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   const primary = findCategory(scene.primaryCategory);
@@ -290,7 +297,7 @@ function SceneCardLarge({
           </div>
         </div>
       </button>
-      {hovered ? (
+      {hovered && !dmMode ? (
         <button
           onClick={(e) => {
             e.stopPropagation();

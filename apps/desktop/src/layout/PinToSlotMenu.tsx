@@ -4,13 +4,16 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { SoundboardSlot, Track } from "@mc/core";
 import { findCategory, Glyph, T } from "@mc/ui";
+import type { Combatant } from "./dm/InitiativeTracker.js";
 
 export type PinToSlotMenuProps = {
   anchor: { x: number; y: number };
   track: Track;
   slots: readonly SoundboardSlot[];
   tracksById: ReadonlyMap<string, Track>;
+  combatants: readonly Combatant[];
   onPin: (page: "A" | "B" | "C", slot: number) => void;
+  onSetTurnSound: (combatantId: string) => void;
   onDismiss: () => void;
 };
 
@@ -22,7 +25,9 @@ export function PinToSlotMenu({
   track,
   slots,
   tracksById,
+  combatants,
   onPin,
+  onSetTurnSound,
   onDismiss,
 }: PinToSlotMenuProps) {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -77,7 +82,7 @@ export function PinToSlotMenu({
         top: position.y,
         zIndex: 80,
         width: 360,
-        background: "rgba(21,18,31,0.97)",
+        background: T.popoverBg,
         backdropFilter: "blur(16px)",
         WebkitBackdropFilter: "blur(16px)",
         border: `1px solid ${T.rule}`,
@@ -220,6 +225,120 @@ export function PinToSlotMenu({
           </div>
         ))}
       </div>
+
+      {combatants.length > 0 ? (
+        <div
+          style={{
+            borderTop: `1px solid ${T.rule}`,
+            padding: "8px 12px 10px",
+          }}
+        >
+          <div
+            className="mc-eyebrow"
+            style={{ fontSize: 9, color: T.ink3, padding: "4px 4px 6px" }}
+          >
+            Set as turn sound
+          </div>
+          {[...combatants]
+            .sort((a, b) => b.initiative - a.initiative)
+            .map((c) => {
+              const existing = c.turnSoundTrackId
+                ? tracksById.get(c.turnSoundTrackId)
+                : undefined;
+              const existingCat = existing ? findCategory(existing.category) : undefined;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => onSetTurnSound(c.id)}
+                  title={
+                    existing
+                      ? `Replace turn sound (currently: ${existing.title})`
+                      : `Set ${track.title} as ${c.name}'s turn sound`
+                  }
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    width: "100%",
+                    padding: "6px 8px",
+                    borderRadius: 6,
+                    background: "transparent",
+                    color: T.ink2,
+                    fontSize: 12,
+                    cursor: "pointer",
+                    textAlign: "left",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = T.bgChip;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                  }}
+                >
+                  <span
+                    className="mc-mono"
+                    style={{
+                      width: 22,
+                      color: T.ink3,
+                      fontSize: 11,
+                      textAlign: "right",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {c.initiative}
+                  </span>
+                  <span
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      color: T.ink,
+                    }}
+                  >
+                    {c.name}
+                  </span>
+                  {existing && existingCat ? (
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        fontSize: 10,
+                        color: existingCat.color,
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Glyph name={existingCat.glyph} size={11} />
+                      <span
+                        style={{
+                          maxWidth: 120,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {existing.title}
+                      </span>
+                    </span>
+                  ) : (
+                    <span
+                      style={{
+                        fontSize: 10,
+                        color: T.ink3,
+                        fontStyle: "italic",
+                        flexShrink: 0,
+                      }}
+                    >
+                      empty
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -61,7 +61,7 @@ export function SearchOverlay({
         width: 520,
         maxHeight: "70vh",
         zIndex: 50,
-        background: "rgba(21,18,31,0.96)",
+        background: T.popoverBg,
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
         border: `1px solid ${T.rule}`,

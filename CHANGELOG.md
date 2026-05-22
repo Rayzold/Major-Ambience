@@ -8,7 +8,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-Nothing yet — Phase 2 work lands here.
+### Added — Phase 2
+
+- **Themes** (`DESIGN.md § 5.5`) — three locked themes wired end-to-end: **Gold & Dark** (canonical default), **Parchment** (light variant with cream surfaces + deep brown ink + brass accent), **Arcane** (Horror palette as the surface ramp, gold accent unchanged). Category palette and gold accent stay consistent across all three per spec.
+- Theme switching is a single class toggle on `<html>`. `T` in `@mc/ui` now exports `var(--mc-…)` strings instead of hex values, so swapping themes never triggers a React re-render cascade.
+- New theme-aware tokens: `chromeBg` (translucent header / transport), `popoverBg` (search, pin menu, settings popup), `modalBackdrop` (save-scene modal, tutorial overlay) — all per-theme so light + dark + violet popovers all read correctly.
+- Settings icon popup grew a **Themes** section above Tutorials with a mini palette swatch per theme and a check mark on the active one. Persisted as `theme` in `config`.
+- **DM Toolkit** (`DESIGN.md § 6.3`) — fourth header tab. Three-column desktop layout: **Names** (race-aware NPC generator across Any / Human / Elf / Dwarf / Orc / Halfling — click name to copy, last 30 in history), **Dice** (d4–d100 polyhedrals with count + modifier + advantage / disadvantage for d20, last 30 rolls with nat 1 / nat 20 highlighting), **Initiative** (add combatants with init + condition, sort descending, next / prev turn buttons, drag a track from the Library onto a combatant to set a turn sound). Turn sounds fire through the soundboard bus on turn advance — auto-ducks the music just like a regular pad. All three histories + the combatant roster persisted in the config table.
+- Right-click pin menu grew a **"Set as turn sound"** section below the soundboard grid. Lists every combatant in the initiative tracker with their current turn sound (if any). Avoids the cross-tab drag-and-drop problem when the Library and DM Tools tabs are mutually exclusive.
+- **DM Mode** (`DESIGN.md § 6.2`) — single toggle on the theatre icon in the header. Red "DM MODE" pill appears next to the logo with a soft red glow when on. Hides editing affordances that would either distract at the table or reveal private GM judgment: grade chips (track rows, transport, right rail), play counts, right-click pin menu + drag-to-assign, Save current scene, scene delete chip, per-pad clear/loop/volume controls, settings icon, Open Folder, DM Toolkit. Keeps every player-facing affordance visible: category sidebar, track list, search, scenes/soundboard tabs, fade/duck/volume sliders, prev/play/next, scrubber. Persisted as `dm_mode` in `config`; reopening any popovers is blocked while DM Mode is on.
 
 ---
 
@@ -103,6 +111,7 @@ Initial repository commit. Pre‑production state: design and spec only, no prod
 
 ---
 
-[Unreleased]: https://github.com/Rayzold/Major-Ambience/compare/v0.0.2...HEAD
+[Unreleased]: https://github.com/Rayzold/Major-Ambience/compare/v0.0.3...HEAD
+[0.0.3]: https://github.com/Rayzold/Major-Ambience/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/Rayzold/Major-Ambience/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/Rayzold/Major-Ambience/releases/tag/v0.0.1

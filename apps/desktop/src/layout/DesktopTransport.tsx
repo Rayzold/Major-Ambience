@@ -23,6 +23,7 @@ export type DesktopTransportProps = {
   onSetFadeMs: (ms: number) => void;
   onSetVolume: (v: number) => void;
   onSetDuckingPct: (pct: number) => void;
+  dmMode: boolean;
 };
 
 export function DesktopTransport({
@@ -41,6 +42,7 @@ export function DesktopTransport({
   onSetFadeMs,
   onSetVolume,
   onSetDuckingPct,
+  dmMode,
 }: DesktopTransportProps) {
   const scrubRef = useRef<HTMLDivElement | null>(null);
   const c = track ? findCategory(track.category) : undefined;
@@ -63,7 +65,7 @@ export function DesktopTransport({
         flexShrink: 0,
         height: 88,
         borderTop: `1px solid ${T.rule}`,
-        background: "rgba(11,9,19,0.75)",
+        background: T.chromeBg,
         backdropFilter: "blur(20px)",
         display: "flex",
         alignItems: "center",
@@ -121,7 +123,7 @@ export function DesktopTransport({
               "Open a folder to begin"
             )}
           </div>
-          {track ? (
+          {track && !dmMode ? (
             <button
               onClick={onCycleGrade}
               data-mc-tour="grade-pills"

@@ -51,7 +51,7 @@ export function SaveSceneDialog({
         position: "fixed",
         inset: 0,
         zIndex: 100,
-        background: "rgba(0,0,0,0.55)",
+        background: T.modalBackdrop,
         backdropFilter: "blur(4px)",
         display: "flex",
         alignItems: "center",

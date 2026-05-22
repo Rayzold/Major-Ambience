@@ -1,4 +1,5 @@
 export * from "./tokens.js";
+export * from "./themes.js";
 export * from "./categories.js";
 export * from "./global.js";
 export * from "./Glyph.js";
