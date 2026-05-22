@@ -192,6 +192,7 @@ const EXPLORATION = [
 ];
 
 const AMBIENT = [
+  "ambient",
   "sad",
   "sorrow",
   "grief",
@@ -291,23 +292,39 @@ export function categorize(
 ): CategorizeResult {
   const baseName = stripExtension(filename);
   const normalizedFile = stripShortVersionTag(baseName).toLowerCase();
-  const parentSegment = lastPathSegment(parentFolderPath).toLowerCase();
+  const segments = pathSegments(parentFolderPath).map((s) => s.toLowerCase());
+  const immediate = segments.length > 0 ? segments[segments.length - 1]! : "";
 
   // Rule: "Alternates for - X" folders inherit X's category.
-  const altMatch = parentSegment.match(/^alternates? for\s*-\s*(.+)$/);
+  const altMatch = immediate.match(/^alternates? for\s*-\s*(.+)$/);
   if (altMatch?.[1]) {
     return categorize(altMatch[1], "");
   }
 
-  // Track-name evidence is stronger than pack-name evidence — a specific
-  // track in a generically-named pack should win (e.g. "System Status OK"
-  // in "Ominous Overtures" → scifi, not tension).
+  // 1. Track-name evidence is strongest — a specific track in a generic
+  //    pack should win (e.g. "System Status OK" in "Ominous Overtures" →
+  //    scifi, not tension).
   const fileMatch = match(normalizedFile);
   if (fileMatch) return fileMatch;
 
-  const combined = `${normalizedFile} ${parentSegment}`.trim();
-  const combinedMatch = match(combined);
-  if (combinedMatch) return combinedMatch;
+  // 2. Filename + immediate parent (the pack folder).
+  const fileParent = `${normalizedFile} ${immediate}`.trim();
+  if (fileParent !== normalizedFile) {
+    const m = match(fileParent);
+    if (m) return m;
+  }
+
+  // 3. Walk ancestor folders, closest first. A library laid out as
+  //    MUSIC/Combat/Battle/pack/track.mp3 lets the grandparent "Battle"
+  //    settle category + subcategory even when filename + pack are mute.
+  for (let i = segments.length - 2; i >= 0; i--) {
+    const seg = segments[i]!;
+    // Combine with filename so a per-file boss/skirmish keyword can still
+    // pick the subcategory inside an ancestor like "Combat".
+    const combined = `${normalizedFile} ${seg}`.trim();
+    const m = match(combined);
+    if (m) return m;
+  }
 
   // Default fallback. Exploration is the broadest "between scenes" bucket.
   return { category: "exploration" };
@@ -387,11 +404,12 @@ function stripShortVersionTag(name: string): string {
     .trim();
 }
 
-function lastPathSegment(p: string): string {
-  if (!p) return "";
-  const normalized = p.replace(/[\\/]+$/, "");
-  const slash = Math.max(normalized.lastIndexOf("/"), normalized.lastIndexOf("\\"));
-  return slash === -1 ? normalized : normalized.slice(slash + 1);
+function pathSegments(p: string): string[] {
+  if (!p) return [];
+  return p
+    .replace(/^[a-zA-Z]:[\\/]/, "") // strip Windows drive letter
+    .split(/[\\/]+/)
+    .filter((s) => s.length > 0);
 }
 
 function containsAny(haystack: string, needles: readonly string[]): boolean {

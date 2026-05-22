@@ -1,0 +1,172 @@
+// Left sidebar — folder summary, Library section, Categories section.
+
+import type { ReactNode } from "react";
+import type { CategoryId } from "@mc/core";
+import { CATEGORIES, Glyph, T } from "@mc/ui";
+
+export type DesktopSidebarProps = {
+  selected: CategoryId;
+  onSelect: (c: CategoryId) => void;
+  totalTrackCount: number;
+  countByCategory: ReadonlyMap<CategoryId, number>;
+  rootFolderName: string | undefined;
+};
+
+export function DesktopSidebar({
+  selected,
+  onSelect,
+  totalTrackCount,
+  countByCategory,
+  rootFolderName,
+}: DesktopSidebarProps) {
+  return (
+    <div
+      className="mc-scroll"
+      style={{
+        flexShrink: 0,
+        width: 244,
+        borderRight: `1px solid ${T.rule}`,
+        padding: "14px 8px 14px 14px",
+        position: "relative",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "10px 12px",
+          borderRadius: 10,
+          marginBottom: 14,
+          background: T.bgChip,
+        }}
+      >
+        <span style={{ color: T.gold }}>
+          <Glyph name="library" size={16} />
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 500,
+              color: T.ink,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {rootFolderName ?? "No folder open"}
+          </div>
+          <div className="mc-mono" style={{ fontSize: 10, color: T.ink3 }}>
+            {totalTrackCount.toLocaleString()} tracks
+          </div>
+        </div>
+      </div>
+
+      <SidebarSection title="Library">
+        <SidebarRow icon="star" label="Favorites" count={countFavorites(countByCategory)} muted />
+        <SidebarRow icon="clock" label="Recently played" count={0} muted />
+      </SidebarSection>
+
+      <SidebarSection title="Categories">
+        {CATEGORIES.map((c) => {
+          const active = selected === c.id;
+          const count = countByCategory.get(c.id) ?? 0;
+          return (
+            <button
+              key={c.id}
+              onClick={() => onSelect(c.id)}
+              style={{
+                width: "100%",
+                textAlign: "left",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "8px 12px",
+                borderRadius: 9,
+                background: active ? c.color + "20" : "transparent",
+                color: active ? c.color : T.ink2,
+                fontSize: 13,
+                fontWeight: 500,
+                marginBottom: 2,
+                borderLeft: `2px solid ${active ? c.color : "transparent"}`,
+              }}
+            >
+              <Glyph name={c.glyph} size={15} stroke={active ? 1.9 : 1.5} />
+              <span
+                style={{
+                  flex: 1,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {c.name}
+              </span>
+              <span className="mc-mono" style={{ fontSize: 10, color: T.ink3 }}>
+                {count.toLocaleString()}
+              </span>
+            </button>
+          );
+        })}
+      </SidebarSection>
+    </div>
+  );
+}
+
+function SidebarSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div style={{ marginBottom: 18 }}>
+      <div className="mc-eyebrow" style={{ padding: "4px 12px 8px" }}>
+        {title}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function SidebarRow({
+  icon,
+  label,
+  count,
+  muted,
+}: {
+  icon: string;
+  label: string;
+  count: number;
+  muted?: boolean;
+}) {
+  return (
+    <button
+      style={{
+        width: "100%",
+        textAlign: "left",
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "8px 12px",
+        borderRadius: 9,
+        color: muted ? T.ink3 : T.ink2,
+        fontSize: 13,
+        fontWeight: 500,
+        cursor: muted ? "default" : "pointer",
+      }}
+      disabled={muted}
+      title={muted ? "Coming in Phase 2" : undefined}
+    >
+      <Glyph name={icon} size={15} />
+      <span style={{ flex: 1 }}>{label}</span>
+      <span className="mc-mono" style={{ fontSize: 10, color: T.ink3 }}>
+        {count}
+      </span>
+    </button>
+  );
+}
+
+function countFavorites(byCategory: ReadonlyMap<CategoryId, number>): number {
+  // Placeholder until favorites is wired (Phase 2). The sidebar shows it
+  // either way; we just use category sum so the slot is non-empty.
+  let total = 0;
+  for (const n of byCategory.values()) total += n;
+  return Math.min(total, 99);
+}

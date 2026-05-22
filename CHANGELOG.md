@@ -21,6 +21,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - `packages/data` — typed repository over `tauri-plugin-sql`. SQLite schema (tracks, tracks_fts FTS5, scenes, soundboard, config) ships as Tauri migration `0001_initial.sql`.
 - `packages/ui` — design tokens, category palette, `<Glyph>` with 30+ ported icons, `<TrackRow>`, `<CategoryGradient>`, `<Visualizer>`, `<OrbVisualizer>`, `<GradeChip>`, `<CatChip>`. Inline styles preserved from the prototype per Working Rule 4.
 - `apps/desktop` — Library screen with sidebar + track list, Open Folder via `dialog.open({ directory: true })`, recursive scan via Rust `scan_folder` command, auto-categorization, SQLite persistence, click-to-play with crossfade through `WebAudioBackend`. Play count and last-played timestamp persisted.
+- `categorize.ts` — walks ancestor folders so `MUSIC/Combat/Battle/pack/track.mp3` resolves to `combat/battle` even when the filename has no category signal. 11 new test cases.
+- `tracks-repo` — `deleteTracksNotIn` purges orphan rows on rescan; `setDuration` persists the real audio duration after first load.
+- `config-repo` — typed key/value store over the `config` table (fade_ms, master_volume, root_folder_name).
+- `WebAudioBackend.setMasterGain` — single master `GainNode` between every track and the destination, so the transport's volume slider actually affects audio.
+- `apps/desktop` — full three-pane layout ported from `prototype/app/desktop.jsx`: `DesktopHeader` (tabs + search placeholder), `DesktopSidebar` (folder summary, Categories), `DesktopLibraryView` (category hero with weighted-shuffle button, subcategory tabs, grade filter, track grid), `DesktopRightRail` (Now Playing card with `<OrbVisualizer>` + Up Next queue + SFX placeholder), `DesktopTransport` (track tile, prev/play/next, click-to-seek scrubber, VU visualizer, fade slider, master volume).
+- Grade cycling: click track-tile grade pills in the transport (S→A→B→C→D→F→none) or any grade in the right rail to set; persisted via `setGrade`.
+- Weighted shuffle queue: category-hero "Shuffle weighted" button calls `weightedShuffle` from `@mc/core`, queues that category, advances on end and via prev/next.
+- Fade duration and master volume now persisted to the `config` table.
 
 ### Changed
 - Project renamed from "Music Companion" to **Major Ambience**.

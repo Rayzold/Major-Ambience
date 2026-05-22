@@ -271,6 +271,69 @@ describe("categorize — folder rules", () => {
   });
 });
 
+describe("categorize — ancestor folder walk", () => {
+  it("uses grandparent folder when filename and immediate parent are mute", () => {
+    // MUSIC/Combat/Battle/grandfleet_audiohero/Track_001.mp3 → combat/battle
+    expect(categorize("Track_001.mp3", "C:\\MUSIC\\Combat\\Battle\\grandfleet_audiohero"))
+      .toEqual({ category: "combat", subcategory: "battle" });
+  });
+
+  it("uses ancestor for Horror layout", () => {
+    expect(categorize("Music_05.mp3", "/home/user/MUSIC/Horror/shadowsfall_audiohero"))
+      .toEqual({ category: "horror" });
+  });
+
+  it("uses ancestor for Ambient layout (bare 'Ambient' folder)", () => {
+    expect(categorize("BG_007.mp3", "/MUSIC/Ambient/atmosphericburn_audiohero"))
+      .toEqual({ category: "ambient" });
+  });
+
+  it("uses ancestor for Tavern layout", () => {
+    expect(categorize("Track_03.mp3", "/MUSIC/Tavern/legendroundtable_audiohero"))
+      .toEqual({ category: "tavern" });
+  });
+
+  it("uses ancestor for Rest layout", () => {
+    expect(categorize("Untitled_01.mp3", "/MUSIC/Rest/enchantedlands_audiohero"))
+      .toEqual({ category: "rest" });
+  });
+
+  it("uses ancestor for Sci-Fi layout", () => {
+    expect(categorize("Music_BG.mp3", "/MUSIC/Scifi/spacehord_audiohero"))
+      .toEqual({ category: "scifi" });
+  });
+
+  it("Combat/Boss ancestor still picks subcategory boss", () => {
+    expect(categorize("Untitled.mp3", "/MUSIC/Combat/Boss/herospack"))
+      .toEqual({ category: "combat", subcategory: "boss" });
+  });
+
+  it("Combat/Skirmish ancestor picks subcategory skirmish", () => {
+    expect(categorize("Untitled.mp3", "/MUSIC/Combat/Skirmish/packA"))
+      .toEqual({ category: "combat", subcategory: "skirmish" });
+  });
+
+  it("filename still beats ancestor when filename matches", () => {
+    // Track named "Ave Maria" inside Combat/Battle folder → rest, not combat.
+    expect(categorize("Ave Maria.mp3", "/MUSIC/Combat/Battle/somepack"))
+      .toEqual({ category: "rest" });
+  });
+
+  it("closer ancestor beats deeper ancestor", () => {
+    // Combat/Battle/somepack — Battle wins, not Combat (both would match,
+    // but Battle is the more specific signal nearest to the file).
+    expect(categorize("Untitled.mp3", "/MUSIC/Combat/Battle/somepack"))
+      .toEqual({ category: "combat", subcategory: "battle" });
+  });
+
+  it("ignores noise segments like MUSIC and drive letters", () => {
+    expect(categorize("Untitled.mp3", "C:/MUSIC/Horror/somepack"))
+      .toEqual({ category: "horror" });
+    expect(categorize("Untitled.mp3", "C:\\MUSIC\\Horror\\somepack"))
+      .toEqual({ category: "horror" });
+  });
+});
+
 describe("categorize — precedence rules", () => {
   it("SFX override wins over Combat keyword", () => {
     // "Cannon" is in SFX_OVERRIDE; would otherwise hit Combat via no match.

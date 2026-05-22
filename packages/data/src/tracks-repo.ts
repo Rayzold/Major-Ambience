@@ -60,6 +60,39 @@ export async function setGrade(db: Db, trackId: string, grade: Grade): Promise<v
   await db.execute("UPDATE tracks SET grade = $1 WHERE id = $2", [grade, trackId]);
 }
 
+export async function setDuration(db: Db, trackId: string, durationMs: number): Promise<void> {
+  await db.execute("UPDATE tracks SET duration_ms = $1 WHERE id = $2", [durationMs, trackId]);
+}
+
+/**
+ * Delete rows whose id is not in `keepIds`. Used after a folder rescan to
+ * drop tracks that no longer exist on disk (renamed, moved, or junk like
+ * macOS `._` files indexed before the scanner filtered them).
+ *
+ * Chunked because SQLite's default SQLITE_MAX_VARIABLE_NUMBER is 999.
+ */
+export async function deleteTracksNotIn(db: Db, keepIds: readonly string[]): Promise<number> {
+  if (keepIds.length === 0) {
+    const before = await countTracks(db);
+    await db.execute("DELETE FROM tracks");
+    return before;
+  }
+  // Build a temp table of ids to keep, then delete the complement. Safer
+  // than 5,000 placeholders in a single statement.
+  await db.execute("CREATE TEMP TABLE IF NOT EXISTS keep_ids (id TEXT PRIMARY KEY)");
+  await db.execute("DELETE FROM keep_ids");
+  for (const id of keepIds) {
+    await db.execute("INSERT OR IGNORE INTO keep_ids (id) VALUES ($1)", [id]);
+  }
+  const beforeRows = await db.select<Array<{ n: number }>>(
+    "SELECT COUNT(*) AS n FROM tracks WHERE id NOT IN (SELECT id FROM keep_ids)",
+  );
+  const removed = beforeRows[0]?.n ?? 0;
+  await db.execute("DELETE FROM tracks WHERE id NOT IN (SELECT id FROM keep_ids)");
+  await db.execute("DROP TABLE keep_ids");
+  return removed;
+}
+
 function rowToTrack(row: TrackRow): Track {
   return {
     id: row.id,
