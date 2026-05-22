@@ -6,3 +6,6 @@ packages:
 # Trusted, widely-used build tool; safe to run.
 allowBuilds:
   esbuild: true
+  # msgpackr-extract ships a native binary; used transitively by an Expo
+  # dependency. Safe to allow the postinstall.
+  msgpackr-extract: true
