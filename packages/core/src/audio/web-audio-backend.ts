@@ -1,21 +1,26 @@
 // WebAudioBackend — desktop & web AudioBackend implementation.
 // See docs/BUILD_GUIDE.md § 3.4 (interface) and § 4 (engine details).
 //
-// Architecture:
-//   <audio> element  ──>  MediaElementAudioSourceNode  ──>  per-track GainNode
-//                                                           │
-//                                                           ▼
-//                                                    AudioContext.destination
+// Architecture (BUILD_GUIDE § 4.3):
+//   <audio> ──> MediaElementSource ──> per-track Gain ──┐
+//                                                       ├──> musicBus      ──┐
+//                                                       │                    │
+//                                                       └──> soundboardBus  ─┤──> master ──> destination
 //
 // One GainNode per track means crossfading is two independent ramps on two
 // gain nodes; no glide artifact between sources.
+// Splitting into musicBus + soundboardBus lets us duck only the music when
+// a soundboard pad fires (BUILD_GUIDE § 4.2).
 
 import type { AudioBackend, LoadOptions, TrackHandle, Unsubscribe } from "./backend.js";
+
+type Bus = "music" | "soundboard";
 
 type InternalHandle = TrackHandle & {
   audio: HTMLAudioElement;
   source: MediaElementAudioSourceNode;
   gain: GainNode;
+  bus: Bus;
   endedListeners: Set<() => void>;
   progressListeners: Set<(t: number) => void>;
   destroyed: boolean;
@@ -26,6 +31,8 @@ let handleCounter = 0;
 export class WebAudioBackend implements AudioBackend {
   private readonly ctx: AudioContext;
   private readonly master: GainNode;
+  private readonly musicBus: GainNode;
+  private readonly soundboardBus: GainNode;
   private readonly handles = new WeakMap<TrackHandle, InternalHandle>();
 
   constructor(ctx?: AudioContext) {
@@ -33,12 +40,33 @@ export class WebAudioBackend implements AudioBackend {
     this.master = this.ctx.createGain();
     this.master.gain.value = 1;
     this.master.connect(this.ctx.destination);
+
+    this.musicBus = this.ctx.createGain();
+    this.musicBus.gain.value = 1;
+    this.musicBus.connect(this.master);
+
+    this.soundboardBus = this.ctx.createGain();
+    this.soundboardBus.gain.value = 1;
+    this.soundboardBus.connect(this.master);
   }
 
   /** Linear ramp on the master bus — volume slider feeds this. */
   setMasterGain(g: number, rampSeconds?: number): void {
+    this.rampParam(this.master.gain, g, rampSeconds);
+  }
+
+  /** Music bus gain — the ducker drives this when soundboard pads fire. */
+  setMusicBusGain(g: number, rampSeconds?: number): void {
+    this.rampParam(this.musicBus.gain, g, rampSeconds);
+  }
+
+  /** Soundboard bus gain — rarely needed externally; included for parity. */
+  setSoundboardBusGain(g: number, rampSeconds?: number): void {
+    this.rampParam(this.soundboardBus.gain, g, rampSeconds);
+  }
+
+  private rampParam(param: AudioParam, g: number, rampSeconds?: number): void {
     const target = clamp01(g);
-    const param = this.master.gain;
     const now = this.ctx.currentTime;
     param.cancelScheduledValues(now);
     param.setValueAtTime(param.value, now);
@@ -53,8 +81,8 @@ export class WebAudioBackend implements AudioBackend {
     return this.ctx.currentTime;
   }
 
-  async loadTrack(uri: string, _opts: LoadOptions = {}): Promise<TrackHandle> {
-    void _opts; // gapless is mode info; HTMLAudioElement is gapless by default for same-source seeks.
+  async loadTrack(uri: string, opts: LoadOptions = {}): Promise<TrackHandle> {
+    const bus: Bus = opts.bus ?? "music";
 
     // AudioContext starts suspended in many browsers/WebViews — resume lazily.
     if (this.ctx.state === "suspended") {
@@ -73,7 +101,8 @@ export class WebAudioBackend implements AudioBackend {
     const source = this.ctx.createMediaElementSource(audio);
     const gain = this.ctx.createGain();
     gain.gain.value = 1;
-    source.connect(gain).connect(this.master);
+    const target = bus === "soundboard" ? this.soundboardBus : this.musicBus;
+    source.connect(gain).connect(target);
 
     const id = `wab-${++handleCounter}`;
     const publicHandle: TrackHandle = { id, uri };
@@ -82,6 +111,7 @@ export class WebAudioBackend implements AudioBackend {
       audio,
       source,
       gain,
+      bus,
       endedListeners: new Set(),
       progressListeners: new Set(),
       destroyed: false,

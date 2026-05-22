@@ -14,6 +14,7 @@ export type DesktopTransportProps = {
   playing: boolean;
   fadeMs: number;
   masterVolume: number;
+  duckingPct: number;
   onTogglePlay: () => void;
   onPrev: () => void;
   onNext: () => void;
@@ -21,6 +22,7 @@ export type DesktopTransportProps = {
   onCycleGrade: () => void;
   onSetFadeMs: (ms: number) => void;
   onSetVolume: (v: number) => void;
+  onSetDuckingPct: (pct: number) => void;
 };
 
 export function DesktopTransport({
@@ -30,6 +32,7 @@ export function DesktopTransport({
   playing,
   fadeMs,
   masterVolume,
+  duckingPct,
   onTogglePlay,
   onPrev,
   onNext,
@@ -37,6 +40,7 @@ export function DesktopTransport({
   onCycleGrade,
   onSetFadeMs,
   onSetVolume,
+  onSetDuckingPct,
 }: DesktopTransportProps) {
   const scrubRef = useRef<HTMLDivElement | null>(null);
   const c = track ? findCategory(track.category) : undefined;
@@ -166,6 +170,7 @@ export function DesktopTransport({
       >
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <FadeSlider fadeMs={fadeMs} onChange={onSetFadeMs} />
+          <DuckSlider pct={duckingPct} onChange={onSetDuckingPct} />
           <button
             onClick={onPrev}
             disabled={!track}
@@ -295,6 +300,41 @@ export function DesktopTransport({
         </div>
       </div>
     </div>
+  );
+}
+
+function DuckSlider({
+  pct,
+  onChange,
+}: {
+  pct: number;
+  onChange: (pct: number) => void;
+}) {
+  return (
+    <label
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        color: T.ink3,
+        fontSize: 10,
+      }}
+      title="Music ducking — drop music level while soundboard plays"
+    >
+      <Glyph name="duck" size={14} />
+      <input
+        type="range"
+        min={0}
+        max={1}
+        step={0.05}
+        value={pct}
+        onChange={(e) => onChange(Number(e.currentTarget.value))}
+        style={{ width: 64, accentColor: "#5cc4d9" }}
+      />
+      <span className="mc-mono" style={{ width: 30 }}>
+        {Math.round(pct * 100)}%
+      </span>
+    </label>
   );
 }
 

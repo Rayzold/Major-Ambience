@@ -41,6 +41,7 @@ import { SearchOverlay } from "./layout/SearchOverlay.js";
 import {
   firePad,
   isPadPlaying,
+  setDuckingPct as setPadDuckingPct,
   setPadVolume,
   stopPad,
   subscribePadState,
@@ -48,6 +49,7 @@ import {
 
 const DEFAULT_FADE_MS = 2000;
 const DEFAULT_VOLUME = 0.85;
+const DEFAULT_DUCKING = 0.4;
 const GRADE_CYCLE: Grade[] = ["S", "A", "B", "C", "D", "F", null];
 
 type PlaybackState = {
@@ -70,6 +72,7 @@ export function Library() {
   const [scanStatus, setScanStatus] = useState<string>("");
   const [fadeMs, setFadeMs] = useState(DEFAULT_FADE_MS);
   const [masterVolume, setMasterVolume] = useState(DEFAULT_VOLUME);
+  const [duckingPct, setDuckingPctState] = useState(DEFAULT_DUCKING);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchResults, setSearchResults] = useState<Track[]>([]);
@@ -136,6 +139,9 @@ export function Library() {
         const vol = await getConfigNumber(db, "master_volume", DEFAULT_VOLUME);
         setMasterVolume(vol);
         getAudioBackend().setMasterGain(vol);
+        const duck = await getConfigNumber(db, "ducking_pct", DEFAULT_DUCKING);
+        setDuckingPctState(duck);
+        setPadDuckingPct(duck);
         const root = await getConfig(db, "root_folder_name");
         setRootFolderName(root);
         const loadedScenes = await listScenes(db);
@@ -367,6 +373,13 @@ export function Library() {
     setMasterVolume(v);
     const db = await getDb();
     await setConfig(db, "master_volume", String(v));
+  }
+
+  async function handleSetDucking(pct: number) {
+    setDuckingPctState(pct);
+    setPadDuckingPct(pct);
+    const db = await getDb();
+    await setConfig(db, "ducking_pct", String(pct));
   }
 
   // ── Scenes ─────────────────────────────────────────────────────────────
@@ -700,6 +713,7 @@ export function Library() {
         playing={isPlaying}
         fadeMs={fadeMs}
         masterVolume={masterVolume}
+        duckingPct={duckingPct}
         onTogglePlay={handleTogglePlay}
         onPrev={handlePrev}
         onNext={handleNext}
@@ -707,6 +721,7 @@ export function Library() {
         onCycleGrade={handleCycleGrade}
         onSetFadeMs={(ms) => void handleSetFade(ms)}
         onSetVolume={(v) => void handleSetVolume(v)}
+        onSetDuckingPct={(p) => void handleSetDucking(p)}
       />
     </div>
   );

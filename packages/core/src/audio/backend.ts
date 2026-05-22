@@ -10,6 +10,12 @@ export type TrackHandle = {
 
 export type LoadOptions = {
   gapless?: boolean;
+  /**
+   * Which mixing bus to route through. `music` is the default and gets
+   * ducked when SFX/soundboard plays; `soundboard` plays alongside without
+   * being ducked itself.
+   */
+  bus?: "music" | "soundboard";
 };
 
 export type AudioBackend = {

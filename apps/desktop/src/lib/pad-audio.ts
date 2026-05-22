@@ -16,6 +16,34 @@ type PadHandle = {
 const active = new Map<PadKey, PadHandle>();
 const listeners = new Set<() => void>();
 
+// Auto-ducking — BUILD_GUIDE.md § 4.2.
+//   "When any SFX plays, ramp the music bus down to (1 - duckingAmount) over
+//   150 ms, hold while at least one SFX is alive, then ramp back over 400 ms."
+const DUCK_DOWN_SEC = 0.15;
+const DUCK_UP_SEC = 0.4;
+let duckingPct = 0.4;
+
+export function setDuckingPct(pct: number): void {
+  duckingPct = Math.max(0, Math.min(1, pct));
+  // If anything is currently playing, re-apply the new amount on the fly.
+  if (active.size > 0) {
+    getAudioBackend().setMusicBusGain(1 - duckingPct, DUCK_DOWN_SEC);
+  }
+}
+
+export function getDuckingPct(): number {
+  return duckingPct;
+}
+
+function applyDuckForActiveCount(): void {
+  const backend = getAudioBackend();
+  if (active.size > 0) {
+    backend.setMusicBusGain(1 - duckingPct, DUCK_DOWN_SEC);
+  } else {
+    backend.setMusicBusGain(1, DUCK_UP_SEC);
+  }
+}
+
 function key(page: string, slot: number): PadKey {
   return `${page}-${slot}`;
 }
@@ -41,10 +69,18 @@ export async function firePad(
 ): Promise<void> {
   const backend = getAudioBackend();
   const k = key(page, slot);
-  // Re-trigger from start: stop any existing instance first.
-  stopPad(page, slot);
+  // Re-trigger from start: stop any existing instance first (without
+  // unducking — we're about to re-add an active pad).
+  const previous = active.get(k);
+  if (previous) {
+    previous.unsubscribeEnded();
+    backend.destroy(previous.handle);
+    active.delete(k);
+  }
 
-  const handle = await backend.loadTrack(convertFileSrc(track.uri));
+  const handle = await backend.loadTrack(convertFileSrc(track.uri), {
+    bus: "soundboard",
+  });
   const raw = backend.getRawHandle(handle);
   if (raw) raw.audio.loop = opts.loop;
   backend.setGain(handle, opts.volume);
@@ -55,11 +91,13 @@ export async function firePad(
     if (!opts.loop) {
       active.delete(k);
       backend.destroy(handle);
+      applyDuckForActiveCount();
       notify();
     }
   });
 
   active.set(k, { handle, unsubscribeEnded });
+  applyDuckForActiveCount();
   notify();
 }
 
@@ -70,6 +108,7 @@ export function stopPad(page: string, slot: number): void {
   pad.unsubscribeEnded();
   getAudioBackend().destroy(pad.handle);
   active.delete(k);
+  applyDuckForActiveCount();
   notify();
 }
 
@@ -85,5 +124,6 @@ export function stopAllPads(): void {
     getAudioBackend().destroy(pad.handle);
   }
   active.clear();
+  applyDuckForActiveCount();
   notify();
 }
