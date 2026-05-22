@@ -63,8 +63,10 @@ apps/desktop/src-tauri/Cargo.lock
 *.m4a
 *.aac
 MUSIC/
-audio/
 samples/
+# NOTE: removed `audio/` — too broad; it was silently excluding
+# packages/core/src/audio/. The individual extension globs above
+# already cover audio media files anywhere in the tree.
 
 # ─── Misc ───────────────────────────────────────────────────
 *.log
