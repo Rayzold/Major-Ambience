@@ -850,11 +850,30 @@ export function Library() {
           track={pinMenu.track}
           slots={soundboard}
           tracksById={tracksById}
+          combatants={combatants}
           onPin={(page, slot) => {
             void handlePadAssign(page, slot, pinMenu.track.id);
             setPinMenu(null);
             setScanStatus(
               `Pinned "${pinMenu.track.title}" to ${page}·${slot}.`,
+            );
+          }}
+          onSetTurnSound={(combatantId) => {
+            const target = combatants.find((c) => c.id === combatantId);
+            if (!target) {
+              setPinMenu(null);
+              return;
+            }
+            void handleCombatantsChange(
+              combatants.map((c) =>
+                c.id === combatantId
+                  ? { ...c, turnSoundTrackId: pinMenu.track.id }
+                  : c,
+              ),
+            );
+            setPinMenu(null);
+            setScanStatus(
+              `Set "${pinMenu.track.title}" as turn sound for ${target.name}.`,
             );
           }}
           onDismiss={() => setPinMenu(null)}
