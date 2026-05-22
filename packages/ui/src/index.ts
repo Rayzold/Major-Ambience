@@ -2,6 +2,7 @@ export * from "./tokens.js";
 export * from "./themes.js";
 export * from "./categories.js";
 export * from "./global.js";
+export * from "./glyph-data.js";
 export * from "./Glyph.js";
 export * from "./GradeChip.js";
 export * from "./CatChip.js";
