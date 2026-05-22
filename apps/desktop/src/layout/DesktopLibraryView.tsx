@@ -111,6 +111,7 @@ export function DesktopLibraryView({
               <button
                 onClick={onShuffleCategory}
                 disabled={categoryTracks.length === 0}
+                data-mc-tour="shuffle-button"
                 style={{
                   padding: "10px 18px",
                   borderRadius: 999,
@@ -247,6 +248,7 @@ export function DesktopLibraryView({
         <div>Time</div>
       </div>
 
+      <div data-mc-tour="track-table">
       {filteredTracks.length === 0 ? (
         <div
           style={{
@@ -272,6 +274,7 @@ export function DesktopLibraryView({
           />
         ))
       )}
+      </div>
 
       <div style={{ height: 24 }} />
     </div>

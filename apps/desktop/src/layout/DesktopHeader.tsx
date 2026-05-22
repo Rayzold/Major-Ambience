@@ -16,6 +16,8 @@ export type DesktopHeaderProps = {
   onSearchChange: (q: string) => void;
   onSearchFocus: () => void;
   searchInputRef?: Ref<HTMLInputElement>;
+  hasUnseenTutorials: boolean;
+  onOpenTutorials: (anchor: { x: number; y: number }) => void;
 };
 
 const tabs: Array<{ id: Tab; label: string; icon: string }> = [
@@ -44,6 +46,8 @@ export function DesktopHeader({
   onSearchChange,
   onSearchFocus,
   searchInputRef,
+  hasUnseenTutorials,
+  onOpenTutorials,
 }: DesktopHeaderProps) {
   return (
     <div
@@ -85,6 +89,13 @@ export function DesktopHeader({
             <button
               key={t.id}
               onClick={() => onTabChange(t.id)}
+              data-mc-tour={
+                t.id === "scenes"
+                  ? "scenes-tab"
+                  : t.id === "soundboard"
+                    ? "soundboard-tab"
+                    : undefined
+              }
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -165,6 +176,7 @@ export function DesktopHeader({
         <button
           onClick={onOpenFolder}
           title="Open folder"
+          data-mc-tour="open-folder"
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -187,8 +199,33 @@ export function DesktopHeader({
         <button style={iconBtn} title="DM mode — coming in Phase 2">
           <Glyph name="theatre" size={16} />
         </button>
-        <button style={iconBtn} title="Settings">
+        <button
+          onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            onOpenTutorials({ x: rect.right, y: rect.bottom + 6 });
+          }}
+          title={hasUnseenTutorials ? "Tutorials available" : "Tutorials"}
+          style={{
+            ...iconBtn,
+            position: "relative",
+            color: hasUnseenTutorials ? T.gold : T.ink2,
+          }}
+        >
           <Glyph name="settings" size={16} />
+          {hasUnseenTutorials ? (
+            <span
+              style={{
+                position: "absolute",
+                top: 6,
+                right: 6,
+                width: 7,
+                height: 7,
+                borderRadius: 999,
+                background: T.gold,
+                boxShadow: `0 0 6px ${T.gold}`,
+              }}
+            />
+          ) : null}
         </button>
       </div>
     </div>

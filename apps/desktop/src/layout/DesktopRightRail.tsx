@@ -147,6 +147,7 @@ export function DesktopRightRail({
           </div>
 
           <div
+            data-mc-tour="grade-row"
             style={{
               display: "flex",
               alignItems: "center",

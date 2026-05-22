@@ -38,6 +38,9 @@ import { DesktopTransport } from "./layout/DesktopTransport.js";
 import { PinToSlotMenu } from "./layout/PinToSlotMenu.js";
 import { SaveSceneDialog } from "./layout/SaveSceneDialog.js";
 import { SearchOverlay } from "./layout/SearchOverlay.js";
+import { Tutorial } from "./layout/Tutorial.js";
+import { TutorialsMenu } from "./layout/TutorialsMenu.js";
+import { TUTORIALS } from "./layout/tutorials.js";
 import {
   firePad,
   isPadPlaying,
@@ -87,6 +90,11 @@ export function Library() {
   const [pinMenu, setPinMenu] = useState<
     { track: Track; x: number; y: number } | null
   >(null);
+  const [tutorialsMenu, setTutorialsMenu] = useState<
+    { x: number; y: number } | null
+  >(null);
+  const [activeTutorialId, setActiveTutorialId] = useState<string | null>(null);
+  const [seenTutorials, setSeenTutorials] = useState<Set<string>>(new Set());
 
   // ── Derived ─────────────────────────────────────────────────────────────
   const currentTrack = useMemo(
@@ -148,6 +156,10 @@ export function Library() {
         setScenes(loadedScenes);
         const loadedSlots = await listSoundboard(db);
         setSoundboard(loadedSlots);
+        const seenRaw = await getConfig(db, "tutorials_seen");
+        if (seenRaw) {
+          setSeenTutorials(new Set(seenRaw.split(",").filter(Boolean)));
+        }
       } catch (err) {
         console.error("[library] init failed:", err);
       }
@@ -382,6 +394,31 @@ export function Library() {
     await setConfig(db, "ducking_pct", String(pct));
   }
 
+  // ── Tutorials ──────────────────────────────────────────────────────────
+  const hasUnseenTutorials =
+    TUTORIALS.some((t) => !seenTutorials.has(t.id));
+
+  function startTutorial(id: string) {
+    setTutorialsMenu(null);
+    setActiveTutorialId(id);
+  }
+
+  async function markTutorialSeen(id: string) {
+    const next = new Set(seenTutorials);
+    next.add(id);
+    setSeenTutorials(next);
+    const db = await getDb();
+    await setConfig(db, "tutorials_seen", Array.from(next).join(","));
+  }
+
+  function finishTutorial(complete: boolean) {
+    const id = activeTutorialId;
+    setActiveTutorialId(null);
+    // Only mark as "seen" on completion. Dismissed mid-tour still pulses
+    // so the user can come back to it.
+    if (id && complete) void markTutorialSeen(id);
+  }
+
   // ── Scenes ─────────────────────────────────────────────────────────────
   async function handleSaveScene(name: string) {
     // Top non-primary categories from the active queue become accents.
@@ -570,6 +607,8 @@ export function Library() {
         }}
         onSearchFocus={() => setSearchOpen(true)}
         searchInputRef={searchInputRef}
+        hasUnseenTutorials={hasUnseenTutorials}
+        onOpenTutorials={(anchor) => setTutorialsMenu(anchor)}
       />
 
       <div
@@ -658,6 +697,29 @@ export function Library() {
           {scanStatus}
         </div>
       ) : null}
+
+      {tutorialsMenu ? (
+        <TutorialsMenu
+          tutorials={TUTORIALS}
+          seen={seenTutorials}
+          anchor={tutorialsMenu}
+          onPick={(id) => startTutorial(id)}
+          onDismiss={() => setTutorialsMenu(null)}
+        />
+      ) : null}
+
+      {activeTutorialId ? (() => {
+        const tutorial = TUTORIALS.find((t) => t.id === activeTutorialId);
+        if (!tutorial) return null;
+        return (
+          <Tutorial
+            key={tutorial.id}
+            steps={tutorial.steps}
+            onComplete={() => finishTutorial(true)}
+            onDismiss={() => finishTutorial(false)}
+          />
+        );
+      })() : null}
 
       {pinMenu ? (
         <PinToSlotMenu

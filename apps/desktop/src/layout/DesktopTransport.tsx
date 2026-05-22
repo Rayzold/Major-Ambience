@@ -124,6 +124,7 @@ export function DesktopTransport({
           {track ? (
             <button
               onClick={onCycleGrade}
+              data-mc-tour="grade-pills"
               title="Click to cycle grade"
               style={{
                 display: "inline-flex",
@@ -312,6 +313,7 @@ function DuckSlider({
 }) {
   return (
     <label
+      data-mc-tour="duck-slider"
       style={{
         display: "inline-flex",
         alignItems: "center",
@@ -347,6 +349,7 @@ function FadeSlider({
 }) {
   return (
     <label
+      data-mc-tour="fade-slider"
       style={{
         display: "inline-flex",
         alignItems: "center",

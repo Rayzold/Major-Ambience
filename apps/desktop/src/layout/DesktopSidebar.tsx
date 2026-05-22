@@ -69,6 +69,7 @@ export function DesktopSidebar({
       </SidebarSection>
 
       <SidebarSection title="Categories">
+        <div data-mc-tour="sidebar-categories">
         {CATEGORIES.map((c) => {
           const active = selected === c.id;
           const count = countByCategory.get(c.id) ?? 0;
@@ -109,6 +110,7 @@ export function DesktopSidebar({
             </button>
           );
         })}
+        </div>
       </SidebarSection>
     </div>
   );
