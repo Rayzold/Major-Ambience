@@ -292,6 +292,12 @@ function DesktopTrackRow({
     <button
       className="mc-row-tap"
       onClick={onTap}
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = "copy";
+        e.dataTransfer.setData("application/x-mc-track", track.id);
+        e.dataTransfer.setData("text/plain", track.title);
+      }}
       style={{
         display: "grid",
         gridTemplateColumns: "32px 1fr 240px 70px 60px 60px",
@@ -304,7 +310,7 @@ function DesktopTrackRow({
           : "transparent",
         width: "100%",
         textAlign: "left",
-        cursor: "pointer",
+        cursor: "grab",
       }}
     >
       <div style={{ color: isPlaying ? c.color : T.ink3, fontSize: 12 }}>

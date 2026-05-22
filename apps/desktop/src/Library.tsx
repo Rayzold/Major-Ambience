@@ -4,10 +4,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import type { CategoryId, Grade, Scene, Track, TrackHandle } from "@mc/core";
+import type { CategoryId, Grade, Scene, SoundboardSlot, Track, TrackHandle } from "@mc/core";
 import { crossfade, weightedShuffle } from "@mc/core";
 import {
   bumpPlayCount,
+  clearSlot,
   deleteScene,
   deleteTracksNotIn,
   getConfig,
@@ -15,12 +16,14 @@ import {
   getDb,
   insertTracks,
   listScenes,
+  listSoundboard,
   listTracks,
   saveScene,
   searchTracks,
   setConfig,
   setDuration,
   setGrade as persistGrade,
+  upsertSlot,
 } from "@mc/data";
 import { CATEGORIES, findCategory } from "@mc/ui";
 import { scanFolderToTracks } from "./lib/scan.js";
@@ -30,9 +33,17 @@ import { DesktopSidebar } from "./layout/DesktopSidebar.js";
 import { DesktopLibraryView } from "./layout/DesktopLibraryView.js";
 import { DesktopRightRail } from "./layout/DesktopRightRail.js";
 import { DesktopScenesView } from "./layout/DesktopScenesView.js";
+import { DesktopSoundboardView } from "./layout/DesktopSoundboardView.js";
 import { DesktopTransport } from "./layout/DesktopTransport.js";
 import { SaveSceneDialog } from "./layout/SaveSceneDialog.js";
 import { SearchOverlay } from "./layout/SearchOverlay.js";
+import {
+  firePad,
+  isPadPlaying,
+  setPadVolume,
+  stopPad,
+  subscribePadState,
+} from "./lib/pad-audio.js";
 
 const DEFAULT_FADE_MS = 2000;
 const DEFAULT_VOLUME = 0.85;
@@ -66,6 +77,9 @@ export function Library() {
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [activeSceneId, setActiveSceneId] = useState<string | undefined>(undefined);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [soundboard, setSoundboard] = useState<SoundboardSlot[]>([]);
+  const [soundboardPage, setSoundboardPage] = useState<"A" | "B" | "C">("A");
+  const [padPlayingTick, setPadPlayingTick] = useState(0);
 
   // ── Derived ─────────────────────────────────────────────────────────────
   const currentTrack = useMemo(
@@ -122,6 +136,8 @@ export function Library() {
         setRootFolderName(root);
         const loadedScenes = await listScenes(db);
         setScenes(loadedScenes);
+        const loadedSlots = await listSoundboard(db);
+        setSoundboard(loadedSlots);
       } catch (err) {
         console.error("[library] init failed:", err);
       }
@@ -132,6 +148,11 @@ export function Library() {
   useEffect(() => {
     getAudioBackend().setMasterGain(masterVolume);
   }, [masterVolume]);
+
+  // Re-render pads when any pad's playback state changes.
+  useEffect(() => {
+    return subscribePadState(() => setPadPlayingTick((t) => t + 1));
+  }, []);
 
   // Ctrl+K focuses the search input from anywhere.
   useEffect(() => {
@@ -414,6 +435,89 @@ export function Library() {
     setScanStatus(`Restored scene "${scene.name}".`);
   }
 
+  // ── Soundboard ─────────────────────────────────────────────────────────
+  const tracksById = useMemo(() => {
+    const m = new Map<string, Track>();
+    for (const t of tracks) m.set(t.id, t);
+    return m;
+  }, [tracks]);
+
+  async function handlePadAssign(
+    page: "A" | "B" | "C",
+    slot: number,
+    trackId: string,
+  ) {
+    const existing = soundboard.find((s) => s.page === page && s.slot === slot);
+    const next: SoundboardSlot = {
+      page,
+      slot: slot as SoundboardSlot["slot"],
+      trackId,
+      loop: existing?.loop ?? false,
+      volume: existing?.volume ?? 0.8,
+    };
+    const db = await getDb();
+    await upsertSlot(db, next);
+    setSoundboard((prev) => {
+      const without = prev.filter((s) => !(s.page === page && s.slot === slot));
+      return [...without, next];
+    });
+  }
+
+  async function handlePadFire(page: "A" | "B" | "C", slot: number) {
+    const assigned = soundboard.find((s) => s.page === page && s.slot === slot);
+    if (!assigned?.trackId) return;
+    const track = tracksById.get(assigned.trackId);
+    if (!track) return;
+    await firePad(page, slot, track, {
+      loop: assigned.loop,
+      volume: assigned.volume,
+    });
+  }
+
+  function handlePadStop(page: "A" | "B" | "C", slot: number) {
+    stopPad(page, slot);
+  }
+
+  async function handlePadClear(page: "A" | "B" | "C", slot: number) {
+    stopPad(page, slot);
+    const db = await getDb();
+    await clearSlot(db, page, slot);
+    setSoundboard((prev) =>
+      prev.filter((s) => !(s.page === page && s.slot === slot)),
+    );
+  }
+
+  async function handlePadSetLoop(
+    page: "A" | "B" | "C",
+    slot: number,
+    loop: boolean,
+  ) {
+    const existing = soundboard.find((s) => s.page === page && s.slot === slot);
+    if (!existing) return;
+    const next: SoundboardSlot = { ...existing, loop };
+    const db = await getDb();
+    await upsertSlot(db, next);
+    setSoundboard((prev) =>
+      prev.map((s) => (s.page === page && s.slot === slot ? next : s)),
+    );
+  }
+
+  async function handlePadSetVolume(
+    page: "A" | "B" | "C",
+    slot: number,
+    volume: number,
+  ) {
+    const existing = soundboard.find((s) => s.page === page && s.slot === slot);
+    if (!existing) return;
+    const next: SoundboardSlot = { ...existing, volume };
+    setPadVolume(page, slot, volume); // live update if playing
+    const db = await getDb();
+    await upsertSlot(db, next);
+    setSoundboard((prev) =>
+      prev.map((s) => (s.page === page && s.slot === slot ? next : s)),
+    );
+  }
+
   async function handleDeleteScene(scene: Scene) {
     const db = await getDb();
     await deleteScene(db, scene.id);
@@ -485,7 +589,20 @@ export function Library() {
             onDelete={(s) => void handleDeleteScene(s)}
           />
         ) : (
-          <PlaceholderTab tab={tab} />
+          <DesktopSoundboardView
+            key={padPlayingTick}
+            page={soundboardPage}
+            onPageChange={setSoundboardPage}
+            slots={soundboard}
+            tracksById={tracksById}
+            isPlaying={isPadPlaying}
+            onAssign={(p, s, id) => void handlePadAssign(p, s, id)}
+            onFire={(p, s) => void handlePadFire(p, s)}
+            onStop={handlePadStop}
+            onClear={(p, s) => void handlePadClear(p, s)}
+            onSetLoop={(p, s, l) => void handlePadSetLoop(p, s, l)}
+            onSetVolume={(p, s, v) => void handlePadSetVolume(p, s, v)}
+          />
         )}
 
         <DesktopRightRail
@@ -589,32 +706,6 @@ function AmbientBackground({ category }: { category: CategoryId }) {
         zIndex: 0,
       }}
     />
-  );
-}
-
-function PlaceholderTab({ tab }: { tab: "soundboard" }) {
-  return (
-    <div
-      style={{
-        flex: 1,
-        minWidth: 0,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexDirection: "column",
-        gap: 8,
-        color: "#b6a890",
-        fontStyle: "italic",
-        fontSize: 14,
-      }}
-    >
-      <div className="mc-eyebrow">Coming in Phase 2</div>
-      <div>
-        {tab === "soundboard"
-          ? "A/B/C pages with 24 drag-to-assign pads."
-          : ""}
-      </div>
-    </div>
   );
 }
 
