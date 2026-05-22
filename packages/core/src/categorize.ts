@@ -299,10 +299,22 @@ export function categorize(
     return categorize(altMatch[1], "");
   }
 
-  const text = `${normalizedFile} ${parentSegment}`.trim();
+  // Track-name evidence is stronger than pack-name evidence — a specific
+  // track in a generically-named pack should win (e.g. "System Status OK"
+  // in "Ominous Overtures" → scifi, not tension).
+  const fileMatch = match(normalizedFile);
+  if (fileMatch) return fileMatch;
 
-  // SFX override beats everything except the most explicit Combat/Boss markers.
-  // "Combat" packs with explicit gunfire/explosion get SFX (per Conflict Battle pack).
+  const combined = `${normalizedFile} ${parentSegment}`.trim();
+  const combinedMatch = match(combined);
+  if (combinedMatch) return combinedMatch;
+
+  // Default fallback. Exploration is the broadest "between scenes" bucket.
+  return { category: "exploration" };
+}
+
+function match(text: string): CategorizeResult | undefined {
+  // SFX override beats everything else — non-musical signals are unambiguous.
   if (containsAny(text, SFX_OVERRIDE)) {
     return { category: "sfx" };
   }
@@ -356,8 +368,7 @@ export function categorize(
     return { category: "scifi" };
   }
 
-  // Default fallback. Exploration is the broadest "between scenes" bucket.
-  return { category: "exploration" };
+  return undefined;
 }
 
 // ---------- Internals ----------

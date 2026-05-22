@@ -14,6 +14,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - GTM brief deck (`Major Ambience - Pitch Deck.html` + `.pptx`).
 - Marketing plan with 90‑day action plan (`MARKETING.md`).
 - pnpm workspaces baseline: `pnpm-workspace.yaml`, root `package.json`, `tsconfig.base.json` (TypeScript strict), `.nvmrc`, `.npmrc`.
+- `apps/desktop` — Tauri 2 + React + Vite shell, MSI-ready, Mica window effect, 1280×800 default.
+- `packages/core` — `AudioBackend` interface, `WebAudioBackend` implementation with linear-ramp `setGain`, and the `crossfade` helper from BUILD_GUIDE § 4.1.
+- `packages/core/categorize.ts` — pure `(filename, parentFolderPath) → { category, subcategory? }` covering every rule in CATEGORIZATION_GUIDE.md. 118 Vitest cases.
+- `packages/core/shuffle.ts` — weighted shuffle (S=6×, A=4×, B=2×, C/D/Ungraded=1×, F=excluded) with deterministic Mulberry32 PRNG for tests.
+- `packages/data` — typed repository over `tauri-plugin-sql`. SQLite schema (tracks, tracks_fts FTS5, scenes, soundboard, config) ships as Tauri migration `0001_initial.sql`.
+- `packages/ui` — design tokens, category palette, `<Glyph>` with 30+ ported icons, `<TrackRow>`, `<CategoryGradient>`, `<Visualizer>`, `<OrbVisualizer>`, `<GradeChip>`, `<CatChip>`. Inline styles preserved from the prototype per Working Rule 4.
+- `apps/desktop` — Library screen with sidebar + track list, Open Folder via `dialog.open({ directory: true })`, recursive scan via Rust `scan_folder` command, auto-categorization, SQLite persistence, click-to-play with crossfade through `WebAudioBackend`. Play count and last-played timestamp persisted.
 
 ### Changed
 - Project renamed from "Music Companion" to **Major Ambience**.
