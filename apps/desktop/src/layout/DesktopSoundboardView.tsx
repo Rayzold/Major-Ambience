@@ -16,6 +16,7 @@ export type DesktopSoundboardViewProps = {
   onClear: (page: "A" | "B" | "C", slot: number) => void;
   onSetLoop: (page: "A" | "B" | "C", slot: number, loop: boolean) => void;
   onSetVolume: (page: "A" | "B" | "C", slot: number, v: number) => void;
+  dmMode: boolean;
 };
 
 const SFX_TEAL = "#5cc4d9";
@@ -33,6 +34,7 @@ export function DesktopSoundboardView({
   onClear,
   onSetLoop,
   onSetVolume,
+  dmMode,
 }: DesktopSoundboardViewProps) {
   const slotsByKey = new Map<string, SoundboardSlot>();
   for (const s of slots) slotsByKey.set(`${s.page}-${s.slot}`, s);
@@ -137,6 +139,7 @@ export function DesktopSoundboardView({
               onClear={() => onClear(page, slotNum)}
               onSetLoop={(loop) => onSetLoop(page, slotNum, loop)}
               onSetVolume={(v) => onSetVolume(page, slotNum, v)}
+              dmMode={dmMode}
             />
           );
         })}

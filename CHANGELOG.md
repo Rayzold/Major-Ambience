@@ -14,6 +14,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Theme switching is a single class toggle on `<html>`. `T` in `@mc/ui` now exports `var(--mc-…)` strings instead of hex values, so swapping themes never triggers a React re-render cascade.
 - New theme-aware tokens: `chromeBg` (translucent header / transport), `popoverBg` (search, pin menu, settings popup), `modalBackdrop` (save-scene modal, tutorial overlay) — all per-theme so light + dark + violet popovers all read correctly.
 - Settings icon popup grew a **Themes** section above Tutorials with a mini palette swatch per theme and a check mark on the active one. Persisted as `theme` in `config`.
+- **DM Mode** (`DESIGN.md § 6.2`) — single toggle on the theatre icon in the header. Red "DM MODE" pill appears next to the logo with a soft red glow when on. Hides editing affordances that would either distract at the table or reveal private GM judgment: grade chips (track rows, transport, right rail), play counts, right-click pin menu + drag-to-assign, Save current scene, scene delete chip, per-pad clear/loop/volume controls, settings icon, Open Folder, DM Toolkit. Keeps every player-facing affordance visible: category sidebar, track list, search, scenes/soundboard tabs, fade/duck/volume sliders, prev/play/next, scrubber. Persisted as `dm_mode` in `config`; reopening any popovers is blocked while DM Mode is on.
 
 ---
 

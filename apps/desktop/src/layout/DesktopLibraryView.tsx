@@ -14,6 +14,7 @@ export type DesktopLibraryViewProps = {
   onPlayTrack: (track: Track) => void;
   onShuffleCategory: () => void;
   onTrackContextMenu: (track: Track, x: number, y: number) => void;
+  dmMode: boolean;
 };
 
 export function DesktopLibraryView({
@@ -23,6 +24,7 @@ export function DesktopLibraryView({
   onPlayTrack,
   onShuffleCategory,
   onTrackContextMenu,
+  dmMode,
 }: DesktopLibraryViewProps) {
   const cat = findCategory(activeCategory) ?? CATEGORIES[0]!;
   const [gradeFilter, setGradeFilter] = useState<"All" | Grade>("All");
@@ -129,23 +131,25 @@ export function DesktopLibraryView({
               >
                 <Glyph name="shuffle" size={14} /> Shuffle weighted
               </button>
-              <button
-                disabled
-                title="Scenes ship in Phase 2"
-                style={{
-                  padding: "10px 14px",
-                  borderRadius: 999,
-                  background: T.bgChip,
-                  color: T.ink3,
-                  fontSize: 13,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  cursor: "not-allowed",
-                }}
-              >
-                <Glyph name="plus" size={14} /> Save as scene
-              </button>
+              {dmMode ? null : (
+                <button
+                  disabled
+                  title="Save current as a scene — coming in next phase"
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: 999,
+                    background: T.bgChip,
+                    color: T.ink3,
+                    fontSize: 13,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    cursor: "not-allowed",
+                  }}
+                >
+                  <Glyph name="plus" size={14} /> Save as scene
+                </button>
+              )}
               <div className="mc-mono" style={{ fontSize: 11, color: T.ink3 }}>
                 {categoryTracks.length.toLocaleString()} tracks
               </div>
@@ -243,8 +247,8 @@ export function DesktopLibraryView({
         <div>#</div>
         <div>Title</div>
         <div>Pack</div>
-        <div>Plays</div>
-        <div>Grade</div>
+        <div>{dmMode ? "" : "Plays"}</div>
+        <div>{dmMode ? "" : "Grade"}</div>
         <div>Time</div>
       </div>
 
@@ -271,6 +275,7 @@ export function DesktopLibraryView({
             isPlaying={t.id === playingTrackId}
             onTap={() => onPlayTrack(t)}
             onContextMenu={(x, y) => onTrackContextMenu(t, x, y)}
+            dmMode={dmMode}
           />
         ))
       )}
@@ -287,12 +292,14 @@ function DesktopTrackRow({
   isPlaying,
   onTap,
   onContextMenu,
+  dmMode,
 }: {
   track: Track;
   index: number;
   isPlaying: boolean;
   onTap: () => void;
   onContextMenu: (x: number, y: number) => void;
+  dmMode: boolean;
 }) {
   const c = findCategory(track.category);
   if (!c) return null;
@@ -300,12 +307,12 @@ function DesktopTrackRow({
     <button
       className="mc-row-tap"
       onClick={onTap}
-      onContextMenu={(e) => {
+      onContextMenu={dmMode ? undefined : (e) => {
         e.preventDefault();
         onContextMenu(e.clientX, e.clientY);
       }}
-      draggable
-      onDragStart={(e) => {
+      draggable={!dmMode}
+      onDragStart={dmMode ? undefined : (e) => {
         e.dataTransfer.effectAllowed = "copy";
         e.dataTransfer.setData("application/x-mc-track", track.id);
         e.dataTransfer.setData("text/plain", track.title);
@@ -371,9 +378,13 @@ function DesktopTrackRow({
         {track.pack}
       </div>
       <div className="mc-mono" style={{ fontSize: 11, color: T.ink3 }}>
-        {track.playCount}×
+        {dmMode ? "" : `${track.playCount}×`}
       </div>
-      <GradeChip grade={track.grade} size={22} />
+      {dmMode ? (
+        <div />
+      ) : (
+        <GradeChip grade={track.grade} size={22} />
+      )}
       <div className="mc-mono" style={{ fontSize: 12, color: T.ink2 }}>
         {formatMs(track.durationMs)}
       </div>

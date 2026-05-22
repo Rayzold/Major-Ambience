@@ -98,6 +98,7 @@ export function Library() {
   const [activeTutorialId, setActiveTutorialId] = useState<string | null>(null);
   const [seenTutorials, setSeenTutorials] = useState<Set<string>>(new Set());
   const [theme, setTheme] = useState<ThemeId>(DEFAULT_THEME);
+  const [dmMode, setDmMode] = useState(false);
 
   // ── Derived ─────────────────────────────────────────────────────────────
   const currentTrack = useMemo(
@@ -170,6 +171,8 @@ export function Library() {
         } else {
           applyTheme(DEFAULT_THEME);
         }
+        const dmRaw = await getConfig(db, "dm_mode");
+        if (dmRaw === "true") setDmMode(true);
       } catch (err) {
         console.error("[library] init failed:", err);
       }
@@ -412,6 +415,20 @@ export function Library() {
     await setConfig(db, "theme", id);
   }
 
+  // ── DM Mode ────────────────────────────────────────────────────────────
+  async function handleToggleDmMode() {
+    const next = !dmMode;
+    setDmMode(next);
+    // Close any open popovers/menus that are no longer reachable.
+    if (next) {
+      setPinMenu(null);
+      setTutorialsMenu(null);
+      setSaveDialogOpen(false);
+    }
+    const db = await getDb();
+    await setConfig(db, "dm_mode", next ? "true" : "false");
+  }
+
   // ── Tutorials ──────────────────────────────────────────────────────────
   const hasUnseenTutorials =
     TUTORIALS.some((t) => !seenTutorials.has(t.id));
@@ -627,6 +644,8 @@ export function Library() {
         searchInputRef={searchInputRef}
         hasUnseenTutorials={hasUnseenTutorials}
         onOpenTutorials={(anchor) => setTutorialsMenu(anchor)}
+        dmMode={dmMode}
+        onToggleDmMode={() => void handleToggleDmMode()}
       />
 
       <div
@@ -652,7 +671,10 @@ export function Library() {
             playingTrackId={playback?.trackId}
             onPlayTrack={(t) => void handlePlayTrack(t)}
             onShuffleCategory={() => void handleShuffleCategory()}
-            onTrackContextMenu={(t, x, y) => setPinMenu({ track: t, x, y })}
+            onTrackContextMenu={(t, x, y) =>
+              dmMode ? undefined : setPinMenu({ track: t, x, y })
+            }
+            dmMode={dmMode}
           />
         ) : tab === "scenes" ? (
           <DesktopScenesView
@@ -662,6 +684,7 @@ export function Library() {
             onOpenSave={() => setSaveDialogOpen(true)}
             onRestore={(s) => void handleRestoreScene(s)}
             onDelete={(s) => void handleDeleteScene(s)}
+            dmMode={dmMode}
           />
         ) : (
           <DesktopSoundboardView
@@ -677,6 +700,7 @@ export function Library() {
             onClear={(p, s) => void handlePadClear(p, s)}
             onSetLoop={(p, s, l) => void handlePadSetLoop(p, s, l)}
             onSetVolume={(p, s, v) => void handlePadSetVolume(p, s, v)}
+            dmMode={dmMode}
           />
         )}
 
@@ -688,6 +712,7 @@ export function Library() {
           onCycleGrade={handleCycleGrade}
           onSetGrade={handleSetGrade}
           upNext={upNext}
+          dmMode={dmMode}
         />
       </div>
 
@@ -804,6 +829,7 @@ export function Library() {
         onSetFadeMs={(ms) => void handleSetFade(ms)}
         onSetVolume={(v) => void handleSetVolume(v)}
         onSetDuckingPct={(p) => void handleSetDucking(p)}
+        dmMode={dmMode}
       />
     </div>
   );

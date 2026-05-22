@@ -18,7 +18,11 @@ export type DesktopHeaderProps = {
   searchInputRef?: Ref<HTMLInputElement>;
   hasUnseenTutorials: boolean;
   onOpenTutorials: (anchor: { x: number; y: number }) => void;
+  dmMode: boolean;
+  onToggleDmMode: () => void;
 };
+
+const DM_RED = "#d96666";
 
 const tabs: Array<{ id: Tab; label: string; icon: string }> = [
   { id: "library", label: "Library", icon: "library" },
@@ -48,6 +52,8 @@ export function DesktopHeader({
   searchInputRef,
   hasUnseenTutorials,
   onOpenTutorials,
+  dmMode,
+  onToggleDmMode,
 }: DesktopHeaderProps) {
   return (
     <div
@@ -65,13 +71,45 @@ export function DesktopHeader({
         backdropFilter: "blur(20px)",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 16, width: 244 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, width: 244 }}>
         <h1
           className="mc-display"
           style={{ margin: 0, fontSize: 22, fontWeight: 600, color: T.ink }}
         >
           Major <span style={{ fontStyle: "italic", color: T.gold }}>Ambience</span>
         </h1>
+        {dmMode ? (
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              padding: "3px 8px",
+              borderRadius: 999,
+              background: DM_RED + "22",
+              border: `1px solid ${DM_RED}66`,
+              color: DM_RED,
+              fontSize: 9,
+              fontWeight: 700,
+              letterSpacing: 0.16,
+              textTransform: "uppercase",
+              fontFamily: "Geist Mono, monospace",
+              boxShadow: `0 0 12px ${DM_RED}44`,
+            }}
+            title="DM Mode is on — editing affordances hidden"
+          >
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: 999,
+                background: DM_RED,
+                boxShadow: `0 0 6px ${DM_RED}`,
+              }}
+            />
+            DM Mode
+          </span>
+        ) : null}
       </div>
 
       <div
@@ -173,60 +211,75 @@ export function DesktopHeader({
             Ctrl K
           </span>
         </div>
+        {dmMode ? null : (
+          <button
+            onClick={onOpenFolder}
+            title="Open folder"
+            data-mc-tour="open-folder"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "8px 12px",
+              borderRadius: 9,
+              background: T.goldSoft,
+              border: `1px solid ${T.goldEdge}`,
+              color: T.gold,
+              fontSize: 12,
+              fontWeight: 500,
+            }}
+          >
+            <Glyph name="folder" size={14} />
+            Open Folder
+          </button>
+        )}
+        {dmMode ? null : (
+          <button style={iconBtn} title="DM Toolkit — coming in Phase 2">
+            <Glyph name="dice" size={16} />
+          </button>
+        )}
         <button
-          onClick={onOpenFolder}
-          title="Open folder"
-          data-mc-tour="open-folder"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            padding: "8px 12px",
-            borderRadius: 9,
-            background: T.goldSoft,
-            border: `1px solid ${T.goldEdge}`,
-            color: T.gold,
-            fontSize: 12,
-            fontWeight: 500,
-          }}
-        >
-          <Glyph name="folder" size={14} />
-          Open Folder
-        </button>
-        <button style={iconBtn} title="DM Toolkit — coming in Phase 2">
-          <Glyph name="dice" size={16} />
-        </button>
-        <button style={iconBtn} title="DM mode — coming in Phase 2">
-          <Glyph name="theatre" size={16} />
-        </button>
-        <button
-          onClick={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect();
-            onOpenTutorials({ x: rect.right, y: rect.bottom + 6 });
-          }}
-          title={hasUnseenTutorials ? "Tutorials available" : "Tutorials"}
+          onClick={onToggleDmMode}
+          title={dmMode ? "Exit DM Mode" : "Enter DM Mode — hide editing controls"}
           style={{
             ...iconBtn,
-            position: "relative",
-            color: hasUnseenTutorials ? T.gold : T.ink2,
+            color: dmMode ? DM_RED : T.ink2,
+            background: dmMode ? DM_RED + "1a" : "transparent",
+            border: dmMode ? `1px solid ${DM_RED}55` : "1px solid transparent",
           }}
         >
-          <Glyph name="settings" size={16} />
-          {hasUnseenTutorials ? (
-            <span
-              style={{
-                position: "absolute",
-                top: 6,
-                right: 6,
-                width: 7,
-                height: 7,
-                borderRadius: 999,
-                background: T.gold,
-                boxShadow: `0 0 6px ${T.gold}`,
-              }}
-            />
-          ) : null}
+          <Glyph name="theatre" size={16} stroke={dmMode ? 1.9 : 1.5} />
         </button>
+        {dmMode ? null : (
+          <button
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              onOpenTutorials({ x: rect.right, y: rect.bottom + 6 });
+            }}
+            title={hasUnseenTutorials ? "Tutorials available" : "Settings"}
+            style={{
+              ...iconBtn,
+              position: "relative",
+              color: hasUnseenTutorials ? T.gold : T.ink2,
+            }}
+          >
+            <Glyph name="settings" size={16} />
+            {hasUnseenTutorials ? (
+              <span
+                style={{
+                  position: "absolute",
+                  top: 6,
+                  right: 6,
+                  width: 7,
+                  height: 7,
+                  borderRadius: 999,
+                  background: T.gold,
+                  boxShadow: `0 0 6px ${T.gold}`,
+                }}
+              />
+            ) : null}
+          </button>
+        )}
       </div>
     </div>
   );
