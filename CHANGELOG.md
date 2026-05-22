@@ -33,6 +33,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Fixed
 - `categorize.ts` — bare weather words (rain, snow, wind, thunder, lightning) no longer trigger SFX override on their own. Surfaced when "Reflections on the Snow" (piano piece) classified as SFX. Real weather SFX packs still route correctly because the pack folder name carries "weather" or "weatherwounds". Also added "sfx" as a strong ancestor-folder signal.
 
+### Added (post-MVP, Phase 1)
+- **Search** — FTS5 across title / pack / note. Spotlight-style overlay drops below the header search input. Debounced 120ms. Click result to play (and dismiss). Ctrl+K focuses search from anywhere, ESC closes. `searchTracks(db, query, limit)` in `@mc/data` builds a prefix-match AND-chain ("mighty seas" → `mighty* seas*`).
+
 ### Changed
 - Project renamed from "Music Companion" to **Major Ambience**.
 

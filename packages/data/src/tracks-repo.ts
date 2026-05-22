@@ -36,6 +36,41 @@ export async function listTracks(db: Db): Promise<Track[]> {
   return rows.map(rowToTrack);
 }
 
+/**
+ * Full-text search across title / pack / note via the `tracks_fts` FTS5 table.
+ * `query` is raw user input; we sanitize and turn it into a prefix-match
+ * AND-chain so "mighty seas" matches "mighty*" AND "seas*".
+ */
+export async function searchTracks(
+  db: Db,
+  query: string,
+  limit = 50,
+): Promise<Track[]> {
+  const fts = buildFtsQuery(query);
+  if (!fts) return [];
+  const rows = await db.select<TrackRow[]>(
+    `SELECT t.* FROM tracks t
+     JOIN tracks_fts f ON t.rowid = f.rowid
+     WHERE tracks_fts MATCH $1
+     ORDER BY rank
+     LIMIT $2`,
+    [fts, limit],
+  );
+  return rows.map(rowToTrack);
+}
+
+function buildFtsQuery(input: string): string {
+  // Strip everything FTS5 might interpret, keep alphanumerics + apostrophe,
+  // then prefix-match each surviving word ≥2 chars.
+  const tokens = input
+    .replace(/[^a-zA-Z0-9'\s]/g, " ")
+    .split(/\s+/)
+    .map((t) => t.replace(/^'+|'+$/g, ""))
+    .filter((t) => t.length >= 2);
+  if (tokens.length === 0) return "";
+  return tokens.map((t) => `${t}*`).join(" ");
+}
+
 export async function listTracksByCategory(db: Db, category: string): Promise<Track[]> {
   const rows = await db.select<TrackRow[]>(
     "SELECT * FROM tracks WHERE category = $1 ORDER BY title",

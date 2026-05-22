@@ -2,7 +2,7 @@
 // Library tab is functional; Scenes / Soundboard are visual placeholders
 // (out of scope for DESIGN.md § 2).
 
-import type { CSSProperties } from "react";
+import type { CSSProperties, Ref } from "react";
 import { Glyph, T } from "@mc/ui";
 
 type Tab = "library" | "scenes" | "soundboard";
@@ -12,6 +12,10 @@ export type DesktopHeaderProps = {
   onTabChange: (t: Tab) => void;
   trackCount: number;
   onOpenFolder: () => void;
+  searchQuery: string;
+  onSearchChange: (q: string) => void;
+  onSearchFocus: () => void;
+  searchInputRef?: Ref<HTMLInputElement>;
 };
 
 const tabs: Array<{ id: Tab; label: string; icon: string }> = [
@@ -36,6 +40,10 @@ export function DesktopHeader({
   onTabChange,
   trackCount,
   onOpenFolder,
+  searchQuery,
+  onSearchChange,
+  onSearchFocus,
+  searchInputRef,
 }: DesktopHeaderProps) {
   return (
     <div
@@ -106,6 +114,7 @@ export function DesktopHeader({
         }}
       >
         <div
+          data-mc-search-input
           style={{
             display: "flex",
             alignItems: "center",
@@ -113,28 +122,45 @@ export function DesktopHeader({
             padding: "8px 12px",
             borderRadius: 10,
             background: T.bgCard,
-            border: `1px solid ${T.rule}`,
+            border: `1px solid ${searchQuery ? T.goldEdge : T.rule}`,
             width: 200,
             color: T.ink2,
-            opacity: 0.6,
           }}
-          title="Search lands in a later phase (DESIGN.md § 2 out of scope)"
         >
           <Glyph name="search" size={14} />
           <input
+            ref={searchInputRef}
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.currentTarget.value)}
+            onFocus={onSearchFocus}
             placeholder={
               trackCount > 0 ? `Search ${trackCount.toLocaleString()} tracks…` : "Search…"
             }
-            disabled
+            disabled={trackCount === 0}
             style={{
               flex: 1,
+              minWidth: 0,
               background: "transparent",
               border: 0,
               outline: 0,
               fontSize: 12,
-              color: T.ink2,
+              color: T.ink,
             }}
           />
+          <span
+            className="mc-mono"
+            style={{
+              fontSize: 9,
+              padding: "1px 5px",
+              borderRadius: 4,
+              background: T.bgChip,
+              border: `1px solid ${T.rule}`,
+              color: T.ink3,
+              flexShrink: 0,
+            }}
+          >
+            Ctrl K
+          </span>
         </div>
         <button
           onClick={onOpenFolder}

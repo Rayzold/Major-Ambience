@@ -1,7 +1,7 @@
 // Library orchestrator — holds playback state, coordinates layout pieces.
 // Layout components live under src/layout/ and stay dumb-visual.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import type { CategoryId, Grade, Track, TrackHandle } from "@mc/core";
@@ -14,6 +14,7 @@ import {
   getDb,
   insertTracks,
   listTracks,
+  searchTracks,
   setConfig,
   setDuration,
   setGrade as persistGrade,
@@ -26,6 +27,7 @@ import { DesktopSidebar } from "./layout/DesktopSidebar.js";
 import { DesktopLibraryView } from "./layout/DesktopLibraryView.js";
 import { DesktopRightRail } from "./layout/DesktopRightRail.js";
 import { DesktopTransport } from "./layout/DesktopTransport.js";
+import { SearchOverlay } from "./layout/SearchOverlay.js";
 
 const DEFAULT_FADE_MS = 2000;
 const DEFAULT_VOLUME = 0.85;
@@ -51,6 +53,11 @@ export function Library() {
   const [scanStatus, setScanStatus] = useState<string>("");
   const [fadeMs, setFadeMs] = useState(DEFAULT_FADE_MS);
   const [masterVolume, setMasterVolume] = useState(DEFAULT_VOLUME);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchResults, setSearchResults] = useState<Track[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   // ── Derived ─────────────────────────────────────────────────────────────
   const currentTrack = useMemo(
@@ -115,6 +122,46 @@ export function Library() {
   useEffect(() => {
     getAudioBackend().setMasterGain(masterVolume);
   }, [masterVolume]);
+
+  // Ctrl+K focuses the search input from anywhere.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        setSearchOpen(true);
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Debounced FTS5 search. 120ms per BUILD_GUIDE.md § 8.
+  useEffect(() => {
+    if (!searchOpen) return;
+    if (searchQuery.trim().length === 0) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      return;
+    }
+    setSearchLoading(true);
+    const handle = setTimeout(() => {
+      void (async () => {
+        try {
+          const db = await getDb();
+          const rows = await searchTracks(db, searchQuery, 50);
+          setSearchResults(rows);
+        } catch (err) {
+          console.error("[search] failed:", err);
+          setSearchResults([]);
+        } finally {
+          setSearchLoading(false);
+        }
+      })();
+    }, 120);
+    return () => clearTimeout(handle);
+  }, [searchQuery, searchOpen]);
 
   // ── Handlers ────────────────────────────────────────────────────────────
   async function handleOpenFolder() {
@@ -308,6 +355,13 @@ export function Library() {
         onTabChange={setTab}
         trackCount={tracks.length}
         onOpenFolder={handleOpenFolder}
+        searchQuery={searchQuery}
+        onSearchChange={(q) => {
+          setSearchQuery(q);
+          setSearchOpen(true);
+        }}
+        onSearchFocus={() => setSearchOpen(true)}
+        searchInputRef={searchInputRef}
       />
 
       <div
@@ -372,6 +426,25 @@ export function Library() {
         >
           {scanStatus}
         </div>
+      ) : null}
+
+      {searchOpen ? (
+        <SearchOverlay
+          query={searchQuery}
+          results={searchResults}
+          loading={searchLoading}
+          playingTrackId={playback?.trackId}
+          onPlay={(t) => {
+            void handlePlayTrack(t);
+            setSearchOpen(false);
+            setSearchQuery("");
+            searchInputRef.current?.blur();
+          }}
+          onDismiss={() => {
+            setSearchOpen(false);
+            setSearchQuery("");
+          }}
+        />
       ) : null}
 
       <DesktopTransport
