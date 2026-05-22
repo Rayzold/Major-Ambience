@@ -111,6 +111,7 @@ Initial repository commit. Pre‑production state: design and spec only, no prod
 
 ---
 
-[Unreleased]: https://github.com/Rayzold/Major-Ambience/compare/v0.0.2...HEAD
+[Unreleased]: https://github.com/Rayzold/Major-Ambience/compare/v0.0.3...HEAD
+[0.0.3]: https://github.com/Rayzold/Major-Ambience/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/Rayzold/Major-Ambience/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/Rayzold/Major-Ambience/releases/tag/v0.0.1
