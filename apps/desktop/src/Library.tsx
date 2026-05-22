@@ -35,6 +35,7 @@ import { DesktopRightRail } from "./layout/DesktopRightRail.js";
 import { DesktopScenesView } from "./layout/DesktopScenesView.js";
 import { DesktopSoundboardView } from "./layout/DesktopSoundboardView.js";
 import { DesktopTransport } from "./layout/DesktopTransport.js";
+import { PinToSlotMenu } from "./layout/PinToSlotMenu.js";
 import { SaveSceneDialog } from "./layout/SaveSceneDialog.js";
 import { SearchOverlay } from "./layout/SearchOverlay.js";
 import {
@@ -80,6 +81,9 @@ export function Library() {
   const [soundboard, setSoundboard] = useState<SoundboardSlot[]>([]);
   const [soundboardPage, setSoundboardPage] = useState<"A" | "B" | "C">("A");
   const [padPlayingTick, setPadPlayingTick] = useState(0);
+  const [pinMenu, setPinMenu] = useState<
+    { track: Track; x: number; y: number } | null
+  >(null);
 
   // ── Derived ─────────────────────────────────────────────────────────────
   const currentTrack = useMemo(
@@ -578,6 +582,7 @@ export function Library() {
             playingTrackId={playback?.trackId}
             onPlayTrack={(t) => void handlePlayTrack(t)}
             onShuffleCategory={() => void handleShuffleCategory()}
+            onTrackContextMenu={(t, x, y) => setPinMenu({ track: t, x, y })}
           />
         ) : tab === "scenes" ? (
           <DesktopScenesView
@@ -639,6 +644,23 @@ export function Library() {
         >
           {scanStatus}
         </div>
+      ) : null}
+
+      {pinMenu ? (
+        <PinToSlotMenu
+          anchor={{ x: pinMenu.x, y: pinMenu.y }}
+          track={pinMenu.track}
+          slots={soundboard}
+          tracksById={tracksById}
+          onPin={(page, slot) => {
+            void handlePadAssign(page, slot, pinMenu.track.id);
+            setPinMenu(null);
+            setScanStatus(
+              `Pinned "${pinMenu.track.title}" to ${page}·${slot}.`,
+            );
+          }}
+          onDismiss={() => setPinMenu(null)}
+        />
       ) : null}
 
       {saveDialogOpen ? (

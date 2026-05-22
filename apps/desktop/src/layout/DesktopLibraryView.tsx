@@ -13,6 +13,7 @@ export type DesktopLibraryViewProps = {
   playingTrackId: string | undefined;
   onPlayTrack: (track: Track) => void;
   onShuffleCategory: () => void;
+  onTrackContextMenu: (track: Track, x: number, y: number) => void;
 };
 
 export function DesktopLibraryView({
@@ -21,6 +22,7 @@ export function DesktopLibraryView({
   playingTrackId,
   onPlayTrack,
   onShuffleCategory,
+  onTrackContextMenu,
 }: DesktopLibraryViewProps) {
   const cat = findCategory(activeCategory) ?? CATEGORIES[0]!;
   const [gradeFilter, setGradeFilter] = useState<"All" | Grade>("All");
@@ -266,6 +268,7 @@ export function DesktopLibraryView({
             index={i + 1}
             isPlaying={t.id === playingTrackId}
             onTap={() => onPlayTrack(t)}
+            onContextMenu={(x, y) => onTrackContextMenu(t, x, y)}
           />
         ))
       )}
@@ -280,11 +283,13 @@ function DesktopTrackRow({
   index,
   isPlaying,
   onTap,
+  onContextMenu,
 }: {
   track: Track;
   index: number;
   isPlaying: boolean;
   onTap: () => void;
+  onContextMenu: (x: number, y: number) => void;
 }) {
   const c = findCategory(track.category);
   if (!c) return null;
@@ -292,6 +297,10 @@ function DesktopTrackRow({
     <button
       className="mc-row-tap"
       onClick={onTap}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        onContextMenu(e.clientX, e.clientY);
+      }}
       draggable
       onDragStart={(e) => {
         e.dataTransfer.effectAllowed = "copy";
