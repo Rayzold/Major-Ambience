@@ -11,6 +11,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Added — Phase 2
 
 - **`apps/mobile/`** — Expo 56 + RN 0.85 + Expo Router scaffold for the mobile app. Wires `@mc/core` and `@mc/ui/categories` as workspace deps so the pure-TS engine (categorize, shuffle, types, CATEGORIES) is shared with desktop. Four tabs (Library, Scenes, Soundboard, Search) with a dark theme + gold accent. Library tab renders all ten categories from the shared CATEGORIES table with their colors + descriptions. Other tabs ship as design-correct placeholders explaining what's deferred to follow-up tickets (folder import, `expo-sqlite` adapter, `react-native-track-player` audio engine, EAS dev-client build).
+- **Mobile glyphs via `react-native-svg`** — Glyph paths extracted into pure data (`packages/ui/src/glyph-data.ts`) so both renderers consume the same source. Desktop `<Glyph>` refactored to read from it. New `apps/mobile/src/Glyph.tsx` renders the same paths via `react-native-svg`. Tab bar icons + Library tile glyphs on mobile now show the real custom set tinted to each category's color, replacing the Unicode placeholders.
+- Cleaned up unused scaffold components from `create-expo-app`; `+not-found.tsx` and the hidden `two.tsx` tab rewritten to use Major Ambience tokens.
 
 ### Fixed
 
