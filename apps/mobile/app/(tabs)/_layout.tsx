@@ -1,11 +1,11 @@
 // Bottom tab bar — Library / Scenes / Soundboard / Search.
-// Custom dark styling on top of expo-router's tabs primitive.
 
 import { Tabs } from "expo-router";
-import { Text, View, type ColorValue } from "react-native";
+import { View, type ColorValue } from "react-native";
 import { T } from "../../src/tokens";
+import { Glyph } from "../../src/Glyph";
 
-function tabIcon(glyph: string) {
+function tabIcon(name: string) {
   return ({ color, focused }: { color: ColorValue; focused: boolean }) => (
     <View
       style={{
@@ -15,16 +15,12 @@ function tabIcon(glyph: string) {
         justifyContent: "center",
       }}
     >
-      <Text
-        style={{
-          color,
-          fontSize: 20,
-          fontWeight: focused ? "700" : "500",
-          opacity: focused ? 1 : 0.85,
-        }}
-      >
-        {glyph}
-      </Text>
+      <Glyph
+        name={name}
+        size={22}
+        stroke={focused ? 1.9 : 1.5}
+        color={typeof color === "string" ? color : T.ink2}
+      />
     </View>
   );
 }
@@ -47,31 +43,19 @@ export default function TabLayout() {
     >
       <Tabs.Screen
         name="index"
-        options={{
-          title: "Library",
-          tabBarIcon: tabIcon("▤"),
-        }}
+        options={{ title: "Library", tabBarIcon: tabIcon("library") }}
       />
       <Tabs.Screen
         name="scenes"
-        options={{
-          title: "Scenes",
-          tabBarIcon: tabIcon("◫"),
-        }}
+        options={{ title: "Scenes", tabBarIcon: tabIcon("scenes") }}
       />
       <Tabs.Screen
         name="soundboard"
-        options={{
-          title: "Soundboard",
-          tabBarIcon: tabIcon("⊞"),
-        }}
+        options={{ title: "Soundboard", tabBarIcon: tabIcon("soundboard") }}
       />
       <Tabs.Screen
         name="search"
-        options={{
-          title: "Search",
-          tabBarIcon: tabIcon("⌕"),
-        }}
+        options={{ title: "Search", tabBarIcon: tabIcon("search") }}
       />
       <Tabs.Screen name="two" options={{ href: null }} />
     </Tabs>

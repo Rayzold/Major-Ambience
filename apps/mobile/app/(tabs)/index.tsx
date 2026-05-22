@@ -4,6 +4,7 @@
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { CATEGORIES } from "@mc/ui/categories";
 import { T, FONT_DISPLAY } from "../../src/tokens";
+import { Glyph } from "../../src/Glyph";
 
 export default function LibraryScreen() {
   return (
@@ -45,7 +46,14 @@ export default function LibraryScreen() {
         }}
       >
         {CATEGORIES.map((c) => (
-          <CategoryTile key={c.id} color={c.color} dark={c.dark} name={c.name} desc={c.desc} />
+          <CategoryTile
+            key={c.id}
+            color={c.color}
+            dark={c.dark}
+            name={c.name}
+            desc={c.desc}
+            glyph={c.glyph}
+          />
         ))}
       </View>
 
@@ -59,11 +67,13 @@ function CategoryTile({
   dark,
   name,
   desc,
+  glyph,
 }: {
   color: string;
   dark: string;
   name: string;
   desc: string;
+  glyph: string;
 }) {
   return (
     <Pressable
@@ -81,11 +91,16 @@ function CategoryTile({
           width: 36,
           height: 36,
           borderRadius: 10,
-          backgroundColor: color,
-          opacity: 0.85,
+          backgroundColor: `${color}33`,
+          borderWidth: 1,
+          borderColor: `${color}66`,
           marginBottom: 12,
+          alignItems: "center",
+          justifyContent: "center",
         }}
-      />
+      >
+        <Glyph name={glyph} size={20} color={color} />
+      </View>
       <Text
         style={{
           fontFamily: FONT_DISPLAY,
