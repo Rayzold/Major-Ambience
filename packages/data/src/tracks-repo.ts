@@ -5,33 +5,29 @@ import type { Db } from "./db.js";
 import type { TrackRow } from "./schema.js";
 
 export async function insertTracks(db: Db, tracks: readonly Track[]): Promise<void> {
-  // Batch inserts in a single transaction for fast initial scan.
-  await db.execute("BEGIN TRANSACTION");
-  try {
-    for (const t of tracks) {
-      await db.execute(
-        `INSERT OR REPLACE INTO tracks
-         (id, uri, title, pack, category, subcategory, duration_ms, grade, play_count, last_played_at, note)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-        [
-          t.id,
-          t.uri,
-          t.title,
-          t.pack,
-          t.category,
-          t.subcategory ?? null,
-          t.durationMs,
-          t.grade,
-          t.playCount,
-          t.lastPlayedAt ?? null,
-          t.note ?? null,
-        ],
-      );
-    }
-    await db.execute("COMMIT");
-  } catch (err) {
-    await db.execute("ROLLBACK");
-    throw err;
+  // No BEGIN/COMMIT here — tauri-plugin-sql v2 returns a different pool
+  // connection per execute(), so a JS-level transaction would lock the DB
+  // (SQLITE_BUSY, code 5). Per-row inserts are fast enough for the library
+  // sizes we care about. INSERT OR REPLACE keeps re-scans idempotent.
+  for (const t of tracks) {
+    await db.execute(
+      `INSERT OR REPLACE INTO tracks
+       (id, uri, title, pack, category, subcategory, duration_ms, grade, play_count, last_played_at, note)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+      [
+        t.id,
+        t.uri,
+        t.title,
+        t.pack,
+        t.category,
+        t.subcategory ?? null,
+        t.durationMs,
+        t.grade,
+        t.playCount,
+        t.lastPlayedAt ?? null,
+        t.note ?? null,
+      ],
+    );
   }
 }
 

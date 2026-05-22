@@ -128,11 +128,12 @@ export function Library() {
       className="mc-app"
       style={{
         position: "relative",
-        minHeight: "100vh",
+        height: "100vh",
         background: T.bg,
         color: T.ink,
         display: "grid",
         gridTemplateRows: "auto 1fr auto",
+        overflow: "hidden",
       }}
     >
       <CategoryGradient cat={activeCategory} height={300} intensity={0.45} />
@@ -325,7 +326,7 @@ export function Library() {
 }
 
 function formatDuration(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds <= 0) return "0:00";
+  if (!Number.isFinite(seconds) || seconds <= 0) return "—";
   const total = Math.floor(seconds);
   const m = Math.floor(total / 60);
   const s = total % 60;

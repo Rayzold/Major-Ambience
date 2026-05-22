@@ -32,7 +32,7 @@ fn walk(dir: &Path, out: &mut Vec<ScannedTrack>) -> std::io::Result<()> {
             walk(&path, out)?;
             continue;
         }
-        if !is_audio_file(&path) {
+        if !is_audio_file(&path) || is_macos_resource_fork(&path) {
             continue;
         }
         let meta = entry.metadata()?;
@@ -64,6 +64,13 @@ fn walk(dir: &Path, out: &mut Vec<ScannedTrack>) -> std::io::Result<()> {
         });
     }
     Ok(())
+}
+
+fn is_macos_resource_fork(p: &Path) -> bool {
+    p.file_name()
+        .and_then(|s| s.to_str())
+        .map(|n| n.starts_with("._"))
+        .unwrap_or(false)
 }
 
 fn is_audio_file(p: &Path) -> bool {
