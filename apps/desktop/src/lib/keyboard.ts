@@ -58,6 +58,8 @@ export type ShortcutHandlers = {
   onPlayBoss?: () => void;
   /** Z — hard stop: music + all soundboard pads + turn sounds. */
   onStopAll?: () => void;
+  /** O — cycle loop mode: off → track → queue → off. */
+  onCycleLoop?: () => void;
 };
 
 export type ShortcutContext = {
@@ -81,6 +83,7 @@ export const SHORTCUTS_REFERENCE: ReadonlyArray<{
   { keys: "V / X / F", description: "Play Voices / SFX / SciFi" },
   { keys: "B", description: "Play a random Boss track (Combat sub)" },
   { keys: "Z", description: "Stop everything (music + pads)" },
+  { keys: "O", description: "Cycle loop: off → track → queue" },
   { keys: "1–9, 0", description: "Jump to category (no playback)" },
   { keys: "D", description: "Toggle DM Mode" },
   { keys: "/", description: "Focus search" },
@@ -166,6 +169,9 @@ export function resolveShortcut(
     case "z":
     case "Z":
       return handlers.onStopAll ?? null;
+    case "o":
+    case "O":
+      return handlers.onCycleLoop ?? null;
   }
 
   // Category letter hotkeys — C/T/E/A/H/S/R/V/X/F. findCategoryByShortcut

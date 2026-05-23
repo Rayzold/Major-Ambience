@@ -83,6 +83,15 @@ export function Library() {
   const [isScanning, setIsScanning] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [dropHover, setDropHover] = useState(false);
+  /**
+   * "off" — track ends, next-in-queue plays (default).
+   * "track" — current track loops natively via HTMLAudioElement.loop.
+   *           onEnded never fires while this is set, so the queue
+   *           doesn't advance until the user changes the mode.
+   * "queue" — track ends, advance; when the last queue track ends,
+   *           wrap to the first.
+   */
+  const [loopMode, setLoopMode] = useState<"off" | "track" | "queue">("off");
   const [activeCategory, setActiveCategory] = useState<CategoryId>("combat");
   /**
    * What the center pane is showing. "category" — the activeCategory's
@@ -247,6 +256,12 @@ export function Library() {
         setPadDuckingPct(duck);
         const root = await getConfig(db, "root_folder_name");
         setRootFolderName(root);
+        const loopRaw = (await getConfig(db, "loop_mode")) as
+          | "off"
+          | "track"
+          | "queue"
+          | undefined;
+        if (loopRaw === "track" || loopRaw === "queue") setLoopMode(loopRaw);
         const rootPath = await getConfig(db, "root_folder_path");
         setRootFolderPath(rootPath);
         const lastScanRaw = await getConfig(db, "last_scanned_at");
@@ -386,6 +401,7 @@ export function Library() {
       onPlayCategoryRandom: (id) => void handlePlayRandomFromCategory(id),
       onPlayBoss: () => void handlePlayBoss(),
       onStopAll: handleStopAll,
+      onCycleLoop: () => void handleCycleLoop(),
     },
     { overlayOpen },
   );
@@ -539,6 +555,12 @@ export function Library() {
         setTrackDurationSec(realDurSec!);
       }
 
+      // Native looping for "track" mode — HTMLAudioElement.loop replays
+      // without firing 'ended', so the queue advance below sits idle until
+      // the user changes loopMode. "queue" mode lets the track end naturally
+      // and is handled in the onEnded callback.
+      if (raw) raw.audio.loop = loopMode === "track";
+
       const subProgress = backend.onProgress(next, (t) => {
         setCurrentTime(t);
         const r = backend.getRawHandle(next);
@@ -550,11 +572,16 @@ export function Library() {
         subProgress();
         subEnded();
         setIsPlaying(false);
-        // Advance queue automatically if there is one.
+        // Queue advance — when we hit the end of the queue, "queue" loop
+        // wraps to the first track; "off" stops there. "track" never
+        // reaches this branch because audio.loop replays natively.
         const idx = queue.findIndex((t) => t.id === track.id);
         if (idx !== -1 && idx + 1 < queue.length) {
           const upcoming = queue[idx + 1];
           if (upcoming) void handlePlayTrack(upcoming);
+        } else if (loopMode === "queue" && queue.length > 0) {
+          const first = queue[0];
+          if (first) void handlePlayTrack(first);
         }
       });
 
@@ -603,6 +630,30 @@ export function Library() {
       backend.play(playback.handle);
       setIsPlaying(true);
     }
+  }
+
+  /**
+   * Cycle loop mode: off → track → queue → off. Persists to config and
+   * applies live to the currently-loaded HTMLAudioElement so the change
+   * takes effect without restarting the track.
+   *
+   * Mode semantics:
+   *   - off    HTMLAudioElement.loop = false; onEnded advances or stops.
+   *   - track  HTMLAudioElement.loop = true; same track replays natively.
+   *   - queue  HTMLAudioElement.loop = false; onEnded wraps queue → first.
+   */
+  async function handleCycleLoop() {
+    const next: "off" | "track" | "queue" =
+      loopMode === "off" ? "track" : loopMode === "track" ? "queue" : "off";
+    setLoopMode(next);
+    // Apply to the currently-playing handle so the user sees the change
+    // mid-track without having to re-trigger play.
+    if (playback) {
+      const raw = getAudioBackend().getRawHandle(playback.handle);
+      if (raw) raw.audio.loop = next === "track";
+    }
+    const db = await getDb();
+    await setConfig(db, "loop_mode", next);
   }
 
   /**
@@ -1373,6 +1424,8 @@ export function Library() {
         onSetDuckingPct={(p) => void handleSetDucking(p)}
         onStopAll={handleStopAll}
         anyPlaying={anyPlaying}
+        loopMode={loopMode}
+        onCycleLoop={() => void handleCycleLoop()}
         dmMode={dmMode}
       />
     </div>

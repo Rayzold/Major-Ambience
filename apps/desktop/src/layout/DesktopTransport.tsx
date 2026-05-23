@@ -27,6 +27,10 @@ export type DesktopTransportProps = {
   onStopAll: () => void;
   /** True when there is anything playing — music or any pad. Controls the Stop All button enabled state. */
   anyPlaying: boolean;
+  /** Current loop mode — controls the Loop button glyph + accent. */
+  loopMode: "off" | "track" | "queue";
+  /** Cycle loop mode: off → track → queue → off. */
+  onCycleLoop: () => void;
   dmMode: boolean;
 };
 
@@ -48,6 +52,8 @@ export function DesktopTransport({
   onSetDuckingPct,
   onStopAll,
   anyPlaying,
+  loopMode,
+  onCycleLoop,
   dmMode,
 }: DesktopTransportProps) {
   const scrubRef = useRef<HTMLDivElement | null>(null);
@@ -235,13 +241,7 @@ export function DesktopTransport({
           >
             <Glyph name="close" size={14} stroke={2} />
           </button>
-          <button
-            disabled
-            title="Loop — Phase 2"
-            style={{ color: T.ink3, cursor: "not-allowed" }}
-          >
-            <Glyph name="loop" size={16} />
-          </button>
+          <LoopButton mode={loopMode} onCycle={onCycleLoop} />
         </div>
         <div
           style={{
@@ -401,6 +401,67 @@ function FadeSlider({
         {(fadeMs / 1000).toFixed(fadeMs % 1000 === 0 ? 0 : 1)}s
       </span>
     </label>
+  );
+}
+
+/**
+ * Loop button — three-state cycle reflected in the icon color + a
+ * small "1" overlay for the track-loop mode. "off" stays neutral.
+ * Click cycles; tooltip names the current mode + next action.
+ */
+function LoopButton({
+  mode,
+  onCycle,
+}: {
+  mode: "off" | "track" | "queue";
+  onCycle: () => void;
+}) {
+  const active = mode !== "off";
+  const tooltip =
+    mode === "off"
+      ? "Loop off — click to loop current track (O)"
+      : mode === "track"
+        ? "Loop current track — click to loop queue (O)"
+        : "Loop queue — click to turn off (O)";
+  return (
+    <button
+      onClick={onCycle}
+      title={tooltip}
+      style={{
+        position: "relative",
+        width: 32,
+        height: 32,
+        borderRadius: 7,
+        background: active ? T.goldSoft : "transparent",
+        color: active ? T.gold : T.ink3,
+        border: `1px solid ${active ? T.goldEdge : "transparent"}`,
+        cursor: "pointer",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Glyph name="loop" size={16} stroke={active ? 1.9 : 1.5} />
+      {mode === "track" ? (
+        <span
+          className="mc-mono"
+          style={{
+            position: "absolute",
+            right: -2,
+            bottom: -2,
+            fontSize: 8,
+            fontWeight: 700,
+            padding: "1px 3px",
+            borderRadius: 3,
+            background: T.gold,
+            color: "#1a0f02",
+            lineHeight: 1,
+          }}
+        >
+          1
+        </span>
+      ) : null}
+    </button>
   );
 }
 

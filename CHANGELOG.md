@@ -12,6 +12,38 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile audio engi
 
 ---
 
+## [0.0.12] — 2026‑05‑23 — Loop: off / track / queue
+
+The Loop button in the transport was a disabled placeholder since v0.0.2 ("Phase 2" tooltip). Wired it up.
+
+### Added — Three-state loop
+
+- Click the loop glyph next to **Next** in the transport to cycle: **off → track → queue → off**.
+- **O** hotkey runs the same cycle. Added to the `?` cheatsheet.
+- New config key `loop_mode` persists the choice across launches.
+
+### Behavior
+
+- **off** — track ends, queue advances; final track stops playback. (Original behavior, unchanged.)
+- **track** — `HTMLAudioElement.loop = true` replays the current track natively. The browser handles the seamless wrap, so `onEnded` never fires and the queue sits idle until you change the mode. Useful when you want a single piece to keep going for as long as the encounter does.
+- **queue** — `HTMLAudioElement.loop = false`; track ends, `onEnded` advances; when the last queue track ends, wraps back to `queue[0]`. Useful for a curated playlist that should keep cycling.
+
+Switching mode mid-playback applies live — no need to restart the track. `handleCycleLoop()` flips the live `audio.loop` flag on the currently-loaded handle.
+
+### Visual
+
+- Off: faded loop glyph in `ink3`.
+- Track: gold-tinted button + small "**1**" badge in the bottom-right.
+- Queue: gold-tinted button, no badge.
+
+### Verification
+
+- `pnpm -r typecheck` — clean across all 5 projects.
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Tauri-runtime feature — cannot be exercised via browser preview. Manual verification on the running Tauri app.
+
+---
+
 ## [0.0.11] — 2026‑05‑23 — DM Toolkit tabs · Stop All · Favorites & Recently played
 
 Three usability gaps from a real-session DM run. None of them are big alone; together they make the app feel a lot less cramped on a 1280-wide window.
