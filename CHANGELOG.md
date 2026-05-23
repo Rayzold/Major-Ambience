@@ -12,6 +12,30 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile audio engi
 
 ---
 
+## [0.0.18] — 2026‑05‑24 — Scene editor
+
+Scenes have been create / restore / delete since v0.0.3. Today you can edit them too.
+
+### Added — Scene edit dialog
+
+- Hover a scene card → two icons appear top-right: **sliders** (edit) and **×** (delete, unchanged). Click sliders to open `SceneEditDialog`.
+- Edit any of: **name**, **primary category** (10-chip picker, color-tinted), **crossfade** (0–10s), **volume**, **ducking**. Tracks editor with two actions: **Adopt current queue** (replaces the scene's pinned tracks with the Library's current `queue`) and **Clear** (drops the pinned tracks so the scene shuffles the primary category on restore — the original empty-queue behavior).
+- Save persists via the existing `saveScene` upsert, refreshes the scene list, and toasts the new name. Cancel / Esc / click-outside discards.
+- Slotted into the existing `handleEscape` overlay-chain right after the save-dialog rung.
+
+### Internal
+
+- `SceneEditDialog` keeps the edits as local draft state (name / primary / fadeMs / volume / ducking / trackIds). Only commits to Library on Save — Cancel never touches the underlying scene.
+- "Volume" exposes the primary-category slot of the scene's `volumes` record. The dialog rewrites just that key on save, preserving any other per-category volumes the scene already had.
+
+### Verification
+
+- `pnpm -r typecheck` — clean across all 5 projects.
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Tauri-runtime feature — manual verification on `pnpm tauri dev`.
+
+---
+
 ## [0.0.17] — 2026‑05‑24 — Bulk grading via multi-select
 
 Grading 5,000+ tracks one-at-a-time is painful. Multi-select + a batch grade bar makes it fast.

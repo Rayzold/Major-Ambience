@@ -46,6 +46,7 @@ import type { RollResult } from "./lib/dm-dice.js";
 import { KeyboardHelpOverlay } from "./layout/KeyboardHelpOverlay.js";
 import { PinToSlotMenu } from "./layout/PinToSlotMenu.js";
 import { SaveSceneDialog } from "./layout/SaveSceneDialog.js";
+import { SceneEditDialog } from "./layout/SceneEditDialog.js";
 import { SearchOverlay } from "./layout/SearchOverlay.js";
 import { SelectionBar } from "./layout/SelectionBar.js";
 import { SyncImportConfirm } from "./layout/SyncImportConfirm.js";
@@ -130,6 +131,8 @@ export function Library() {
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [activeSceneId, setActiveSceneId] = useState<string | undefined>(undefined);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  /** Scene being edited via the SceneEditDialog. null when closed. */
+  const [editingScene, setEditingScene] = useState<Scene | null>(null);
   const [soundboard, setSoundboard] = useState<SoundboardSlot[]>([]);
   const [soundboardPage, setSoundboardPage] = useState<"A" | "B" | "C">("A");
   const [padPlayingTick, setPadPlayingTick] = useState(0);
@@ -388,6 +391,7 @@ export function Library() {
     pinMenu !== null ||
     tutorialsMenu !== null ||
     saveDialogOpen ||
+    editingScene !== null ||
     pendingImport !== null ||
     activeTutorialId !== null ||
     helpOpen ||
@@ -404,6 +408,8 @@ export function Library() {
       setPendingImport(null);
     } else if (saveDialogOpen) {
       setSaveDialogOpen(false);
+    } else if (editingScene) {
+      setEditingScene(null);
     } else if (pickerOverlay) {
       setPickerOverlay(null);
     } else if (pinMenu) {
@@ -1293,6 +1299,21 @@ export function Library() {
     if (activeSceneId === scene.id) setActiveSceneId(undefined);
   }
 
+  /**
+   * Persist edits from the SceneEditDialog. The dialog has already
+   * built the new Scene object with whatever fields the user changed;
+   * we just write it back. `saveScene` is upsert by id, so it overwrites
+   * the existing row.
+   */
+  async function handleUpdateScene(updated: Scene) {
+    const db = await getDb();
+    await saveScene(db, updated);
+    const refreshed = await listScenes(db);
+    setScenes(refreshed);
+    setEditingScene(null);
+    setScanStatus(`Updated scene "${updated.name}".`);
+  }
+
   // ── Render ──────────────────────────────────────────────────────────────
   return (
     <div
@@ -1381,6 +1402,7 @@ export function Library() {
             onOpenSave={() => setSaveDialogOpen(true)}
             onRestore={(s) => void handleRestoreScene(s)}
             onDelete={(s) => void handleDeleteScene(s)}
+            onEdit={(s) => setEditingScene(s)}
             dmMode={dmMode}
           />
         ) : tab === "soundboard" ? (
@@ -1558,6 +1580,15 @@ export function Library() {
           masterVolume={masterVolume}
           onSave={(name) => void handleSaveScene(name)}
           onCancel={() => setSaveDialogOpen(false)}
+        />
+      ) : null}
+
+      {editingScene ? (
+        <SceneEditDialog
+          scene={editingScene}
+          currentQueue={queue}
+          onSave={(updated) => void handleUpdateScene(updated)}
+          onCancel={() => setEditingScene(null)}
         />
       ) : null}
 
