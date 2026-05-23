@@ -78,9 +78,9 @@ export function DesktopSidebar({
               overflow: "hidden",
               textOverflow: "ellipsis",
             }}
-            title={rootFolderName ?? "No folder open"}
+            title={rootFolderName ?? (totalTrackCount > 0 ? "Indexed library" : "No folder open")}
           >
-            {rootFolderName ?? "No folder open"}
+            {rootFolderName ?? (totalTrackCount > 0 ? "Indexed library" : "No folder open")}
           </div>
           <div className="mc-mono" style={{ fontSize: 10, color: T.ink3 }}>
             {isScanning

@@ -12,6 +12,36 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile audio engi
 
 ---
 
+## [0.0.19] — 2026‑05‑24 — Polish: window state · empty-state copy · stale placeholders
+
+Small-scope round of rough-edge fixes.
+
+### Added — Window size & position persistence
+
+- `tauri-plugin-window-state` (v2) added to `src-tauri/Cargo.toml` + initialized in `lib.rs`. Saves window size, position, and maximized state on close; restores on next launch. No JS-side wiring needed — the plugin intercepts the window lifecycle automatically.
+- First-time launch still uses the `tauri.conf.json` defaults (1280 × 800).
+
+### Changed — Right rail empty-state copy
+
+- "Pick a track to begin." → walks the user through the three play paths: click a row, press a category letter (with the actual letters listed), or press **?** for the cheatsheet.
+- **"Hit Shuffle to fill the queue"** (the Up Next empty state, which became wrong in v0.0.15 when row-clicks started autoqueueing) → "Tap a track row, hit Shuffle, or press a category letter…".
+
+### Removed — "SFX Layer · Phase 2" placeholder in the right rail
+
+- The block has lived in the right rail since v0.0.1 as a "coming soon" stub. SFX / soundboard has been a full feature since v0.0.2 with its own tab and live pad indicators, so the placeholder was lying to users. Dropped it. The right rail is now Now-Playing + Up-Next.
+
+### Changed — Sidebar folder card resilience
+
+- When the local DB has tracks but no `root_folder_name` (older release, or the config row was lost), the card said "No folder open · 5,317 tracks" — contradictory. Now reads "Indexed library · 5,317 tracks" in that fallback case. Opening a folder writes the real name back.
+
+### Verification
+
+- `pnpm -r typecheck` — clean across all 5 projects.
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Window state plugin needs a Rust rebuild on first run (`pnpm tauri dev` will compile it automatically).
+
+---
+
 ## [0.0.18] — 2026‑05‑24 — Scene editor
 
 Scenes have been create / restore / delete since v0.0.3. Today you can edit them too.
