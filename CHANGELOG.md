@@ -12,6 +12,37 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile audio engi
 
 ---
 
+## [0.0.13] — 2026‑05‑23 — Name variety + click-to-pick track assignment
+
+Two real-session pain points: the NPC name generator kept rolling the same names, and the "drag a track from the Library onto a soundboard pad / combatant" affordance never worked in the single-pane tabbed UI (source and target are never visible together). Both fixed.
+
+### Added — Track picker overlay (`apps/desktop/src/layout/TrackPickerOverlay.tsx`)
+
+- Searchable popover. Filters the full track index by title + pack (case-insensitive, AND-of-terms). Anchored at click position; Esc / click outside to dismiss.
+- Click an **empty soundboard pad** → picker opens for that pad. Pick a track → pinned.
+- Click the **speaker icon on a combatant row** → picker opens. Pick a track → set as their turn sound. Right-click the speaker reopens the picker even if a sound is already set (swap rather than clear-then-reassign).
+- The cross-tab drag-and-drop affordance never actually worked because Library / Soundboard / DM Tools each live on their own tab — the drop target is invisible while the user is dragging from a source on the Library tab. The picker is the click-driven alternative; existing drag-drop targets stay wired for the few cases where users have the Library and a sibling pane visible.
+
+### Changed — Copy + tooltips
+
+- Soundboard hero: "Drag a track from the Library onto a pad" → "Click an empty pad to pick a track from your library; click an assigned pad to fire."
+- Empty soundboard pad: "Drag a track here" → "Click to pick a track".
+- Combatant speaker icon tooltip: "Drag a track from the Library onto this row to assign a turn sound" → "Click to pick a turn sound for this combatant".
+- Initiative footer: "Drop a track onto a row to assign its turn sound" → "Click the speaker on a row to pick its turn sound."
+
+### Changed — NPC name variety (`apps/desktop/src/lib/dm-names.ts`)
+
+- Roughly doubled each race's first + last name list (now 50-70 per slot per race; orcs got more last names too). 50 × 30 = 1,500 combos per race minimum.
+- New `rollNameAvoiding(race, recentSet)` helper. The NameGenerator passes its own history as the avoid set, so the next roll won't collide with anything already in your session history (up to the existing 30-entry cap). Tries up to 20 redraws before giving up — list sizes make a 21st collision astronomically unlikely.
+
+### Verification
+
+- `pnpm -r typecheck` — clean across all 5 projects.
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Tauri-runtime feature — no browser preview path; manual verification on `pnpm tauri dev`.
+
+---
+
 ## [0.0.12] — 2026‑05‑23 — Loop: off / track / queue
 
 The Loop button in the transport was a disabled placeholder since v0.0.2 ("Phase 2" tooltip). Wired it up.

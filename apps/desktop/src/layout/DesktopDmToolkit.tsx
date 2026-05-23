@@ -25,6 +25,8 @@ export type DesktopDmToolkitProps = {
   tracksById: ReadonlyMap<string, Track>;
   onCombatantsChange: (next: Combatant[]) => void;
   onTurnChange: (newIdx: number) => void;
+  /** Open the track-picker for combatant `id` at the click position. */
+  onPickTurnSound: (combatantId: string, x: number, y: number) => void;
 };
 
 const TOOLS: Array<{ id: DmTool; label: string; glyph: string; eyebrow: string }> = [
@@ -43,6 +45,7 @@ export function DesktopDmToolkit({
   tracksById,
   onCombatantsChange,
   onTurnChange,
+  onPickTurnSound,
 }: DesktopDmToolkitProps) {
   // Default to Initiative — most useful at-the-table, and the dynamic
   // counter ("· 2 in combat") changes most often, so the tab badge
@@ -144,6 +147,7 @@ export function DesktopDmToolkit({
             tracksById={tracksById}
             onChange={onCombatantsChange}
             onTurnChange={onTurnChange}
+            onPickTurnSound={onPickTurnSound}
           />
         ) : tool === "names" ? (
           <NameGenerator history={nameHistory} onHistory={onNameHistory} />

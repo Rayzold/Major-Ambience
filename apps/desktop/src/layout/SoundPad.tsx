@@ -12,6 +12,8 @@ export type SoundPadProps = {
   track: Track | undefined;
   playing: boolean;
   onAssign: (trackId: string) => void;
+  /** Click on an empty pad — opens a TrackPickerOverlay at the click position. */
+  onPickRequest: (x: number, y: number) => void;
   onFire: () => void;
   onStop: () => void;
   onClear: () => void;
@@ -26,6 +28,7 @@ export function SoundPad({
   track,
   playing,
   onAssign,
+  onPickRequest,
   onFire,
   onStop,
   onClear,
@@ -241,7 +244,12 @@ export function SoundPad({
           )}
         </>
       ) : (
-        <div
+        <button
+          onClick={(e) => {
+            if (dmMode) return;
+            onPickRequest(e.clientX, e.clientY);
+          }}
+          disabled={dmMode}
           style={{
             position: "absolute",
             inset: 0,
@@ -250,15 +258,17 @@ export function SoundPad({
             alignItems: "center",
             justifyContent: "center",
             gap: 6,
+            background: "transparent",
             color: dragHover ? T.gold : T.ink3,
             fontSize: 11,
             fontStyle: "italic",
-            pointerEvents: "none",
+            cursor: dmMode ? "not-allowed" : "pointer",
+            border: 0,
           }}
         >
           <Glyph name="plus" size={20} stroke={1.4} />
-          <div>{dragHover ? "Drop to assign" : "Drag a track here"}</div>
-        </div>
+          <div>{dragHover ? "Drop to assign" : "Click to pick a track"}</div>
+        </button>
       )}
     </div>
   );

@@ -45,6 +45,7 @@ import { PinToSlotMenu } from "./layout/PinToSlotMenu.js";
 import { SaveSceneDialog } from "./layout/SaveSceneDialog.js";
 import { SearchOverlay } from "./layout/SearchOverlay.js";
 import { SyncImportConfirm } from "./layout/SyncImportConfirm.js";
+import { TrackPickerOverlay } from "./layout/TrackPickerOverlay.js";
 import { Tutorial } from "./layout/Tutorial.js";
 import { TutorialsMenu } from "./layout/TutorialsMenu.js";
 import { TUTORIALS } from "./layout/tutorials.js";
@@ -130,6 +131,17 @@ export function Library() {
   const [seenTutorials, setSeenTutorials] = useState<Set<string>>(new Set());
   const [pendingImport, setPendingImport] = useState<
     { blob: SyncBlob; path: string } | null
+  >(null);
+  /**
+   * Track-picker overlay state. The discriminator on `target` controls
+   * what the pick callback assigns:
+   *   - "pad" → soundboard pad assignment via handlePadAssign
+   *   - "turnSound" → combatant turn-sound via handleCombatantsChange
+   */
+  const [pickerOverlay, setPickerOverlay] = useState<
+    | { x: number; y: number; target: { kind: "pad"; page: "A" | "B" | "C"; slot: number } }
+    | { x: number; y: number; target: { kind: "turnSound"; combatantId: string } }
+    | null
   >(null);
   const [theme, setTheme] = useState<ThemeId>(DEFAULT_THEME);
   const [dmMode, setDmMode] = useState(false);
@@ -352,7 +364,8 @@ export function Library() {
     saveDialogOpen ||
     pendingImport !== null ||
     activeTutorialId !== null ||
-    helpOpen;
+    helpOpen ||
+    pickerOverlay !== null;
 
   function handleEscape() {
     // Close the topmost overlay. Order mirrors render order — innermost
@@ -365,6 +378,8 @@ export function Library() {
       setPendingImport(null);
     } else if (saveDialogOpen) {
       setSaveDialogOpen(false);
+    } else if (pickerOverlay) {
+      setPickerOverlay(null);
     } else if (pinMenu) {
       setPinMenu(null);
     } else if (tutorialsMenu) {
@@ -1206,6 +1221,9 @@ export function Library() {
             tracksById={tracksById}
             isPlaying={isPadPlaying}
             onAssign={(p, s, id) => void handlePadAssign(p, s, id)}
+            onPickRequest={(page, slot, x, y) =>
+              setPickerOverlay({ x, y, target: { kind: "pad", page, slot } })
+            }
             onFire={(p, s) => void handlePadFire(p, s)}
             onStop={handlePadStop}
             onClear={(p, s) => void handlePadClear(p, s)}
@@ -1224,6 +1242,9 @@ export function Library() {
             tracksById={tracksById}
             onCombatantsChange={(next) => void handleCombatantsChange(next)}
             onTurnChange={handleTurnChange}
+            onPickTurnSound={(combatantId, x, y) =>
+              setPickerOverlay({ x, y, target: { kind: "turnSound", combatantId } })
+            }
           />
         )}
 
@@ -1349,6 +1370,53 @@ export function Library() {
 
       {helpOpen ? (
         <KeyboardHelpOverlay onDismiss={() => setHelpOpen(false)} />
+      ) : null}
+
+      {pickerOverlay ? (
+        <TrackPickerOverlay
+          anchor={{ x: pickerOverlay.x, y: pickerOverlay.y }}
+          tracks={tracks}
+          title={
+            pickerOverlay.target.kind === "pad"
+              ? `Pad ${pickerOverlay.target.page}·${pickerOverlay.target.slot}`
+              : "Turn sound"
+          }
+          subtitle={
+            pickerOverlay.target.kind === "pad"
+              ? "Pick a track to assign to this soundboard pad."
+              : (() => {
+                  const t = pickerOverlay.target;
+                  if (t.kind !== "turnSound") return "";
+                  const target = combatants.find((c) => c.id === t.combatantId);
+                  return target
+                    ? `Fires automatically when it's ${target.name}'s turn.`
+                    : "Fires automatically on this combatant's turn.";
+                })()
+          }
+          onPick={(track) => {
+            const target = pickerOverlay.target;
+            if (target.kind === "pad") {
+              void handlePadAssign(target.page, target.slot, track.id);
+              setScanStatus(
+                `Pinned "${track.title}" to ${target.page}·${target.slot}.`,
+              );
+            } else {
+              const next = combatants.map((c) =>
+                c.id === target.combatantId
+                  ? { ...c, turnSoundTrackId: track.id }
+                  : c,
+              );
+              void handleCombatantsChange(next);
+              const target_name =
+                combatants.find((c) => c.id === target.combatantId)?.name ?? "combatant";
+              setScanStatus(
+                `Set "${track.title}" as turn sound for ${target_name}.`,
+              );
+            }
+            setPickerOverlay(null);
+          }}
+          onDismiss={() => setPickerOverlay(null)}
+        />
       ) : null}
 
       {dropHover ? (
