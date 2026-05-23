@@ -12,6 +12,49 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile audio engi
 
 ---
 
+## [0.0.9] — 2026‑05‑23 — Desktop polish: keyboard shortcuts + scan UX + track row
+
+Wide polish pass on the desktop client. No new tabs / features — everything was already there, this just makes it nicer to drive without the mouse and easier to see what's going on with your library.
+
+### Added — Keyboard shortcuts (`apps/desktop/src/lib/keyboard.ts`)
+
+- Global keydown handler routed through `resolveShortcut()` (pure function, easy to test). Skips when the focus is in an input / textarea / contenteditable; skips most shortcuts when any modal-y overlay is open (search, pin menu, tutorials menu, scene save, sync confirm, guided tutorial, help). `Esc` is the one exception — it falls through to a per-overlay dismisser so the user can always close the topmost layer with one press.
+- Bindings: **Space / K** play-pause, **J / ←** prev, **L / →** next, **,** / **.** seek ±5s, **G** cycle grade, **S** weighted-shuffle current category, **D** toggle DM Mode, **/** focus search, **Ctrl/⌘ K** open search (already there, preserved), **?** open the cheatsheet, **Esc** close overlay, **1–9 / 0** jump to category by index.
+- `apps/desktop/src/layout/KeyboardHelpOverlay.tsx` — modal cheatsheet that reads `SHORTCUTS_REFERENCE` from the shortcuts module so the docs and the code can't drift apart. Dismiss with Esc / `?` / click outside.
+
+### Added — Drag a folder onto the window to scan it
+
+- `getCurrentWebview().onDragDropEvent` (Tauri 2 webview-level drag-drop) gates the existing `handleOpenFolder()` path. While the drag is over the window we show a gold dashed overlay reading **"Drop folder to scan"**.
+- Single path only for v1 — dropping multiple files / folders surfaces a hint and ignores the drop.
+
+### Added — Sidebar: Rescan + last-scanned timestamp
+
+- Folder card grew a compact rescan button (small loop glyph) that re-runs the scan against the stored `root_folder_path` config key. Disabled while a scan is in flight; hidden in DM Mode.
+- Second line of the card now reads `5,317 · 12 min ago` instead of just the track count. Relative-time formatter is local to the sidebar and only handles 1 unit — full Intl machinery would be overkill for `< 5s / <60s / <60m / <24h / <30d / dd MMM`.
+- New config keys: `root_folder_path` (full OS path so rescan / drag both share an entry point), `last_scanned_at` (epoch seconds).
+
+### Added — Track row polish
+
+- Subcategory chip next to the title for any track with `track.subcategory` (Combat: Boss / Battle / Skirmish today). Color-tinted to the category palette.
+- Second line under the title shows `Last played 5d ago` when `track.lastPlayedAt` is set. Same compact formatter as the sidebar.
+
+### Fixed — Play error keeps UI consistent
+
+- `handlePlayTrack` previously left `isPlaying` / `currentTime` / `trackDurationSec` at stale values when the audio backend threw mid-load (e.g. broken file path). Now the transport UI resets to the no-playback baseline on error if there's no existing playback to fall back to. If there *is* an existing playback (mid-crossfade), it stays — the old track keeps going and the user just sees the error toast.
+
+### Internal
+
+- `handleSeek` clamps to `[0, trackDurationSec]` instead of trusting the caller. Adds a thin `handleSeekRelative(delta)` wrapper for the `,` / `.` shortcuts.
+- `handleOpenFolder()` refactored to accept an optional `forcedPath` so the picker / rescan / drag-drop all funnel through the same body.
+
+### Verification
+
+- `pnpm -r typecheck` — clean across all 5 projects.
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual: most of this is UI behavior in the Tauri window — covered by the existing tutorials and the new cheatsheet.
+
+---
+
 ## [0.0.8] — 2026‑05‑23 — Mobile: file picker + expo-sqlite data layer
 
 First real interactive milestone on mobile. The shell that landed in the v0.0.3 cycle now has a working data path: pick audio from Files / iCloud / Downloads, run the shared `@mc/core/categorize` against it, persist into an on-device SQLite database, and surface live counts + FTS5 search across the imported library.

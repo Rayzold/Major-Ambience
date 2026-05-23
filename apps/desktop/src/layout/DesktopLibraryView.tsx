@@ -351,19 +351,55 @@ function DesktopTrackRow({
         >
           <Glyph name={c.glyph} size={14} />
         </div>
-        <div style={{ minWidth: 0 }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
           <div
             style={{
-              fontSize: 14,
-              fontWeight: 500,
-              color: isPlaying ? c.color : T.ink,
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              minWidth: 0,
             }}
           >
-            {track.title}
+            <div
+              style={{
+                fontSize: 14,
+                fontWeight: 500,
+                color: isPlaying ? c.color : T.ink,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                minWidth: 0,
+              }}
+            >
+              {track.title}
+            </div>
+            {track.subcategory ? (
+              <span
+                className="mc-mono"
+                style={{
+                  fontSize: 9,
+                  padding: "1px 6px",
+                  borderRadius: 999,
+                  background: `${c.color}1f`,
+                  color: c.color,
+                  border: `1px solid ${c.color}33`,
+                  letterSpacing: 0.4,
+                  textTransform: "uppercase",
+                  flexShrink: 0,
+                }}
+              >
+                {track.subcategory}
+              </span>
+            ) : null}
           </div>
+          {track.lastPlayedAt ? (
+            <div
+              className="mc-mono"
+              style={{ fontSize: 10, color: T.ink3, marginTop: 2 }}
+            >
+              Last played {relativePlayed(track.lastPlayedAt)}
+            </div>
+          ) : null}
         </div>
       </div>
       <div
@@ -398,4 +434,18 @@ function formatMs(ms: number): string {
   const m = Math.floor(total / 60);
   const s = total % 60;
   return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+/** Mirror of DesktopSidebar.relativeTime, slightly shorter labels. */
+function relativePlayed(epochSec: number): string {
+  const nowSec = Math.floor(Date.now() / 1000);
+  const delta = Math.max(0, nowSec - epochSec);
+  if (delta < 60) return "now";
+  if (delta < 3600) return `${Math.floor(delta / 60)}m ago`;
+  if (delta < 86400) return `${Math.floor(delta / 3600)}h ago`;
+  if (delta < 86400 * 30) return `${Math.floor(delta / 86400)}d ago`;
+  return new Date(epochSec * 1000).toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+  });
 }

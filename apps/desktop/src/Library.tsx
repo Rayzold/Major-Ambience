@@ -1,9 +1,10 @@
 // Library orchestrator — holds playback state, coordinates layout pieces.
 // Layout components live under src/layout/ and stay dumb-visual.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import type { CategoryId, Grade, Scene, SoundboardSlot, Track, TrackHandle } from "@mc/core";
 import { crossfade, weightedShuffle } from "@mc/core";
 import {
@@ -39,6 +40,7 @@ import { DesktopTransport } from "./layout/DesktopTransport.js";
 import type { Combatant } from "./layout/dm/InitiativeTracker.js";
 import type { RolledName } from "./layout/dm/NameGenerator.js";
 import type { RollResult } from "./lib/dm-dice.js";
+import { KeyboardHelpOverlay } from "./layout/KeyboardHelpOverlay.js";
 import { PinToSlotMenu } from "./layout/PinToSlotMenu.js";
 import { SaveSceneDialog } from "./layout/SaveSceneDialog.js";
 import { SearchOverlay } from "./layout/SearchOverlay.js";
@@ -48,6 +50,7 @@ import { TutorialsMenu } from "./layout/TutorialsMenu.js";
 import { TUTORIALS } from "./layout/tutorials.js";
 import type { SyncBlob } from "@mc/core";
 import { applyLoadedBlob, exportSyncBlob, pickAndLoadSyncBlob } from "./lib/sync.js";
+import { useKeyboardShortcuts } from "./lib/keyboard.js";
 import {
   firePad,
   isPadPlaying,
@@ -74,6 +77,11 @@ export function Library() {
   // ── State ───────────────────────────────────────────────────────────────
   const [tracks, setTracks] = useState<Track[]>([]);
   const [rootFolderName, setRootFolderName] = useState<string | undefined>(undefined);
+  const [rootFolderPath, setRootFolderPath] = useState<string | undefined>(undefined);
+  const [lastScannedAt, setLastScannedAt] = useState<number | undefined>(undefined);
+  const [isScanning, setIsScanning] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [dropHover, setDropHover] = useState(false);
   const [activeCategory, setActiveCategory] = useState<CategoryId>("combat");
   const [tab, setTab] = useState<"library" | "scenes" | "soundboard" | "dm">("library");
   const [playback, setPlayback] = useState<PlaybackState | null>(null);
@@ -170,6 +178,13 @@ export function Library() {
         setPadDuckingPct(duck);
         const root = await getConfig(db, "root_folder_name");
         setRootFolderName(root);
+        const rootPath = await getConfig(db, "root_folder_path");
+        setRootFolderPath(rootPath);
+        const lastScanRaw = await getConfig(db, "last_scanned_at");
+        if (lastScanRaw) {
+          const n = Number(lastScanRaw);
+          if (Number.isFinite(n)) setLastScannedAt(n);
+        }
         const loadedScenes = await listScenes(db);
         setScenes(loadedScenes);
         const loadedSlots = await listSoundboard(db);
@@ -227,7 +242,8 @@ export function Library() {
     return subscribePadState(() => setPadPlayingTick((t) => t + 1));
   }, []);
 
-  // Ctrl+K focuses the search input from anywhere.
+  // Ctrl+K focuses the search input from anywhere. (Modifier-bearing
+  // shortcut, so the keyboard hook below leaves it to us.)
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K")) {
@@ -240,6 +256,66 @@ export function Library() {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, []);
+
+  // Global keyboard shortcuts (space/J/L/G/D/1-0/etc.). Most shortcuts
+  // no-op while any overlay is open — see useKeyboardShortcuts for the
+  // routing logic. Esc is the one exception: it fires through to
+  // handleEscape below so the user can always close the topmost layer.
+  const overlayOpen =
+    searchOpen ||
+    pinMenu !== null ||
+    tutorialsMenu !== null ||
+    saveDialogOpen ||
+    pendingImport !== null ||
+    activeTutorialId !== null ||
+    helpOpen;
+
+  function handleEscape() {
+    // Close the topmost overlay. Order mirrors render order — innermost
+    // (help / tutorials / sync confirm) wins, then menus, then search.
+    if (helpOpen) {
+      setHelpOpen(false);
+    } else if (activeTutorialId) {
+      finishTutorial(false);
+    } else if (pendingImport) {
+      setPendingImport(null);
+    } else if (saveDialogOpen) {
+      setSaveDialogOpen(false);
+    } else if (pinMenu) {
+      setPinMenu(null);
+    } else if (tutorialsMenu) {
+      setTutorialsMenu(null);
+    } else if (searchOpen) {
+      setSearchOpen(false);
+      setSearchQuery("");
+      searchInputRef.current?.blur();
+    }
+  }
+
+  useKeyboardShortcuts(
+    {
+      onTogglePlay: handleTogglePlay,
+      onPrev: handlePrev,
+      onNext: handleNext,
+      onSeekBack: () => handleSeekRelative(-5),
+      onSeekForward: () => handleSeekRelative(5),
+      onCycleGrade: handleCycleGrade,
+      onShuffleCategory: () => void handleShuffleCategory(),
+      onToggleDmMode: () => void handleToggleDmMode(),
+      onFocusSearch: () => {
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        setSearchOpen(true);
+      },
+      onToggleHelp: () => setHelpOpen((v) => !v),
+      onEscape: handleEscape,
+      onJumpToCategory: (id) => {
+        setActiveCategory(id);
+        setTab("library");
+      },
+    },
+    { overlayOpen },
+  );
 
   // Debounced FTS5 search. 120ms per BUILD_GUIDE.md § 8.
   useEffect(() => {
@@ -268,13 +344,26 @@ export function Library() {
   }, [searchQuery, searchOpen]);
 
   // ── Handlers ────────────────────────────────────────────────────────────
-  async function handleOpenFolder() {
-    setScanStatus("Picking folder…");
-    const picked = await openDialog({ directory: true, multiple: false });
-    if (!picked || typeof picked !== "string") {
-      setScanStatus("");
-      return;
+  /**
+   * Scan a folder and ingest its tracks. When `forcedPath` is omitted,
+   * opens a folder picker; when supplied (rescan + drag-drop), skips the
+   * dialog and goes straight to scanning.
+   */
+  const handleOpenFolder = useCallback(async (forcedPath?: string) => {
+    let picked: string | null;
+    if (forcedPath) {
+      picked = forcedPath;
+    } else {
+      setScanStatus("Picking folder…");
+      const dialogPick = await openDialog({ directory: true, multiple: false });
+      if (!dialogPick || typeof dialogPick !== "string") {
+        setScanStatus("");
+        return;
+      }
+      picked = dialogPick;
     }
+
+    setIsScanning(true);
     setScanStatus("Scanning…");
     try {
       const scanned = await scanFolderToTracks(picked);
@@ -286,7 +375,12 @@ export function Library() {
       setTracks(fromDb);
       const folderName = picked.replace(/[\\/]+$/, "").split(/[\\/]/).pop() ?? picked;
       setRootFolderName(folderName);
+      setRootFolderPath(picked);
+      const scannedAt = Math.floor(Date.now() / 1000);
+      setLastScannedAt(scannedAt);
       await setConfig(db, "root_folder_name", folderName);
+      await setConfig(db, "root_folder_path", picked);
+      await setConfig(db, "last_scanned_at", String(scannedAt));
       const removedNote = removed > 0 ? ` · removed ${removed} orphan` : "";
       setScanStatus(
         `${fromDb.length.toLocaleString()} tracks · ${tallyCategories(fromDb)}${removedNote}.`,
@@ -294,8 +388,48 @@ export function Library() {
     } catch (err) {
       console.error("[library] scan failed:", err);
       setScanStatus(`Scan failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsScanning(false);
     }
-  }
+  }, []);
+
+  // Drag a folder onto the window to scan it. Tauri 2 exposes a
+  // webview-level drag-drop event that includes the OS path string —
+  // bypasses the HTML drop API entirely, so it works regardless of
+  // CSS pointer-events / blur effects on top-level chrome.
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+    void (async () => {
+      try {
+        unlisten = await getCurrentWebview().onDragDropEvent((event) => {
+          const payload = event.payload;
+          if (payload.type === "enter" || payload.type === "over") {
+            setDropHover(true);
+          } else if (payload.type === "leave") {
+            setDropHover(false);
+          } else if (payload.type === "drop") {
+            setDropHover(false);
+            const first = payload.paths[0];
+            if (!first) return;
+            if (payload.paths.length > 1) {
+              setScanStatus(
+                "Drop a single folder. Multiple paths aren't supported yet.",
+              );
+              return;
+            }
+            void handleOpenFolder(first);
+          }
+        });
+      } catch (err) {
+        // Drag-drop events are a nice-to-have; if registration fails we
+        // still have the Open Folder button.
+        console.warn("[library] onDragDropEvent register failed:", err);
+      }
+    })();
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, [handleOpenFolder]);
 
   async function handlePlayTrack(track: Track) {
     const backend = getAudioBackend();
@@ -359,6 +493,15 @@ export function Library() {
       );
     } catch (err) {
       console.error("[library] play failed:", err);
+      // Keep the previous playback state coherent — if the new track
+      // failed to load, the old handle (if any) is still in `playback`
+      // and may still be playing. The user sees the error and the
+      // existing track keeps going.
+      if (!playback) {
+        setIsPlaying(false);
+        setCurrentTime(0);
+        setTrackDurationSec(0);
+      }
       setScanStatus(`Play failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
@@ -377,8 +520,14 @@ export function Library() {
 
   function handleSeek(sec: number) {
     if (!playback) return;
-    getAudioBackend().seek(playback.handle, sec);
-    setCurrentTime(sec);
+    const clamped = Math.max(0, Math.min(trackDurationSec || Infinity, sec));
+    getAudioBackend().seek(playback.handle, clamped);
+    setCurrentTime(clamped);
+  }
+
+  function handleSeekRelative(deltaSec: number) {
+    if (!playback) return;
+    handleSeek(currentTime + deltaSec);
   }
 
   function handlePrev() {
@@ -788,6 +937,13 @@ export function Library() {
           totalTrackCount={tracks.length}
           countByCategory={countByCategory}
           rootFolderName={rootFolderName}
+          lastScannedAt={lastScannedAt}
+          isScanning={isScanning}
+          onRescan={
+            rootFolderPath && !dmMode
+              ? () => void handleOpenFolder(rootFolderPath)
+              : undefined
+          }
         />
 
         {tab === "library" ? (
@@ -960,6 +1116,38 @@ export function Library() {
           onSave={(name) => void handleSaveScene(name)}
           onCancel={() => setSaveDialogOpen(false)}
         />
+      ) : null}
+
+      {helpOpen ? (
+        <KeyboardHelpOverlay onDismiss={() => setHelpOpen(false)} />
+      ) : null}
+
+      {dropHover ? (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 90,
+            pointerEvents: "none",
+            background: "var(--mc-goldEdge, rgba(227,182,106,0.18))",
+            border: "2px dashed var(--mc-gold, #e3b66a)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            className="mc-display"
+            style={{
+              fontSize: 28,
+              fontWeight: 600,
+              color: "var(--mc-gold, #e3b66a)",
+              textShadow: "0 4px 24px rgba(0,0,0,0.6)",
+            }}
+          >
+            Drop folder to scan
+          </div>
+        </div>
       ) : null}
 
       {searchOpen ? (
