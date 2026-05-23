@@ -28,8 +28,10 @@ export default function ScenesScreen() {
             lineHeight: 19,
           }}
         >
-          Snapshot the active category, queue, fade, and volume. Lands when
-          the mobile data layer (expo-sqlite adapter) ships.
+          Snapshot the active category, queue, fade, and volume. Wiring
+          lands when the mobile audio engine ships (react-native-track-player
+          via EAS dev-client). The data layer is in place — only the
+          UI + playback hookup is left.
         </Text>
       </View>
     </ScrollView>

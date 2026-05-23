@@ -28,9 +28,10 @@ export default function SoundboardScreen() {
             lineHeight: 19,
           }}
         >
-          Three pages × 8 pads. Drag-to-assign and per-pad loop / volume land
-          once react-native-track-player is wired (separate ticket — needs
-          EAS dev-client build).
+          Three pages × 8 pads. Drag-to-assign and per-pad loop / volume
+          land once react-native-track-player is wired (separate ticket —
+          needs EAS dev-client build). Tracks imported on the Library
+          tab are eligible targets.
         </Text>
       </View>
     </ScrollView>

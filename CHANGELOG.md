@@ -8,7 +8,52 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-Nothing yet — Phase 2 cloud sync proper + mobile + IAP continue here.
+Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile audio engine (react-native-track-player, needs EAS dev-client) is the next mobile ticket.
+
+---
+
+## [0.0.8] — 2026‑05‑23 — Mobile: file picker + expo-sqlite data layer
+
+First real interactive milestone on mobile. The shell that landed in the v0.0.3 cycle now has a working data path: pick audio from Files / iCloud / Downloads, run the shared `@mc/core/categorize` against it, persist into an on-device SQLite database, and surface live counts + FTS5 search across the imported library.
+
+### Added — Mobile data layer (`apps/mobile/src/data/`)
+
+- `schema.ts` — same DDL as the desktop `0001_initial.sql` migration (tracks, FTS5 virtual table + AI/AD/AU triggers, indexes, config). One additive `IF NOT EXISTS` block runs on every app launch; no migration table needed yet for a single schema version.
+- `db.ts` — `getDb()` singleton over `expo-sqlite`'s `openDatabaseAsync`. Caches the handle for the process lifetime, runs the init script on first open.
+- `tracks-repo.ts` — `insertTracks` / `listTracks` / `listTracksByCategory` / `countByCategory` / `countTracks` / `searchTracks` / `setGrade` / `deleteAllTracks`. Parallel to `packages/data/src/tracks-repo.ts` but written against expo-sqlite's `runAsync` / `getAllAsync` API (the desktop file uses tauri-plugin-sql's `execute` / `select` and can't be shared as-is). Same row → `Track` mapping, same FTS5 prefix-AND query construction.
+
+### Added — Import flow (`apps/mobile/src/lib/import.ts`)
+
+- `importTracks()` opens the system document picker (`expo-document-picker` with `type: "audio/*"`, `multiple: true`, `copyToCacheDirectory: true`), maps each picked asset to a `Track`, and inserts via the data layer.
+- Categorization runs through the shared `@mc/core/categorize`. Mobile has no real parent-folder path, so we infer a pack hint from the file name (AudioHero's `"Pack - Title.mp3"` / `"Pack_Title.mp3"` conventions). Filename evidence + pack hint are what the existing categorize rules need to route most tracks correctly.
+- IDs are content-addressed via `trackKey(title|size, pack)`, so re-importing the same audio idempotently replaces the existing row.
+- Why files-not-folders on iOS: iOS has no folder picker. The Files share sheet is the iOS-native way to import from iCloud / Dropbox / etc. and `expo-document-picker` is the cross-platform binding. Android folder import via `ACTION_OPEN_DOCUMENT_TREE` is possible but needs the SAF plugin + a dev client — deferred to a follow-up ticket.
+
+### Changed — Library tab (`apps/mobile/app/(tabs)/index.tsx`)
+
+- New **Import** button in the header. Loading state with `ActivityIndicator` while the picker / insert runs; success toast with imported count via `Alert`.
+- Category tiles now render the live count of tracks per category (small badge top-right), refreshed after each import. Empty state copy explains tap-Import-to-start; populated state shows the total.
+
+### Changed — Search tab (`apps/mobile/app/(tabs)/search.tsx`)
+
+- Wired to the real FTS5 query via `searchTracks(db, query, 80)`. 120 ms debounce on the input, same prefix-AND tokenization as desktop. Result rows show category color + glyph + pack / subcategory.
+- Empty / loading / no-match states all distinct.
+
+### Cherry-picked off-tree mobile scaffold
+
+PR #2's squash merge collapsed the mobile scaffold + Glyph port commits (5df683c, c913b14) — they never made it onto `main`. This release cherry-picks both as the foundation. CHANGELOG entry for the mobile scaffold is folded into this entry (rather than backdated under v0.0.3) since the commits land here.
+
+### Verification
+
+- `pnpm -r typecheck` — clean across all 5 projects (packages/core, data, ui; apps/desktop, mobile).
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual smoke (deferred to user): on iOS / Android, tap Import, pick a few audio files, watch the category badges populate and search by title.
+
+### Not in this release
+
+- Playback. Tapping a row is a no-op until the mobile audio engine lands (react-native-track-player, needs EAS dev-client).
+- Scenes / soundboard wiring on mobile. Data layer is now there to support both — only the UI + playback hookup is left.
+- Android folder import via SAF. The multi-file picker covers the cross-platform path.
 
 ---
 
