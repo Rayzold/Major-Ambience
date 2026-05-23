@@ -12,6 +12,7 @@ export type SearchOverlayProps = {
   loading: boolean;
   playingTrackId: string | undefined;
   onPlay: (t: Track) => void;
+  onContextMenu: (t: Track, x: number, y: number) => void;
   onDismiss: () => void;
 };
 
@@ -21,6 +22,7 @@ export function SearchOverlay({
   loading,
   playingTrackId,
   onPlay,
+  onContextMenu,
   onDismiss,
 }: SearchOverlayProps) {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -130,6 +132,7 @@ export function SearchOverlay({
               track={t}
               isPlaying={t.id === playingTrackId}
               onPlay={() => onPlay(t)}
+              onContextMenu={(x, y) => onContextMenu(t, x, y)}
             />
           ))
         )}
@@ -142,10 +145,12 @@ function SearchResultRow({
   track,
   isPlaying,
   onPlay,
+  onContextMenu,
 }: {
   track: Track;
   isPlaying: boolean;
   onPlay: () => void;
+  onContextMenu: (x: number, y: number) => void;
 }) {
   const c = findCategory(track.category);
   if (!c) return null;
@@ -153,6 +158,10 @@ function SearchResultRow({
     <button
       className="mc-row-tap"
       onClick={onPlay}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        onContextMenu(e.clientX, e.clientY);
+      }}
       style={{
         display: "grid",
         gridTemplateColumns: "32px 1fr 200px 50px 36px",
