@@ -12,6 +12,40 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile audio engi
 
 ---
 
+## [0.0.16] — 2026‑05‑23 — Manual recategorize + notes
+
+First of four small-scope improvements from a session-quality pass. The right-click track menu — historically just for pinning to soundboard slots / setting turn sounds — grew two new sections so users can clean up auto-categorized tracks and annotate them without leaving the library.
+
+### Added — Categorize section in the right-click menu
+
+- Right-click any track row → new **Categorize** section. Ten category pills (Combat / Tavern / … / SciFi), colored to match their palette, with the current category highlighted.
+- Click any pill to move the track to that category. When the current category has subcategories (Combat: Boss / Battle / Skirmish today), a second row appears with the available subcats + a **none** option. Switching category drops the subcategory because the value would no longer be meaningful; staying in the same category preserves it.
+- Menu stays open after a category click so the user can fine-tune the subcategory in the same gesture. Esc / outside click dismisses.
+- Status toast describes the change: `Moved "Mighty Seas" Exploration → Combat · battle` or `Updated "Mighty Seas" subcategory → boss`.
+
+### Added — Notes section in the right-click menu
+
+- Free-form text input. Saves on **blur** or **Enter**. Empty input clears the note.
+- Notes are already indexed by the `tracks_fts` triggers, so anything you type here is searchable from the **Ctrl/⌘ K** spotlight overlay.
+
+### Added — Repo helpers (`packages/data/src/tracks-repo.ts`)
+
+- `setCategory(db, trackId, category, subcategory | null)` — atomic category + subcategory update.
+- `setNote(db, trackId, note | null)` — normalizes empty / whitespace input to NULL.
+
+### Internal
+
+- `PinToSlotMenu` kept its name for git-history continuity even though it's now the canonical track-edit popover. Header eyebrow changed from "Pin to soundboard" to just "Track" and gained the pack name as a second line.
+- `handleSetTrackCategory` + `handleSetTrackNote` in Library mirror the DB change into the local `tracks` array so the library view re-buckets / re-renders immediately.
+
+### Verification
+
+- `pnpm -r typecheck` — clean across all 5 projects.
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Tauri-runtime feature — manual verification on `pnpm tauri dev`.
+
+---
+
 ## [0.0.15] — 2026‑05‑23 — Fix: autoqueue from clicked row + loop stale closure
 
 Two bugs from a real-session run that both have the same root: the queue and loop state weren't being read at the right time.
