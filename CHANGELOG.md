@@ -12,6 +12,36 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile audio engi
 
 ---
 
+## [0.0.17] — 2026‑05‑24 — Bulk grading via multi-select
+
+Grading 5,000+ tracks one-at-a-time is painful. Multi-select + a batch grade bar makes it fast.
+
+### Added — Multi-select
+
+- **Ctrl/⌘ + click** any track row to toggle it in/out of the selection.
+- **Shift + click** another row to range-select between it and the last selection anchor in the current visible order (respects category, grade filter, subcategory filter).
+- Selected rows get a gold border + tinted background. Plain (no-modifier) click clears the selection and plays the track as before — autoqueue still works on the visible list.
+
+### Added — SelectionBar
+
+- Floating bar above the transport when ≥ 1 track is selected. Shows the count, then **S / A / B / C / D / F** grade pills and a `—` clear-grade pill. Click any pill → batch-applies that grade to every selected track.
+- Clear button on the bar — same as **Esc** — drops the selection without changing grades.
+- Bar hides in DM Mode and on non-Library tabs.
+
+### Internal
+
+- New repo function: `setGrades(db, trackIds, grade)` — per-row UPDATEs in a loop because tauri-plugin-sql's pool returns a different connection per `execute()`, so transactional batching has the SQLITE_BUSY risk from earlier releases.
+- `handleSelectRow(trackId, mode, visibleTracks)` in Library encapsulates the three click modes. Anchor sticks across shift-clicks so the user can pivot on a single row.
+- `Esc` clears the selection via the existing `handleEscape` chain (slotted between picker dismissal and search dismissal).
+
+### Verification
+
+- `pnpm -r typecheck` — clean across all 5 projects.
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Tauri-runtime feature — manual verification on `pnpm tauri dev`.
+
+---
+
 ## [0.0.16] — 2026‑05‑23 — Manual recategorize + notes
 
 First of four small-scope improvements from a session-quality pass. The right-click track menu — historically just for pinning to soundboard slots / setting turn sounds — grew two new sections so users can clean up auto-categorized tracks and annotate them without leaving the library.

@@ -95,6 +95,23 @@ export async function setGrade(db: Db, trackId: string, grade: Grade): Promise<v
   await db.execute("UPDATE tracks SET grade = $1 WHERE id = $2", [grade, trackId]);
 }
 
+/**
+ * Batch-update grade on many tracks. Used by the multi-select bar.
+ * Per-row UPDATEs because tauri-plugin-sql v2's pool gives a different
+ * connection per execute(), so a single big `WHERE id IN (...)` works
+ * fine but loses no parallelism vs the loop, and the loop is cleaner
+ * (no IN-clause parameter packing).
+ */
+export async function setGrades(
+  db: Db,
+  trackIds: readonly string[],
+  grade: Grade,
+): Promise<void> {
+  for (const id of trackIds) {
+    await db.execute("UPDATE tracks SET grade = $1 WHERE id = $2", [grade, id]);
+  }
+}
+
 export async function setDuration(db: Db, trackId: string, durationMs: number): Promise<void> {
   await db.execute("UPDATE tracks SET duration_ms = $1 WHERE id = $2", [durationMs, trackId]);
 }

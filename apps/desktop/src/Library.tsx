@@ -25,6 +25,7 @@ import {
   setCategory as persistCategory,
   setDuration,
   setGrade as persistGrade,
+  setGrades as persistGrades,
   setNote as persistNote,
   upsertSlot,
 } from "@mc/data";
@@ -46,6 +47,7 @@ import { KeyboardHelpOverlay } from "./layout/KeyboardHelpOverlay.js";
 import { PinToSlotMenu } from "./layout/PinToSlotMenu.js";
 import { SaveSceneDialog } from "./layout/SaveSceneDialog.js";
 import { SearchOverlay } from "./layout/SearchOverlay.js";
+import { SelectionBar } from "./layout/SelectionBar.js";
 import { SyncImportConfirm } from "./layout/SyncImportConfirm.js";
 import { TrackPickerOverlay } from "./layout/TrackPickerOverlay.js";
 import { Tutorial } from "./layout/Tutorial.js";
@@ -96,6 +98,14 @@ export function Library() {
    */
   const [loopMode, setLoopMode] = useState<"off" | "track" | "queue">("off");
   const [activeCategory, setActiveCategory] = useState<CategoryId>("combat");
+  /**
+   * Multi-selected track ids for batch operations (bulk-grade today;
+   * later: bulk recategorize). Cleared on Esc, on view switch, and by
+   * any non-modifier row click. Range selects use `selectionAnchorId`
+   * as the shift-click pivot.
+   */
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectionAnchorId, setSelectionAnchorId] = useState<string | null>(null);
   /**
    * What the center pane is showing. "category" — the activeCategory's
    * tracks (default Library behavior). "favorites" — S/A tracks across
@@ -400,6 +410,9 @@ export function Library() {
       setPinMenu(null);
     } else if (tutorialsMenu) {
       setTutorialsMenu(null);
+    } else if (selectedIds.size > 0) {
+      setSelectedIds(new Set());
+      setSelectionAnchorId(null);
     } else if (searchOpen) {
       setSearchOpen(false);
       setSearchQuery("");
@@ -851,6 +864,81 @@ export function Library() {
   }
 
   /**
+   * Apply a grade to every currently-selected track in one batch.
+   * Used by the SelectionBar — `g === null` clears the grade.
+   * Keeps the selection intact afterward so the user can grade the
+   * same set differently or move on to recategorize later.
+   */
+  async function handleBulkGrade(g: Grade) {
+    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    const db = await getDb();
+    await persistGrades(db, ids, g);
+    const idSet = selectedIds;
+    setTracks((prev) =>
+      prev.map((t) => (idSet.has(t.id) ? { ...t, grade: g } : t)),
+    );
+    setScanStatus(
+      `Graded ${ids.length} track${ids.length === 1 ? "" : "s"} ${g ?? "ungraded"}.`,
+    );
+  }
+
+  /**
+   * Row-click selection logic. Three modes:
+   *   - "toggle" (Ctrl/⌘+click): flip this id in/out of the selection,
+   *     update the range anchor. Does NOT play the track.
+   *   - "range" (Shift+click): if there's an anchor, select everything
+   *     between anchor and this id in `visibleTracks`; else seed the
+   *     anchor and select just this id. Does NOT play the track.
+   *   - "single" (plain click): clear selection, play the track. Library
+   *     handles play via the existing onPlayTrack path; this function
+   *     just handles selection bookkeeping.
+   *
+   * `visibleTracks` is the current filtered list — passed in by the row
+   * so the range walk respects whatever filter/sort the user has on.
+   */
+  function handleSelectRow(
+    trackId: string,
+    mode: "toggle" | "range" | "single",
+    visibleTracks: readonly Track[],
+  ) {
+    if (mode === "single") {
+      setSelectedIds(new Set());
+      setSelectionAnchorId(trackId);
+      return;
+    }
+    if (mode === "toggle") {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(trackId)) next.delete(trackId);
+        else next.add(trackId);
+        return next;
+      });
+      setSelectionAnchorId(trackId);
+      return;
+    }
+    // mode === "range"
+    const anchor = selectionAnchorId;
+    if (!anchor || anchor === trackId) {
+      setSelectedIds(new Set([trackId]));
+      setSelectionAnchorId(trackId);
+      return;
+    }
+    const startIdx = visibleTracks.findIndex((t) => t.id === anchor);
+    const endIdx = visibleTracks.findIndex((t) => t.id === trackId);
+    if (startIdx === -1 || endIdx === -1) {
+      setSelectedIds(new Set([trackId]));
+      setSelectionAnchorId(trackId);
+      return;
+    }
+    const lo = Math.min(startIdx, endIdx);
+    const hi = Math.max(startIdx, endIdx);
+    const range = visibleTracks.slice(lo, hi + 1).map((t) => t.id);
+    setSelectedIds(new Set(range));
+    // Anchor stays put so subsequent shift-clicks pivot on the same row.
+  }
+
+  /**
    * Apply a manual recategorization. Updates both the local track array
    * (so the library view re-buckets immediately) and the SQLite row.
    * Subcategory is stored exactly as supplied — null clears it.
@@ -1276,6 +1364,8 @@ export function Library() {
             categoryTracks={categoryTracks}
             playingTrackId={playback?.trackId}
             onPlayTrack={(t, ctx) => void handlePlayTrack(t, ctx)}
+            selectedIds={selectedIds}
+            onSelectRow={handleSelectRow}
             onShuffleCategory={() => void handleShuffleCategory()}
             onTrackContextMenu={(t, x, y) =>
               dmMode ? undefined : setPinMenu({ track: t, x, y })
@@ -1573,6 +1663,18 @@ export function Library() {
           onDismiss={() => {
             setSearchOpen(false);
             setSearchQuery("");
+          }}
+        />
+      ) : null}
+
+      {selectedIds.size > 0 && tab === "library" && !dmMode ? (
+        <SelectionBar
+          count={selectedIds.size}
+          onSetGrade={(g) => void handleBulkGrade(g)}
+          onClearGrade={() => void handleBulkGrade(null)}
+          onClear={() => {
+            setSelectedIds(new Set());
+            setSelectionAnchorId(null);
           }}
         />
       ) : null}

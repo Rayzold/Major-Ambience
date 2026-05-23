@@ -30,6 +30,17 @@ export type DesktopLibraryViewProps = {
    * Empty list means "no autoqueue context", treated as a one-shot play.
    */
   onPlayTrack: (track: Track, queueContext: Track[]) => void;
+  /**
+   * Multi-select state. selectedIds drives the row highlight; onSelectRow
+   * receives the click intent (single / toggle / range) and the visible
+   * filtered list (so range select can walk it).
+   */
+  selectedIds: ReadonlySet<string>;
+  onSelectRow: (
+    trackId: string,
+    mode: "single" | "toggle" | "range",
+    visibleTracks: readonly Track[],
+  ) => void;
   onShuffleCategory: () => void;
   onTrackContextMenu: (track: Track, x: number, y: number) => void;
   /**
@@ -46,6 +57,8 @@ export function DesktopLibraryView({
   categoryTracks,
   playingTrackId,
   onPlayTrack,
+  selectedIds,
+  onSelectRow,
   onShuffleCategory,
   onTrackContextMenu,
   isPseudoView,
@@ -305,7 +318,17 @@ export function DesktopLibraryView({
             track={t}
             index={i + 1}
             isPlaying={t.id === playingTrackId}
-            onTap={() => onPlayTrack(t, filteredTracks)}
+            isSelected={selectedIds.has(t.id)}
+            onTap={(e) => {
+              if (e.shiftKey) {
+                onSelectRow(t.id, "range", filteredTracks);
+              } else if (e.ctrlKey || e.metaKey) {
+                onSelectRow(t.id, "toggle", filteredTracks);
+              } else {
+                onSelectRow(t.id, "single", filteredTracks);
+                onPlayTrack(t, filteredTracks);
+              }
+            }}
             onContextMenu={(x, y) => onTrackContextMenu(t, x, y)}
             dmMode={dmMode}
           />
@@ -322,6 +345,7 @@ function DesktopTrackRow({
   track,
   index,
   isPlaying,
+  isSelected,
   onTap,
   onContextMenu,
   dmMode,
@@ -329,12 +353,21 @@ function DesktopTrackRow({
   track: Track;
   index: number;
   isPlaying: boolean;
-  onTap: () => void;
+  isSelected: boolean;
+  onTap: (e: React.MouseEvent<HTMLButtonElement>) => void;
   onContextMenu: (x: number, y: number) => void;
   dmMode: boolean;
 }) {
   const c = findCategory(track.category);
   if (!c) return null;
+  // Selected rows get a gold-tinted background that wins over the
+  // currently-playing tint. Playing-and-selected falls back to a blend
+  // of both — gold accents, the playing gradient stays underneath.
+  const bg = isSelected
+    ? T.goldSoft
+    : isPlaying
+      ? `linear-gradient(90deg, ${c.color}14, transparent 40%)`
+      : "transparent";
   return (
     <button
       className="mc-row-tap"
@@ -356,9 +389,9 @@ function DesktopTrackRow({
         alignItems: "center",
         gap: 8,
         borderBottom: `1px solid ${T.rule}`,
-        background: isPlaying
-          ? `linear-gradient(90deg, ${c.color}14, transparent 40%)`
-          : "transparent",
+        background: bg,
+        borderLeft: `3px solid ${isSelected ? T.gold : "transparent"}`,
+        paddingLeft: 29, // 32 - 3 (border) to keep content aligned
         width: "100%",
         textAlign: "left",
         cursor: "grab",
