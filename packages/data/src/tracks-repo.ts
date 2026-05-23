@@ -100,6 +100,40 @@ export async function setDuration(db: Db, trackId: string, durationMs: number): 
 }
 
 /**
+ * Manual recategorization. Used when the auto-categorizer puts a track in
+ * the wrong bucket and the user wants to override. `subcategory` is set
+ * unconditionally — pass `null` to clear it.
+ */
+export async function setCategory(
+  db: Db,
+  trackId: string,
+  category: string,
+  subcategory: string | null,
+): Promise<void> {
+  await db.execute(
+    "UPDATE tracks SET category = $1, subcategory = $2 WHERE id = $3",
+    [category, subcategory, trackId],
+  );
+}
+
+/**
+ * Set / clear the free-form note on a track. Notes are also indexed by
+ * the tracks_fts triggers so they show up in spotlight search.
+ * Pass `null` (or empty string) to clear.
+ */
+export async function setNote(
+  db: Db,
+  trackId: string,
+  note: string | null,
+): Promise<void> {
+  const normalized = note && note.trim().length > 0 ? note.trim() : null;
+  await db.execute("UPDATE tracks SET note = $1 WHERE id = $2", [
+    normalized,
+    trackId,
+  ]);
+}
+
+/**
  * Delete rows whose id is not in `keepIds`. Used after a folder rescan to
  * drop tracks that no longer exist on disk (renamed, moved, or junk like
  * macOS `._` files indexed before the scanner filtered them).

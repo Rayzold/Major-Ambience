@@ -1,9 +1,13 @@
-// Floating context menu — right-click a track row, pick a slot, assign.
-// Renders at the cursor position, clamped to the viewport.
+// Floating context menu — right-click a track row. Lets the user
+// recategorize, edit the note, pin to a soundboard slot, and set as
+// a combatant's turn sound. Renders at the cursor, clamped to viewport.
+//
+// Name kept as "PinToSlotMenu" for git history continuity; despite the
+// name it's now the canonical track-edit popover.
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { SoundboardSlot, Track } from "@mc/core";
-import { findCategory, Glyph, T } from "@mc/ui";
+import type { CategoryId, SoundboardSlot, Track } from "@mc/core";
+import { CATEGORIES, findCategory, Glyph, T } from "@mc/ui";
 import type { Combatant } from "./dm/InitiativeTracker.js";
 
 export type PinToSlotMenuProps = {
@@ -14,6 +18,14 @@ export type PinToSlotMenuProps = {
   combatants: readonly Combatant[];
   onPin: (page: "A" | "B" | "C", slot: number) => void;
   onSetTurnSound: (combatantId: string) => void;
+  /**
+   * Override the track's category. `subcategory` is set whether or not
+   * it has meaning for the category (combat is the only one with
+   * subcategories today); pass null to clear.
+   */
+  onSetCategory: (category: CategoryId, subcategory: string | null) => void;
+  /** Save the track's note. Empty string clears it. */
+  onSetNote: (note: string) => void;
   onDismiss: () => void;
 };
 
@@ -28,13 +40,26 @@ export function PinToSlotMenu({
   combatants,
   onPin,
   onSetTurnSound,
+  onSetCategory,
+  onSetNote,
   onDismiss,
 }: PinToSlotMenuProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [position, setPosition] = useState(anchor);
+  // Local note draft so typing doesn't fire onSetNote on every keystroke.
+  // Persists on blur / Enter; initial value comes from the track.
+  const [noteDraft, setNoteDraft] = useState(track.note ?? "");
   const slotMap = new Map<string, SoundboardSlot>();
   for (const s of slots) slotMap.set(`${s.page}-${s.slot}`, s);
   const trackCat = findCategory(track.category);
+  // Subcats only exist on combat today, but the lookup is generic.
+  const trackCatSubcats = trackCat?.subcats ?? [];
+
+  function commitNote() {
+    const next = noteDraft.trim();
+    const current = (track.note ?? "").trim();
+    if (next !== current) onSetNote(next);
+  }
 
   // Clamp into viewport after first render (we need the rendered size).
   useLayoutEffect(() => {
@@ -119,7 +144,7 @@ export function PinToSlotMenu({
         ) : null}
         <div style={{ minWidth: 0, flex: 1 }}>
           <div className="mc-eyebrow" style={{ fontSize: 9 }}>
-            Pin to soundboard
+            Track
           </div>
           <div
             style={{
@@ -131,9 +156,158 @@ export function PinToSlotMenu({
               textOverflow: "ellipsis",
               marginTop: 2,
             }}
+            title={track.title}
           >
             {track.title}
           </div>
+          <div
+            style={{
+              fontSize: 10,
+              color: T.ink3,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {track.pack || "—"}
+          </div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          padding: "8px 12px 10px",
+          borderBottom: `1px solid ${T.rule}`,
+        }}
+      >
+        <div
+          className="mc-eyebrow"
+          style={{ fontSize: 9, color: T.ink3, padding: "2px 0 6px" }}
+        >
+          Categorize
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+          {CATEGORIES.map((c) => {
+            const active = c.id === track.category;
+            return (
+              <button
+                key={c.id}
+                onClick={() =>
+                  onSetCategory(
+                    c.id,
+                    // Preserve subcategory only if we're staying in the
+                    // same category. Switching category drops it because
+                    // the value would no longer be meaningful.
+                    c.id === track.category ? (track.subcategory ?? null) : null,
+                  )
+                }
+                title={`Move to ${c.name}`}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  padding: "4px 8px",
+                  borderRadius: 999,
+                  background: active ? c.color + "22" : T.bgChip,
+                  color: active ? c.color : T.ink2,
+                  border: `1px solid ${active ? c.color + "55" : "transparent"}`,
+                  fontSize: 11,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                }}
+              >
+                <Glyph name={c.glyph} size={11} />
+                {c.name}
+              </button>
+            );
+          })}
+        </div>
+        {trackCatSubcats.length > 0 ? (
+          <div
+            style={{
+              marginTop: 8,
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 4,
+              alignItems: "center",
+            }}
+          >
+            <span
+              className="mc-eyebrow"
+              style={{ fontSize: 9, color: T.ink3, marginRight: 4 }}
+            >
+              {trackCat?.name} sub
+            </span>
+            <button
+              onClick={() => onSetCategory(track.category, null)}
+              style={subcatPillStyle(track.subcategory == null, trackCat?.color)}
+            >
+              none
+            </button>
+            {trackCatSubcats.map((sub) => {
+              const active =
+                (track.subcategory ?? "").toLowerCase() === sub.toLowerCase();
+              return (
+                <button
+                  key={sub}
+                  onClick={() => onSetCategory(track.category, sub.toLowerCase())}
+                  style={subcatPillStyle(active, trackCat?.color)}
+                >
+                  {sub}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+      </div>
+
+      <div
+        style={{
+          padding: "8px 12px 10px",
+          borderBottom: `1px solid ${T.rule}`,
+        }}
+      >
+        <div
+          className="mc-eyebrow"
+          style={{ fontSize: 9, color: T.ink3, padding: "2px 0 6px" }}
+        >
+          Notes
+        </div>
+        <input
+          value={noteDraft}
+          onChange={(e) => setNoteDraft(e.currentTarget.value)}
+          onBlur={commitNote}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commitNote();
+            }
+          }}
+          placeholder="Free-form note (saved on blur or Enter)…"
+          style={{
+            width: "100%",
+            padding: "6px 8px",
+            borderRadius: 6,
+            background: T.bgCard,
+            border: `1px solid ${T.rule}`,
+            color: T.ink,
+            fontSize: 12,
+            outline: "none",
+          }}
+        />
+      </div>
+
+      <div
+        style={{
+          padding: "8px 12px 4px",
+          borderBottom: `1px solid ${T.rule}`,
+        }}
+      >
+        <div
+          className="mc-eyebrow"
+          style={{ fontSize: 9, color: T.ink3, padding: "2px 0 4px" }}
+        >
+          Pin to soundboard
         </div>
       </div>
 
@@ -341,4 +515,19 @@ export function PinToSlotMenu({
       ) : null}
     </div>
   );
+}
+
+function subcatPillStyle(active: boolean, accent: string | undefined): React.CSSProperties {
+  const tint = accent ?? T.gold;
+  return {
+    padding: "3px 8px",
+    borderRadius: 999,
+    background: active ? tint + "22" : T.bgChip,
+    color: active ? tint : T.ink2,
+    border: `1px solid ${active ? tint + "55" : "transparent"}`,
+    fontSize: 10,
+    fontWeight: 500,
+    cursor: "pointer",
+    textTransform: "capitalize",
+  };
 }

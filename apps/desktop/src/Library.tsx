@@ -22,8 +22,10 @@ import {
   saveScene,
   searchTracks,
   setConfig,
+  setCategory as persistCategory,
   setDuration,
   setGrade as persistGrade,
+  setNote as persistNote,
   upsertSlot,
 } from "@mc/data";
 import { applyTheme, CATEGORIES, findCategory, type ThemeId } from "@mc/ui";
@@ -848,6 +850,46 @@ export function Library() {
     setTracks((prev) => prev.map((t) => (t.id === trackId ? { ...t, grade: g } : t)));
   }
 
+  /**
+   * Apply a manual recategorization. Updates both the local track array
+   * (so the library view re-buckets immediately) and the SQLite row.
+   * Subcategory is stored exactly as supplied — null clears it.
+   */
+  async function handleSetTrackCategory(
+    trackId: string,
+    category: CategoryId,
+    subcategory: string | null,
+  ) {
+    const db = await getDb();
+    await persistCategory(db, trackId, category, subcategory);
+    setTracks((prev) =>
+      prev.map((t) => {
+        if (t.id !== trackId) return t;
+        // exactOptionalPropertyTypes: drop the key entirely rather than
+        // setting subcategory: undefined.
+        const { subcategory: _drop, ...rest } = t;
+        void _drop;
+        return subcategory !== null
+          ? { ...rest, category, subcategory }
+          : { ...rest, category };
+      }),
+    );
+  }
+
+  async function handleSetTrackNote(trackId: string, note: string) {
+    const db = await getDb();
+    await persistNote(db, trackId, note);
+    const trimmed = note.trim();
+    setTracks((prev) =>
+      prev.map((t) => {
+        if (t.id !== trackId) return t;
+        const { note: _drop, ...rest } = t;
+        void _drop;
+        return trimmed.length > 0 ? { ...rest, note: trimmed } : rest;
+      }),
+    );
+  }
+
   async function handleSetFade(ms: number) {
     setFadeMs(ms);
     const db = await getDb();
@@ -1390,6 +1432,28 @@ export function Library() {
             setPinMenu(null);
             setScanStatus(
               `Set "${pinMenu.track.title}" as turn sound for ${target.name}.`,
+            );
+          }}
+          onSetCategory={(category, subcategory) => {
+            const trackTitle = pinMenu.track.title;
+            const fromName = findCategory(pinMenu.track.category)?.name ?? pinMenu.track.category;
+            const toName = findCategory(category)?.name ?? category;
+            void handleSetTrackCategory(pinMenu.track.id, category, subcategory);
+            const subNote = subcategory ? ` · ${subcategory}` : "";
+            const msg =
+              pinMenu.track.category === category
+                ? `Updated "${trackTitle}" subcategory${subNote || " → none"}.`
+                : `Moved "${trackTitle}" ${fromName} → ${toName}${subNote}.`;
+            setScanStatus(msg);
+            // Keep menu open so the user can fine-tune subcategory after
+            // switching category. They dismiss with Esc / outside click.
+          }}
+          onSetNote={(note) => {
+            void handleSetTrackNote(pinMenu.track.id, note);
+            setScanStatus(
+              note.trim().length > 0
+                ? `Saved note for "${pinMenu.track.title}".`
+                : `Cleared note for "${pinMenu.track.title}".`,
             );
           }}
           onDismiss={() => setPinMenu(null)}
