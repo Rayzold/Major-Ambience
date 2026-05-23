@@ -230,6 +230,20 @@ export function Library() {
     return findCategory(activeCategory) ?? CATEGORIES[0]!;
   }, [activeView, activeCategory]);
 
+  // Mirror reactive state into refs so `handlePlayTrack`'s onEnded
+  // callback (which closes over the value at subscription time) can
+  // read the *current* loop mode / queue when the track actually ends.
+  // Otherwise enabling "loop queue" mid-playback never wraps because
+  // the original closure still sees loopMode = "off".
+  const loopModeRef = useRef(loopMode);
+  const queueRef = useRef(queue);
+  useEffect(() => {
+    loopModeRef.current = loopMode;
+  }, [loopMode]);
+  useEffect(() => {
+    queueRef.current = queue;
+  }, [queue]);
+
   /** Live counts for the Favorites + Recently played sidebar rows. */
   const favoritesCount = useMemo(
     () => tracks.filter((t) => t.grade === "S" || t.grade === "A").length,
@@ -549,7 +563,30 @@ export function Library() {
     };
   }, [handleOpenFolder]);
 
-  async function handlePlayTrack(track: Track) {
+  /**
+   * Play a track. Optionally accepts a `queueContext` — the list of
+   * tracks the click came from (e.g. the current filtered library
+   * view) — and builds an autoqueue: the clicked track at position 0,
+   * everything after it in its original order next, then everything
+   * before it (wrapping). When the clicked track ends, onEnded picks
+   * up the next entry; "queue" loop mode wraps at the end.
+   *
+   * Pass an empty array to leave the existing queue alone (used by
+   * single-shot plays like the Shuffle button which manages the queue
+   * separately).
+   */
+  async function handlePlayTrack(track: Track, queueContext: Track[] = []) {
+    if (queueContext.length > 0) {
+      const idx = queueContext.findIndex((t) => t.id === track.id);
+      const built =
+        idx === -1
+          ? [track, ...queueContext]
+          : [
+              ...queueContext.slice(idx),
+              ...queueContext.slice(0, idx),
+            ];
+      setQueue(built);
+    }
     const backend = getAudioBackend();
     const assetUri = convertFileSrc(track.uri);
     try {
@@ -587,15 +624,17 @@ export function Library() {
         subProgress();
         subEnded();
         setIsPlaying(false);
-        // Queue advance — when we hit the end of the queue, "queue" loop
-        // wraps to the first track; "off" stops there. "track" never
-        // reaches this branch because audio.loop replays natively.
-        const idx = queue.findIndex((t) => t.id === track.id);
-        if (idx !== -1 && idx + 1 < queue.length) {
-          const upcoming = queue[idx + 1];
+        // Read loopMode + queue from refs — values captured in this
+        // closure at subscription time get stale if the user changes
+        // loop mode (or the queue) before the track ends.
+        const liveQueue = queueRef.current;
+        const liveLoopMode = loopModeRef.current;
+        const idx = liveQueue.findIndex((t) => t.id === track.id);
+        if (idx !== -1 && idx + 1 < liveQueue.length) {
+          const upcoming = liveQueue[idx + 1];
           if (upcoming) void handlePlayTrack(upcoming);
-        } else if (loopMode === "queue" && queue.length > 0) {
-          const first = queue[0];
+        } else if (liveLoopMode === "queue" && liveQueue.length > 0) {
+          const first = liveQueue[0];
           if (first) void handlePlayTrack(first);
         }
       });
@@ -1194,7 +1233,7 @@ export function Library() {
             meta={viewMeta}
             categoryTracks={categoryTracks}
             playingTrackId={playback?.trackId}
-            onPlayTrack={(t) => void handlePlayTrack(t)}
+            onPlayTrack={(t, ctx) => void handlePlayTrack(t, ctx)}
             onShuffleCategory={() => void handleShuffleCategory()}
             onTrackContextMenu={(t, x, y) =>
               dmMode ? undefined : setPinMenu({ track: t, x, y })

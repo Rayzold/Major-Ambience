@@ -23,7 +23,13 @@ export type DesktopLibraryViewProps = {
    */
   categoryTracks: Track[];
   playingTrackId: string | undefined;
-  onPlayTrack: (track: Track) => void;
+  /**
+   * Called when the user picks a track. The second arg is the visible
+   * filtered list at the time of the click — Library uses it to
+   * autoqueue what comes after the clicked track (with wrap-around).
+   * Empty list means "no autoqueue context", treated as a one-shot play.
+   */
+  onPlayTrack: (track: Track, queueContext: Track[]) => void;
   onShuffleCategory: () => void;
   onTrackContextMenu: (track: Track, x: number, y: number) => void;
   /**
@@ -299,7 +305,7 @@ export function DesktopLibraryView({
             track={t}
             index={i + 1}
             isPlaying={t.id === playingTrackId}
-            onTap={() => onPlayTrack(t)}
+            onTap={() => onPlayTrack(t, filteredTracks)}
             onContextMenu={(x, y) => onTrackContextMenu(t, x, y)}
             dmMode={dmMode}
           />
