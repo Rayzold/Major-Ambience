@@ -12,6 +12,14 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile audio engi
 
 ---
 
+## [0.0.14] — 2026‑05‑23 — Fix: "All" grade pill clipped
+
+### Fixed
+
+- The **All** grade-filter pill in the library hero was rendering inside a `width: 26px` box (sized for the single-letter S/A/B/C/D/F chips) so the three-letter label was clipped and off-center. Pills now use `minWidth: 26` + `padding: 0 10px` for **All** and `0` padding for the single-letters, so each chip fits its content and the row stays uniform.
+
+---
+
 ## [0.0.13] — 2026‑05‑23 — Name variety + click-to-pick track assignment
 
 Two real-session pain points: the NPC name generator kept rolling the same names, and the "drag a track from the Library onto a soundboard pad / combatant" affordance never worked in the single-pane tabbed UI (source and target are never visible together). Both fixed.
