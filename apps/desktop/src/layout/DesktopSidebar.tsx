@@ -6,7 +6,13 @@ import { CATEGORIES, Glyph, letterIndexInName, T, type CategoryMeta } from "@mc/
 
 export type DesktopSidebarProps = {
   selected: CategoryId;
+  /** Which view is showing — controls active highlighting on Favorites / Recently played. */
+  activeView: "category" | "favorites" | "recent";
   onSelect: (c: CategoryId) => void;
+  onSelectFavorites: () => void;
+  onSelectRecent: () => void;
+  favoritesCount: number;
+  recentCount: number;
   totalTrackCount: number;
   countByCategory: ReadonlyMap<CategoryId, number>;
   rootFolderName: string | undefined;
@@ -24,7 +30,12 @@ export type DesktopSidebarProps = {
 
 export function DesktopSidebar({
   selected,
+  activeView,
   onSelect,
+  onSelectFavorites,
+  onSelectRecent,
+  favoritesCount,
+  recentCount,
   totalTrackCount,
   countByCategory,
   rootFolderName,
@@ -101,8 +112,22 @@ export function DesktopSidebar({
       </div>
 
       <SidebarSection title="Library">
-        <SidebarRow icon="star" label="Favorites" count={countFavorites(countByCategory)} muted />
-        <SidebarRow icon="clock" label="Recently played" count={0} muted />
+        <SidebarRow
+          icon="star"
+          label="Favorites"
+          count={favoritesCount}
+          active={activeView === "favorites"}
+          onClick={onSelectFavorites}
+          tint={T.gold}
+        />
+        <SidebarRow
+          icon="clock"
+          label="Recently played"
+          count={recentCount}
+          active={activeView === "recent"}
+          onClick={onSelectRecent}
+          tint="#7d92dd"
+        />
       </SidebarSection>
 
       <SidebarSection title="Categories">
@@ -111,7 +136,9 @@ export function DesktopSidebar({
         </div>
         <div data-mc-tour="sidebar-categories">
         {CATEGORIES.map((c) => {
-          const active = selected === c.id;
+          // A category is "active" only when we're showing its view —
+          // not when Favorites or Recently played is up.
+          const active = activeView === "category" && selected === c.id;
           const count = countByCategory.get(c.id) ?? 0;
           return (
             <button
@@ -226,15 +253,22 @@ function SidebarRow({
   icon,
   label,
   count,
-  muted,
+  active,
+  onClick,
+  tint,
 }: {
   icon: string;
   label: string;
   count: number;
-  muted?: boolean;
+  active?: boolean;
+  onClick?: () => void;
+  /** Accent color when this row is the active view. Defaults to gold. */
+  tint?: string;
 }) {
+  const accent = tint ?? T.gold;
   return (
     <button
+      onClick={onClick}
       style={{
         width: "100%",
         textAlign: "left",
@@ -243,18 +277,19 @@ function SidebarRow({
         gap: 10,
         padding: "8px 12px",
         borderRadius: 9,
-        color: muted ? T.ink3 : T.ink2,
+        background: active ? accent + "20" : "transparent",
+        color: active ? accent : T.ink2,
         fontSize: 13,
         fontWeight: 500,
-        cursor: muted ? "default" : "pointer",
+        cursor: "pointer",
+        borderLeft: `2px solid ${active ? accent : "transparent"}`,
+        marginBottom: 2,
       }}
-      disabled={muted}
-      title={muted ? "Coming in Phase 2" : undefined}
     >
-      <Glyph name={icon} size={15} />
+      <Glyph name={icon} size={15} stroke={active ? 1.9 : 1.5} />
       <span style={{ flex: 1 }}>{label}</span>
       <span className="mc-mono" style={{ fontSize: 10, color: T.ink3 }}>
-        {count}
+        {count.toLocaleString()}
       </span>
     </button>
   );
@@ -275,12 +310,4 @@ function relativeTime(epochSec: number): string {
   if (delta < 86400 * 30) return `${Math.floor(delta / 86400)}d ago`;
   const d = new Date(epochSec * 1000);
   return d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
-}
-
-function countFavorites(byCategory: ReadonlyMap<CategoryId, number>): number {
-  // Placeholder until favorites is wired (Phase 2). The sidebar shows it
-  // either way; we just use category sum so the slot is non-empty.
-  let total = 0;
-  for (const n of byCategory.values()) total += n;
-  return Math.min(total, 99);
 }

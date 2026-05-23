@@ -56,6 +56,8 @@ export type ShortcutHandlers = {
    * just signals intent; Library handles the empty-set case.
    */
   onPlayBoss?: () => void;
+  /** Z — hard stop: music + all soundboard pads + turn sounds. */
+  onStopAll?: () => void;
 };
 
 export type ShortcutContext = {
@@ -78,6 +80,7 @@ export const SHORTCUTS_REFERENCE: ReadonlyArray<{
   { keys: "H / S / R", description: "Play Horror / TenSion / Rest" },
   { keys: "V / X / F", description: "Play Voices / SFX / SciFi" },
   { keys: "B", description: "Play a random Boss track (Combat sub)" },
+  { keys: "Z", description: "Stop everything (music + pads)" },
   { keys: "1–9, 0", description: "Jump to category (no playback)" },
   { keys: "D", description: "Toggle DM Mode" },
   { keys: "/", description: "Focus search" },
@@ -160,6 +163,9 @@ export function resolveShortcut(
     case "b":
     case "B":
       return handlers.onPlayBoss ?? null;
+    case "z":
+    case "Z":
+      return handlers.onStopAll ?? null;
   }
 
   // Category letter hotkeys — C/T/E/A/H/S/R/V/X/F. findCategoryByShortcut
