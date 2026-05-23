@@ -1,8 +1,8 @@
 // Left sidebar — folder summary, Library section, Categories section.
 
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import type { CategoryId } from "@mc/core";
-import { CATEGORIES, Glyph, T } from "@mc/ui";
+import { CATEGORIES, Glyph, letterIndexInName, T, type CategoryMeta } from "@mc/ui";
 
 export type DesktopSidebarProps = {
   selected: CategoryId;
@@ -106,6 +106,9 @@ export function DesktopSidebar({
       </SidebarSection>
 
       <SidebarSection title="Categories">
+        <div className="mc-eyebrow" style={{ padding: "0 12px 6px", fontSize: 9, color: T.ink3 }}>
+          Letter plays · Number jumps
+        </div>
         <div data-mc-tour="sidebar-categories">
         {CATEGORIES.map((c) => {
           const active = selected === c.id;
@@ -114,6 +117,7 @@ export function DesktopSidebar({
             <button
               key={c.id}
               onClick={() => onSelect(c.id)}
+              title={`Press ${c.shortcut} to play a weighted random ${c.name} track`}
               style={{
                 width: "100%",
                 textAlign: "left",
@@ -139,7 +143,7 @@ export function DesktopSidebar({
                   textOverflow: "ellipsis",
                 }}
               >
-                {c.name}
+                <CategoryNameWithShortcut meta={c} accent={c.color} active={active} />
               </span>
               <span className="mc-mono" style={{ fontSize: 10, color: T.ink3 }}>
                 {count.toLocaleString()}
@@ -150,6 +154,60 @@ export function DesktopSidebar({
         </div>
       </SidebarSection>
     </div>
+  );
+}
+
+/**
+ * Render a category name with its hotkey letter visually highlighted
+ * in-place. When the shortcut letter exists in the name we wrap it in
+ * an underlined / accent-tinted span; when it doesn't (no current
+ * category needs this branch but it's a safety net), we append a small
+ * kbd-style chip after the name.
+ */
+function CategoryNameWithShortcut({
+  meta,
+  accent,
+  active,
+}: {
+  meta: CategoryMeta;
+  accent: string;
+  active: boolean;
+}) {
+  const idx = letterIndexInName(meta);
+  const letterStyle: CSSProperties = {
+    color: active ? accent : T.gold,
+    textDecoration: "underline",
+    textDecorationColor: active ? accent : T.gold,
+    textDecorationThickness: 1.5,
+    textUnderlineOffset: 3,
+    fontWeight: 700,
+  };
+  if (idx === -1) {
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+        {meta.name}
+        <span
+          className="mc-mono"
+          style={{
+            fontSize: 9,
+            padding: "1px 4px",
+            borderRadius: 4,
+            background: T.bgChip,
+            border: `1px solid ${T.rule}`,
+            color: T.ink3,
+          }}
+        >
+          {meta.shortcut}
+        </span>
+      </span>
+    );
+  }
+  return (
+    <>
+      {meta.name.slice(0, idx)}
+      <span style={letterStyle}>{meta.name.charAt(idx)}</span>
+      {meta.name.slice(idx + 1)}
+    </>
   );
 }
 

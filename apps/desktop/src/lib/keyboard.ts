@@ -14,7 +14,7 @@
 
 import { useEffect } from "react";
 import type { CategoryId } from "@mc/core";
-import { CATEGORIES } from "@mc/ui";
+import { CATEGORIES, findCategoryByShortcut } from "@mc/ui";
 
 /**
  * Bindable actions. Optional — Library passes only the ones that make
@@ -33,7 +33,7 @@ export type ShortcutHandlers = {
   onSeekForward?: () => void;
   /** G — cycle grade on current track. */
   onCycleGrade?: () => void;
-  /** S — weighted-shuffle the current category. */
+  /** W — weighted-shuffle the current category. (S moved to TenSion's category hotkey.) */
   onShuffleCategory?: () => void;
   /** D — toggle DM Mode. */
   onToggleDmMode?: () => void;
@@ -43,8 +43,19 @@ export type ShortcutHandlers = {
   onToggleHelp?: () => void;
   /** Esc — close the topmost overlay. Library passes a dismisser that does the right thing. */
   onEscape?: () => void;
-  /** 1..0 — jump to the nth category. */
+  /** 1..0 — jump to the nth category (silent, no playback). */
   onJumpToCategory?: (id: CategoryId) => void;
+  /**
+   * Letter hotkeys (C / T / E / A / H / S / R / V / X / F) — jump to the
+   * matching category AND start a weighted random play. Library decides
+   * what "highest rated" picks; the hook just delivers the category id.
+   */
+  onPlayCategoryRandom?: (id: CategoryId) => void;
+  /**
+   * B — jump to Combat and play a weighted random Boss track. The hook
+   * just signals intent; Library handles the empty-set case.
+   */
+  onPlayBoss?: () => void;
 };
 
 export type ShortcutContext = {
@@ -62,8 +73,12 @@ export const SHORTCUTS_REFERENCE: ReadonlyArray<{
   { keys: "L / →", description: "Next in queue" },
   { keys: ", / .", description: "Seek −5s / +5s" },
   { keys: "G", description: "Cycle grade on current track" },
-  { keys: "S", description: "Shuffle weighted in current category" },
-  { keys: "1–9, 0", description: "Jump to category" },
+  { keys: "W", description: "Shuffle weighted in current category" },
+  { keys: "C / T / E / A", description: "Play Combat / Tavern / Exploration / Ambient" },
+  { keys: "H / S / R", description: "Play Horror / TenSion / Rest" },
+  { keys: "V / X / F", description: "Play Voices / SFX / SciFi" },
+  { keys: "B", description: "Play a random Boss track (Combat sub)" },
+  { keys: "1–9, 0", description: "Jump to category (no playback)" },
   { keys: "D", description: "Toggle DM Mode" },
   { keys: "/", description: "Focus search" },
   { keys: "Ctrl/⌘ K", description: "Open search" },
@@ -108,6 +123,10 @@ export function resolveShortcut(
     return null;
   }
 
+  // Modifier-free single-key controls. Letter cases are matched
+  // explicitly so Shift+letter doesn't fire (Shift would have been
+  // caught above if combined with Ctrl/Meta, but Shift alone is fine —
+  // we just want lowercase-only to keep things predictable).
   switch (event.key) {
     case " ":
     case "k":
@@ -128,8 +147,8 @@ export function resolveShortcut(
     case "g":
     case "G":
       return handlers.onCycleGrade ?? null;
-    case "s":
-    case "S":
+    case "w":
+    case "W":
       return handlers.onShuffleCategory ?? null;
     case "d":
     case "D":
@@ -138,9 +157,23 @@ export function resolveShortcut(
       return handlers.onFocusSearch ?? null;
     case "?":
       return handlers.onToggleHelp ?? null;
+    case "b":
+    case "B":
+      return handlers.onPlayBoss ?? null;
   }
 
-  // Category jumps — 1..9 then 0 maps to CATEGORIES[0..9].
+  // Category letter hotkeys — C/T/E/A/H/S/R/V/X/F. findCategoryByShortcut
+  // is case-insensitive. Single-letter only; everything else falls
+  // through to the numeric jump check below.
+  if (/^[a-zA-Z]$/.test(event.key)) {
+    const cat = findCategoryByShortcut(event.key);
+    if (cat && handlers.onPlayCategoryRandom) {
+      return () => handlers.onPlayCategoryRandom!(cat.id);
+    }
+  }
+
+  // Category jumps — 1..9 then 0 maps to CATEGORIES[0..9]. Silent (no
+  // playback), unlike the letter hotkeys above.
   if (event.key >= "1" && event.key <= "9") {
     const idx = Number(event.key) - 1;
     const cat = CATEGORIES[idx];
