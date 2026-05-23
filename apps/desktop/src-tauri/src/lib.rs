@@ -104,6 +104,10 @@ pub fn run() {
     }];
 
     tauri::Builder::default()
+        // Window-state plugin restores last window size/position on launch
+        // and saves on close. No JS-side wiring needed; the plugin
+        // intercepts the window lifecycle automatically.
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())

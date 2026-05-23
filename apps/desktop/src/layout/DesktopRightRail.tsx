@@ -44,7 +44,10 @@ export function DesktopRightRail({
         <div className="mc-eyebrow" style={{ marginBottom: 8 }}>
           Now Playing
         </div>
-        Pick a track to begin.
+        Click any track row, press a category letter
+        (<span style={{ fontStyle: "normal", color: T.gold }}>C T E A H S R V X F</span>),
+        or press <span style={{ fontStyle: "normal", color: T.gold }}>?</span> for
+        the full cheatsheet.
       </div>
     );
   }
@@ -217,9 +220,11 @@ export function DesktopRightRail({
               fontSize: 11,
               color: T.ink3,
               fontStyle: "italic",
+              lineHeight: 1.5,
             }}
           >
-            Hit Shuffle to fill the queue.
+            Tap a track row, hit Shuffle, or press a category letter
+            (C / T / E / A / H / S / R / V / X / F) to fill the queue.
           </div>
         ) : (
           upNext.map((t) => {
@@ -285,32 +290,6 @@ export function DesktopRightRail({
         )}
       </div>
 
-      <div style={{ marginTop: 18, opacity: 0.5 }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "0 4px 8px",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Glyph name="speaker" size={14} />
-            <h3
-              className="mc-display"
-              style={{ margin: 0, fontSize: 16, fontWeight: 600 }}
-            >
-              SFX Layer
-            </h3>
-          </div>
-          <span className="mc-eyebrow" style={{ fontSize: 9 }}>
-            Phase 2
-          </span>
-        </div>
-        <div style={{ fontSize: 11, color: T.ink3, fontStyle: "italic", padding: "4px" }}>
-          Active SFX list lands with the soundboard tab.
-        </div>
-      </div>
     </div>
   );
 }
