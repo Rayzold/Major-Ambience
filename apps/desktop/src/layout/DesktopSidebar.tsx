@@ -10,6 +10,16 @@ export type DesktopSidebarProps = {
   totalTrackCount: number;
   countByCategory: ReadonlyMap<CategoryId, number>;
   rootFolderName: string | undefined;
+  /** Epoch seconds of the last completed scan, or undefined if never scanned. */
+  lastScannedAt?: number | undefined;
+  /** True while a scan is in flight — disables Rescan, shows a spinner glyph. */
+  isScanning?: boolean;
+  /**
+   * Called when the user clicks the Rescan button. Library re-runs the
+   * scan against the stored root_folder_path. Undefined when no folder
+   * has been opened yet (button hides in that case).
+   */
+  onRescan?: (() => void) | undefined;
 };
 
 export function DesktopSidebar({
@@ -18,6 +28,9 @@ export function DesktopSidebar({
   totalTrackCount,
   countByCategory,
   rootFolderName,
+  lastScannedAt,
+  isScanning,
+  onRescan,
 }: DesktopSidebarProps) {
   return (
     <div
@@ -42,7 +55,7 @@ export function DesktopSidebar({
         }}
       >
         <span style={{ color: T.gold }}>
-          <Glyph name="library" size={16} />
+          <Glyph name={isScanning ? "spark" : "library"} size={16} />
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
@@ -54,13 +67,37 @@ export function DesktopSidebar({
               overflow: "hidden",
               textOverflow: "ellipsis",
             }}
+            title={rootFolderName ?? "No folder open"}
           >
             {rootFolderName ?? "No folder open"}
           </div>
           <div className="mc-mono" style={{ fontSize: 10, color: T.ink3 }}>
-            {totalTrackCount.toLocaleString()} tracks
+            {isScanning
+              ? "Scanning…"
+              : lastScannedAt
+                ? `${totalTrackCount.toLocaleString()} · ${relativeTime(lastScannedAt)}`
+                : `${totalTrackCount.toLocaleString()} tracks`}
           </div>
         </div>
+        {onRescan ? (
+          <button
+            onClick={onRescan}
+            disabled={isScanning}
+            title="Rescan folder"
+            style={{
+              width: 26,
+              height: 26,
+              borderRadius: 7,
+              background: "transparent",
+              color: T.ink3,
+              border: "1px solid transparent",
+              cursor: isScanning ? "not-allowed" : "pointer",
+              opacity: isScanning ? 0.4 : 1,
+            }}
+          >
+            <Glyph name="shuffle" size={12} />
+          </button>
+        ) : null}
       </div>
 
       <SidebarSection title="Library">
@@ -163,6 +200,23 @@ function SidebarRow({
       </span>
     </button>
   );
+}
+
+/**
+ * Compact relative-time formatter for the folder card. Returns short
+ * strings like "just now", "5 min", "2h", "3d", "12 May". Avoids the
+ * full Intl.RelativeTimeFormat dance because we only need 1 unit.
+ */
+function relativeTime(epochSec: number): string {
+  const nowSec = Math.floor(Date.now() / 1000);
+  const delta = Math.max(0, nowSec - epochSec);
+  if (delta < 30) return "just now";
+  if (delta < 60) return `${delta}s ago`;
+  if (delta < 3600) return `${Math.floor(delta / 60)} min ago`;
+  if (delta < 86400) return `${Math.floor(delta / 3600)}h ago`;
+  if (delta < 86400 * 30) return `${Math.floor(delta / 86400)}d ago`;
+  const d = new Date(epochSec * 1000);
+  return d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
 function countFavorites(byCategory: ReadonlyMap<CategoryId, number>): number {
