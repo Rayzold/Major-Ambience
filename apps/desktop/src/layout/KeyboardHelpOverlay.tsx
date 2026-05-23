@@ -98,7 +98,7 @@ export function KeyboardHelpOverlay({ onDismiss }: KeyboardHelpOverlayProps) {
             }}
             title="Close (Esc)"
           >
-            <Glyph name="x" size={14} />
+            <Glyph name="close" size={14} />
           </button>
         </div>
 

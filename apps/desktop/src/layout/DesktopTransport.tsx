@@ -23,6 +23,10 @@ export type DesktopTransportProps = {
   onSetFadeMs: (ms: number) => void;
   onSetVolume: (v: number) => void;
   onSetDuckingPct: (pct: number) => void;
+  /** Halt music + all soundboard pads + turn sounds at once. */
+  onStopAll: () => void;
+  /** True when there is anything playing — music or any pad. Controls the Stop All button enabled state. */
+  anyPlaying: boolean;
   dmMode: boolean;
 };
 
@@ -42,6 +46,8 @@ export function DesktopTransport({
   onSetFadeMs,
   onSetVolume,
   onSetDuckingPct,
+  onStopAll,
+  anyPlaying,
   dmMode,
 }: DesktopTransportProps) {
   const scrubRef = useRef<HTMLDivElement | null>(null);
@@ -208,6 +214,26 @@ export function DesktopTransport({
             title="Next in queue"
           >
             <Glyph name="next" size={20} />
+          </button>
+          <button
+            onClick={onStopAll}
+            disabled={!anyPlaying}
+            title="Stop all sound (Z) — music + soundboard + turn sounds"
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 7,
+              background: anyPlaying ? "#d96666" + "22" : "transparent",
+              color: anyPlaying ? "#d96666" : T.ink3,
+              border: `1px solid ${anyPlaying ? "#d96666" + "55" : "transparent"}`,
+              cursor: anyPlaying ? "pointer" : "not-allowed",
+              opacity: anyPlaying ? 1 : 0.5,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Glyph name="close" size={14} stroke={2} />
           </button>
           <button
             disabled

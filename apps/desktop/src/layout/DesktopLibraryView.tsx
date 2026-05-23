@@ -2,31 +2,50 @@
 // Ported from prototype/app/desktop.jsx DesktopLibraryView + DesktopTrackRow.
 
 import { useMemo, useState } from "react";
-import type { CategoryId, Grade, Track } from "@mc/core";
-import { CATEGORIES, findCategory, Glyph, GradeChip, T, Visualizer } from "@mc/ui";
+import type { Grade, Track } from "@mc/core";
+import { CATEGORIES, findCategory, Glyph, GradeChip, T, Visualizer, type CategoryMeta } from "@mc/ui";
 
 const GRADES_INCLUDING_ALL: Array<"All" | Grade> = ["All", "S", "A", "B", "C", "D", "F"];
 
+/**
+ * Hero shape — same fields as `CategoryMeta` but with optional id so we
+ * can render pseudo-views (Favorites, Recently played) that aren't real
+ * categories. Real categories still satisfy this type.
+ */
+export type ViewMeta = Pick<CategoryMeta, "name" | "glyph" | "color" | "dark" | "desc" | "subcats">;
+
 export type DesktopLibraryViewProps = {
-  activeCategory: CategoryId;
+  /** The view's hero metadata. May be a real category or a synthetic Favorites/Recent view. */
+  meta: ViewMeta;
+  /**
+   * Already-filtered list of tracks for the current view. Library handles
+   * the favorites/recent semantics upstream (S/A only, last-25, etc.).
+   */
   categoryTracks: Track[];
   playingTrackId: string | undefined;
   onPlayTrack: (track: Track) => void;
   onShuffleCategory: () => void;
   onTrackContextMenu: (track: Track, x: number, y: number) => void;
+  /**
+   * True when this view is a pseudo-view (favorites / recent). Hides the
+   * subcategory tabs (they have no meaning) and the Save-as-scene
+   * placeholder button.
+   */
+  isPseudoView?: boolean;
   dmMode: boolean;
 };
 
 export function DesktopLibraryView({
-  activeCategory,
+  meta,
   categoryTracks,
   playingTrackId,
   onPlayTrack,
   onShuffleCategory,
   onTrackContextMenu,
+  isPseudoView,
   dmMode,
 }: DesktopLibraryViewProps) {
-  const cat = findCategory(activeCategory) ?? CATEGORIES[0]!;
+  const cat = (meta as CategoryMeta) ?? CATEGORIES[0]!;
   const [gradeFilter, setGradeFilter] = useState<"All" | Grade>("All");
   const [activeSubcat, setActiveSubcat] = useState<string>("All");
 
@@ -131,7 +150,7 @@ export function DesktopLibraryView({
               >
                 <Glyph name="shuffle" size={14} /> Shuffle weighted
               </button>
-              {dmMode ? null : (
+              {dmMode || isPseudoView ? null : (
                 <button
                   disabled
                   title="Save current as a scene — coming in next phase"

@@ -56,6 +56,7 @@ import {
   isPadPlaying,
   setDuckingPct as setPadDuckingPct,
   setPadVolume,
+  stopAllPads,
   stopPad,
   subscribePadState,
 } from "./lib/pad-audio.js";
@@ -83,6 +84,12 @@ export function Library() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [dropHover, setDropHover] = useState(false);
   const [activeCategory, setActiveCategory] = useState<CategoryId>("combat");
+  /**
+   * What the center pane is showing. "category" — the activeCategory's
+   * tracks (default Library behavior). "favorites" — S/A tracks across
+   * all categories. "recent" — last 25 played.
+   */
+  const [activeView, setActiveView] = useState<"category" | "favorites" | "recent">("category");
   const [tab, setTab] = useState<"library" | "scenes" | "soundboard" | "dm">("library");
   const [playback, setPlayback] = useState<PlaybackState | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -144,12 +151,74 @@ export function Library() {
     return map;
   }, [tracksByCategory]);
 
-  const categoryTracks = useMemo(
-    () =>
-      (tracksByCategory.get(activeCategory) ?? [])
+  /**
+   * Tracks visible in the center pane. Switches on `activeView`:
+   *   - "category" — alphabetical sort of the active category's tracks.
+   *   - "favorites" — S then A tracks across every category, sorted by
+   *     grade (S first) then title.
+   *   - "recent" — tracks with `lastPlayedAt` set, newest first, top 25.
+   *
+   * Pseudo-views deliberately skip the subcategory tab filter inside
+   * DesktopLibraryView (handled via `isPseudoView` there).
+   */
+  const categoryTracks = useMemo(() => {
+    if (activeView === "favorites") {
+      const order: Record<string, number> = { S: 0, A: 1 };
+      return tracks
+        .filter((t) => t.grade === "S" || t.grade === "A")
         .slice()
-        .sort((a, b) => a.title.localeCompare(b.title)),
-    [tracksByCategory, activeCategory],
+        .sort((a, b) => {
+          const ga = order[a.grade ?? ""] ?? 9;
+          const gb = order[b.grade ?? ""] ?? 9;
+          if (ga !== gb) return ga - gb;
+          return a.title.localeCompare(b.title);
+        });
+    }
+    if (activeView === "recent") {
+      return tracks
+        .filter((t) => t.lastPlayedAt !== undefined && t.lastPlayedAt !== null)
+        .slice()
+        .sort((a, b) => (b.lastPlayedAt ?? 0) - (a.lastPlayedAt ?? 0))
+        .slice(0, 25);
+    }
+    return (tracksByCategory.get(activeCategory) ?? [])
+      .slice()
+      .sort((a, b) => a.title.localeCompare(b.title));
+  }, [activeView, tracks, tracksByCategory, activeCategory]);
+
+  /** Hero meta for the center pane — real category or synthetic pseudo-view. */
+  const viewMeta = useMemo(() => {
+    if (activeView === "favorites") {
+      return {
+        name: "Favorites",
+        glyph: "star",
+        color: "#e3b66a",
+        dark: "#2a200a",
+        desc: "S- and A-graded tracks across every category, best first.",
+      };
+    }
+    if (activeView === "recent") {
+      return {
+        name: "Recently played",
+        glyph: "clock",
+        color: "#7d92dd",
+        dark: "#10142e",
+        desc: "Last 25 tracks you played, newest first.",
+      };
+    }
+    return findCategory(activeCategory) ?? CATEGORIES[0]!;
+  }, [activeView, activeCategory]);
+
+  /** Live counts for the Favorites + Recently played sidebar rows. */
+  const favoritesCount = useMemo(
+    () => tracks.filter((t) => t.grade === "S" || t.grade === "A").length,
+    [tracks],
+  );
+  const recentCount = useMemo(
+    () =>
+      tracks.filter((t) => t.lastPlayedAt !== undefined && t.lastPlayedAt !== null)
+        .length,
+    [tracks],
   );
 
   const upNext = useMemo(() => {
@@ -311,13 +380,29 @@ export function Library() {
       onEscape: handleEscape,
       onJumpToCategory: (id) => {
         setActiveCategory(id);
+        setActiveView("category");
         setTab("library");
       },
       onPlayCategoryRandom: (id) => void handlePlayRandomFromCategory(id),
       onPlayBoss: () => void handlePlayBoss(),
+      onStopAll: handleStopAll,
     },
     { overlayOpen },
   );
+
+  // Track whether anything is making noise — used to enable the Stop All
+  // button in the transport. padPlayingTick re-runs this on every pad
+  // state change.
+  const anyPlaying = useMemo(() => {
+    if (playback && isPlaying) return true;
+    for (const slot of soundboard) {
+      if (slot.trackId && isPadPlaying(slot.page, slot.slot)) return true;
+    }
+    return false;
+    // padPlayingTick is intentionally in deps so subscribePadState fires
+    // a refresh — isPadPlaying() reads module-level state directly.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playback, isPlaying, soundboard, padPlayingTick]);
 
   // Debounced FTS5 search. 120ms per BUILD_GUIDE.md § 8.
   useEffect(() => {
@@ -520,6 +605,29 @@ export function Library() {
     }
   }
 
+  /**
+   * Hard stop. Tears down the current music playback handle, halts every
+   * soundboard pad (including the turn-sound pseudo-slots), and resets
+   * the transport UI to the no-playback baseline.
+   *
+   * Distinct from togglePlay/pause because pause leaves the track loaded
+   * and resumable; this drops the handle entirely. Used for the Z hotkey
+   * and the red Stop button next to Next in the transport.
+   */
+  function handleStopAll() {
+    const backend = getAudioBackend();
+    if (playback) {
+      backend.pause(playback.handle);
+      backend.destroy(playback.handle);
+    }
+    stopAllPads();
+    setPlayback(null);
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setTrackDurationSec(0);
+    setScanStatus("Stopped.");
+  }
+
   function handleSeek(sec: number) {
     if (!playback) return;
     const clamped = Math.max(0, Math.min(trackDurationSec || Infinity, sec));
@@ -571,6 +679,7 @@ export function Library() {
   async function handlePlayRandomFromCategory(id: CategoryId) {
     setTab("library");
     setActiveCategory(id);
+    setActiveView("category");
     const pool = tracksByCategory.get(id) ?? [];
     if (pool.length === 0) {
       const meta = findCategory(id);
@@ -596,6 +705,7 @@ export function Library() {
   async function handlePlayBoss() {
     setTab("library");
     setActiveCategory("combat");
+    setActiveView("category");
     const bossPool = (tracksByCategory.get("combat") ?? []).filter(
       (t) => (t.subcategory ?? "").toLowerCase() === "boss",
     );
@@ -826,6 +936,7 @@ export function Library() {
 
   async function handleRestoreScene(scene: Scene) {
     setActiveCategory(scene.primaryCategory);
+    setActiveView("category");
     setFadeMs(scene.fadeMs);
     const db = await getDb();
     await setConfig(db, "fade_ms", String(scene.fadeMs));
@@ -991,7 +1102,15 @@ export function Library() {
       >
         <DesktopSidebar
           selected={activeCategory}
-          onSelect={setActiveCategory}
+          activeView={activeView}
+          onSelect={(id) => {
+            setActiveCategory(id);
+            setActiveView("category");
+          }}
+          onSelectFavorites={() => setActiveView("favorites")}
+          onSelectRecent={() => setActiveView("recent")}
+          favoritesCount={favoritesCount}
+          recentCount={recentCount}
           totalTrackCount={tracks.length}
           countByCategory={countByCategory}
           rootFolderName={rootFolderName}
@@ -1006,7 +1125,7 @@ export function Library() {
 
         {tab === "library" ? (
           <DesktopLibraryView
-            activeCategory={activeCategory}
+            meta={viewMeta}
             categoryTracks={categoryTracks}
             playingTrackId={playback?.trackId}
             onPlayTrack={(t) => void handlePlayTrack(t)}
@@ -1014,6 +1133,7 @@ export function Library() {
             onTrackContextMenu={(t, x, y) =>
               dmMode ? undefined : setPinMenu({ track: t, x, y })
             }
+            isPseudoView={activeView !== "category"}
             dmMode={dmMode}
           />
         ) : tab === "scenes" ? (
@@ -1251,6 +1371,8 @@ export function Library() {
         onSetFadeMs={(ms) => void handleSetFade(ms)}
         onSetVolume={(v) => void handleSetVolume(v)}
         onSetDuckingPct={(p) => void handleSetDucking(p)}
+        onStopAll={handleStopAll}
+        anyPlaying={anyPlaying}
         dmMode={dmMode}
       />
     </div>

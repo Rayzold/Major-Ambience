@@ -12,6 +12,40 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile audio engi
 
 ---
 
+## [0.0.11] — 2026‑05‑23 — DM Toolkit tabs · Stop All · Favorites & Recently played
+
+Three usability gaps from a real-session DM run. None of them are big alone; together they make the app feel a lot less cramped on a 1280-wide window.
+
+### Changed — DM Toolkit tabs
+
+- The three tools (Names · Dice · Initiative) lived in a 3-column grid that squashed combatant names down to "Βασω" and dice modifiers to four characters wide on standard window sizes. Tabified into `Initiative` / `Names` / `Dice` so each gets the full pane width.
+- Initiative is the default tab — it's the most useful at-the-table, and its counter (`Tracker · 2 in combat`) is also the live-status badge on the tab itself when you're on another tool.
+
+### Added — Stop All sound (button + Z hotkey)
+
+- Red **stop** button next to **Next** in the transport. Halts the music handle (tears it down — not the pause behavior), every soundboard pad, and any turn-sound pseudo-pads at once. Enabled state reflects whether anything is actually playing.
+- New **Z** hotkey runs the same action. Added to the `?` cheatsheet.
+- Behind the scenes: existing `stopAllPads()` was already there; this wires it to a new `handleStopAll()` that also drops the music handle (`backend.destroy`) and resets the transport UI to the no-playback baseline. Distinct from pause — pause keeps the track loaded.
+
+### Changed — Favorites & Recently played are real
+
+- **Favorites** (sidebar): all S- and A-graded tracks across every category, sorted S-then-A, then title. Click switches the center pane to a Favorites view with a gold hero. Live count badge.
+- **Recently played** (sidebar): tracks with `lastPlayedAt` set, newest first, top 25. Blue hero. Live count badge.
+- Both rows were previously muted placeholders. Now active highlight + cursor + click-to-show.
+- Pseudo-views skip the subcategory tabs (no meaning for cross-category lists) and the Save-as-scene button. Letter and number hotkeys still jump to real categories — Favorites / Recently played live in the sidebar.
+
+### Internal
+
+- `DesktopLibraryView` now takes a `meta: ViewMeta` prop (name/glyph/color/dark/desc/subcats?) instead of `activeCategory: CategoryId`. Real categories still satisfy the type; pseudo-views supply a synthetic meta. New `isPseudoView` prop hides irrelevant chrome.
+- New Library state: `activeView: "category" | "favorites" | "recent"`. Every category-switching site (sidebar pick, letter hotkey, number jump, scene restore, boss hotkey) resets this to `"category"`.
+
+### Verification
+
+- `pnpm -r typecheck` — clean across all 5 projects.
+- `pnpm -r test` — 169/169 vitest cases still pass.
+
+---
+
 ## [0.0.10] — 2026‑05‑23 — Category hotkeys: letter-to-play, highlighted in sidebar
 
 Turns the keyboard from a navigation aid into a DM control surface. A single letter press now picks a weighted-random track from the matching category and starts playing — same weights the Shuffle button uses (S=6×, A=4×, B=2×, C/D/Ungraded=1×, F excluded), so a press of **C** is biased toward your best Combat tracks but won't get stuck on one.
