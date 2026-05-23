@@ -11,6 +11,13 @@ export type CategoryMeta = {
   dark: string;
   desc: string;
   subcats?: readonly string[];
+  /**
+   * Single-letter hotkey for jump-and-play. Case-insensitive. Picked so
+   * the letter appears in the category name where possible (combat → C,
+   * tenSion → S, sciFi → F). Renderers use `letterIndexInName(meta)` to
+   * underline the matching character.
+   */
+  shortcut: string;
 };
 
 export const CATEGORIES: readonly CategoryMeta[] = [
@@ -22,6 +29,7 @@ export const CATEGORIES: readonly CategoryMeta[] = [
     dark: "#3b0f0a",
     desc: "Battle, boss, and skirmish music for the heat of war.",
     subcats: ["Battle", "Boss", "Skirmish"],
+    shortcut: "C",
   },
   {
     id: "tavern",
@@ -30,6 +38,7 @@ export const CATEGORIES: readonly CategoryMeta[] = [
     color: "#e2a154",
     dark: "#3a1f0a",
     desc: "Folk, jigs and reels for the smoke-warm hearth.",
+    shortcut: "T",
   },
   {
     id: "exploration",
@@ -38,6 +47,7 @@ export const CATEGORIES: readonly CategoryMeta[] = [
     color: "#bcae54",
     dark: "#2a2810",
     desc: "Journey, march, and the open road.",
+    shortcut: "E",
   },
   {
     id: "ambient",
@@ -46,6 +56,7 @@ export const CATEGORIES: readonly CategoryMeta[] = [
     color: "#6fbfa6",
     dark: "#0f2a26",
     desc: "Atmospheric, melancholic, dreamlike beds.",
+    shortcut: "A",
   },
   {
     id: "horror",
@@ -54,6 +65,7 @@ export const CATEGORIES: readonly CategoryMeta[] = [
     color: "#9a6ed1",
     dark: "#1a0f2e",
     desc: "Terror, undead, jump-scare stingers.",
+    shortcut: "H",
   },
   {
     id: "tension",
@@ -62,6 +74,7 @@ export const CATEGORIES: readonly CategoryMeta[] = [
     color: "#d27a4a",
     dark: "#2e160a",
     desc: "Suspense, pursuit, dread. Something is wrong.",
+    shortcut: "S",
   },
   {
     id: "rest",
@@ -70,6 +83,7 @@ export const CATEGORIES: readonly CategoryMeta[] = [
     color: "#7d92dd",
     dark: "#10142e",
     desc: "Sacred, hymns, the long recovery.",
+    shortcut: "R",
   },
   {
     id: "voices",
@@ -78,6 +92,7 @@ export const CATEGORIES: readonly CategoryMeta[] = [
     color: "#c084c0",
     dark: "#26102a",
     desc: "Voice packs, narration, monster sounds.",
+    shortcut: "V",
   },
   {
     id: "sfx",
@@ -86,6 +101,7 @@ export const CATEGORIES: readonly CategoryMeta[] = [
     color: "#5cc4d9",
     dark: "#0a2630",
     desc: "Weather, weapons, ambience.",
+    shortcut: "X",
   },
   {
     id: "scifi",
@@ -94,9 +110,29 @@ export const CATEGORIES: readonly CategoryMeta[] = [
     color: "#6e8be0",
     dark: "#0e1830",
     desc: "Use sparingly. The stars between.",
+    shortcut: "F",
   },
 ];
 
 export function findCategory(id: CategoryId): CategoryMeta | undefined {
   return CATEGORIES.find((c) => c.id === id);
+}
+
+/**
+ * Index of the shortcut letter within `meta.name` (case-insensitive),
+ * or -1 if the letter isn't present (the sidebar then renders the
+ * letter separately as a kbd-style chip instead of underlining
+ * in-place). Used by both desktop and mobile renderers.
+ */
+export function letterIndexInName(meta: CategoryMeta): number {
+  return meta.name.toLowerCase().indexOf(meta.shortcut.toLowerCase());
+}
+
+/**
+ * Lookup by case-insensitive shortcut letter. Returns the matching
+ * category or undefined if no category claims this letter.
+ */
+export function findCategoryByShortcut(letter: string): CategoryMeta | undefined {
+  const upper = letter.toUpperCase();
+  return CATEGORIES.find((c) => c.shortcut === upper);
 }

@@ -12,6 +12,36 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile audio engi
 
 ---
 
+## [0.0.10] — 2026‑05‑23 — Category hotkeys: letter-to-play, highlighted in sidebar
+
+Turns the keyboard from a navigation aid into a DM control surface. A single letter press now picks a weighted-random track from the matching category and starts playing — same weights the Shuffle button uses (S=6×, A=4×, B=2×, C/D/Ungraded=1×, F excluded), so a press of **C** is biased toward your best Combat tracks but won't get stuck on one.
+
+### Added — Letter-to-play hotkeys
+
+- **C** Combat · **T** Tavern · **E** Exploration · **A** Ambient · **H** Horror · **S** TenSion · **R** Rest · **V** Voices · **X** SFX · **F** SciFi.
+- **B** plays a random Combat: Boss track (sub-category hotkey example — first of more if we add them).
+- Each press switches to the matching category tab too, so you can see what landed in the queue.
+
+### Added — Sidebar letter highlight
+
+- Inside each category name the hotkey letter is now underlined + gold-accent so the binding is discoverable without opening the cheatsheet. Tension's "S" is highlighted in place; SFX's "X" is highlighted as the X. SciFi's "F" lights up the F.
+- Small caption above the category list reads "Letter plays · Number jumps" so the distinction is one glance.
+- Tooltip on each row reads `Press C to play a weighted random Combat track`.
+
+### Changed
+
+- `Category metadata` (`packages/ui/src/categories.ts`) grew a `shortcut: string` field. Two new helpers: `letterIndexInName(meta)` and `findCategoryByShortcut(letter)`. Single source of truth for both desktop and (later) mobile.
+- Shuffle moved from **S** to **W** (weighted) — S now belongs to TenSion. The Shuffle button in the hero is untouched.
+- `1–9 / 0` keep their silent-jump behavior — you can still preview a category without playing if that's what you want.
+
+### Verification
+
+- `pnpm -r typecheck` — clean across all 5 projects.
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual verification on the running Tauri app is required (UI-only feature, no testable unit boundary beyond the shortcut routing already covered by `resolveShortcut`). I could not exercise the change in a browser preview because the desktop app depends on Tauri runtime APIs (asset protocol, plugin-sql, webview drag-drop) — verification needs `pnpm tauri dev`.
+
+---
+
 ## [0.0.9] — 2026‑05‑23 — Desktop polish: keyboard shortcuts + scan UX + track row
 
 Wide polish pass on the desktop client. No new tabs / features — everything was already there, this just makes it nicer to drive without the mouse and easier to see what's going on with your library.

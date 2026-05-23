@@ -313,6 +313,8 @@ export function Library() {
         setActiveCategory(id);
         setTab("library");
       },
+      onPlayCategoryRandom: (id) => void handlePlayRandomFromCategory(id),
+      onPlayBoss: () => void handlePlayBoss(),
     },
     { overlayOpen },
   );
@@ -552,6 +554,62 @@ export function Library() {
     if (categoryTracks.length === 0) return;
     const shuffled = weightedShuffle(categoryTracks);
     if (shuffled.length === 0) return;
+    setQueue(shuffled);
+    const first = shuffled[0];
+    if (first) await handlePlayTrack(first);
+  }
+
+  /**
+   * Letter-hotkey play. Switches to the matching category, builds a
+   * weighted-shuffle queue from its tracks, and plays the first track
+   * (which is biased toward the highest-graded by the same weights the
+   * Shuffle button uses: S=6×, A=4×, B=2×, C/D/Ungraded=1×, F excluded).
+   *
+   * Empty-category and all-F-graded cases surface a status note so the
+   * user knows why nothing started.
+   */
+  async function handlePlayRandomFromCategory(id: CategoryId) {
+    setTab("library");
+    setActiveCategory(id);
+    const pool = tracksByCategory.get(id) ?? [];
+    if (pool.length === 0) {
+      const meta = findCategory(id);
+      setScanStatus(`No tracks in ${meta?.name ?? id} yet.`);
+      return;
+    }
+    const shuffled = weightedShuffle(pool);
+    if (shuffled.length === 0) {
+      const meta = findCategory(id);
+      setScanStatus(`Every ${meta?.name ?? id} track is graded F — nothing eligible.`);
+      return;
+    }
+    setQueue(shuffled);
+    const first = shuffled[0];
+    if (first) await handlePlayTrack(first);
+  }
+
+  /**
+   * B-hotkey: play a weighted-random Combat:Boss track. Independent of
+   * the active category (always switches to Combat for visual feedback)
+   * and falls back gracefully when no Boss-tagged tracks exist.
+   */
+  async function handlePlayBoss() {
+    setTab("library");
+    setActiveCategory("combat");
+    const bossPool = (tracksByCategory.get("combat") ?? []).filter(
+      (t) => (t.subcategory ?? "").toLowerCase() === "boss",
+    );
+    if (bossPool.length === 0) {
+      setScanStatus(
+        "No Combat:Boss tracks in your library. Tag some via the rename hint in the categorize guide.",
+      );
+      return;
+    }
+    const shuffled = weightedShuffle(bossPool);
+    if (shuffled.length === 0) {
+      setScanStatus("All Boss tracks are graded F — nothing eligible.");
+      return;
+    }
     setQueue(shuffled);
     const first = shuffled[0];
     if (first) await handlePlayTrack(first);
