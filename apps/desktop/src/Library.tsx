@@ -42,9 +42,12 @@ import type { RollResult } from "./lib/dm-dice.js";
 import { PinToSlotMenu } from "./layout/PinToSlotMenu.js";
 import { SaveSceneDialog } from "./layout/SaveSceneDialog.js";
 import { SearchOverlay } from "./layout/SearchOverlay.js";
+import { SyncImportConfirm } from "./layout/SyncImportConfirm.js";
 import { Tutorial } from "./layout/Tutorial.js";
 import { TutorialsMenu } from "./layout/TutorialsMenu.js";
 import { TUTORIALS } from "./layout/tutorials.js";
+import type { SyncBlob } from "@mc/core";
+import { applyLoadedBlob, exportSyncBlob, pickAndLoadSyncBlob } from "./lib/sync.js";
 import {
   firePad,
   isPadPlaying,
@@ -101,6 +104,9 @@ export function Library() {
   >(null);
   const [activeTutorialId, setActiveTutorialId] = useState<string | null>(null);
   const [seenTutorials, setSeenTutorials] = useState<Set<string>>(new Set());
+  const [pendingImport, setPendingImport] = useState<
+    { blob: SyncBlob; path: string } | null
+  >(null);
   const [theme, setTheme] = useState<ThemeId>(DEFAULT_THEME);
   const [dmMode, setDmMode] = useState(false);
   const [nameHistory, setNameHistory] = useState<RolledName[]>([]);
@@ -437,6 +443,60 @@ export function Library() {
     setPadDuckingPct(pct);
     const db = await getDb();
     await setConfig(db, "ducking_pct", String(pct));
+  }
+
+  // ── Sync ───────────────────────────────────────────────────────────────
+  async function handleExportSync() {
+    setTutorialsMenu(null);
+    try {
+      const result = await exportSyncBlob();
+      if (result) {
+        const kb = (result.bytes / 1024).toFixed(1);
+        setScanStatus(`Exported ${kb} KB to ${result.path.split(/[\\/]/).pop()}.`);
+      }
+    } catch (err) {
+      console.error("[sync] export failed:", err);
+      setScanStatus(
+        `Export failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  async function handleImportSyncPick() {
+    setTutorialsMenu(null);
+    try {
+      const loaded = await pickAndLoadSyncBlob();
+      if (loaded) setPendingImport(loaded);
+    } catch (err) {
+      console.error("[sync] import pick failed:", err);
+      setScanStatus(
+        `Import failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  async function handleImportSyncConfirm() {
+    if (!pendingImport) return;
+    try {
+      const applied = await applyLoadedBlob(pendingImport.blob);
+      setPendingImport(null);
+      setScanStatus(
+        `Imported · ${applied.gradesApplied} grades, ${applied.scenesReplaced} scenes, ${applied.soundboardSlotsReplaced} pads, ${applied.configKeysSet} config keys.`,
+      );
+      const db = await getDb();
+      const fromDb = await listTracks(db);
+      setTracks(fromDb);
+      const refreshedScenes = await listScenes(db);
+      setScenes(refreshedScenes);
+      const refreshedSlots = await listSoundboard(db);
+      setSoundboard(refreshedSlots);
+    } catch (err) {
+      console.error("[sync] apply failed:", err);
+      setScanStatus(
+        `Import apply failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      setPendingImport(null);
+    }
   }
 
   // ── Themes ─────────────────────────────────────────────────────────────
@@ -827,7 +887,18 @@ export function Library() {
           currentTheme={theme}
           onPickTheme={(id) => void handlePickTheme(id)}
           onPickTutorial={(id) => startTutorial(id)}
+          onExportSync={() => void handleExportSync()}
+          onImportSync={() => void handleImportSyncPick()}
           onDismiss={() => setTutorialsMenu(null)}
+        />
+      ) : null}
+
+      {pendingImport ? (
+        <SyncImportConfirm
+          blob={pendingImport.blob}
+          path={pendingImport.path}
+          onConfirm={() => void handleImportSyncConfirm()}
+          onCancel={() => setPendingImport(null)}
         />
       ) : null}
 
