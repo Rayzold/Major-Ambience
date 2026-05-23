@@ -12,6 +12,8 @@ export type DesktopScenesViewProps = {
   onOpenSave: () => void;
   onRestore: (s: Scene) => void;
   onDelete: (s: Scene) => void;
+  /** Open the edit dialog for this scene. Library owns the dialog state. */
+  onEdit: (s: Scene) => void;
   dmMode: boolean;
 };
 
@@ -22,6 +24,7 @@ export function DesktopScenesView({
   onOpenSave,
   onRestore,
   onDelete,
+  onEdit,
   dmMode,
 }: DesktopScenesViewProps) {
   return (
@@ -123,6 +126,7 @@ export function DesktopScenesView({
               isActive={s.id === activeSceneId}
               onTap={() => onRestore(s)}
               onDelete={() => onDelete(s)}
+              onEdit={() => onEdit(s)}
               dmMode={dmMode}
             />
           ))}
@@ -137,12 +141,14 @@ function SceneCardLarge({
   isActive,
   onTap,
   onDelete,
+  onEdit,
   dmMode,
 }: {
   scene: Scene;
   isActive: boolean;
   onTap: () => void;
   onDelete: () => void;
+  onEdit: () => void;
   dmMode: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
@@ -298,31 +304,59 @@ function SceneCardLarge({
         </div>
       </button>
       {hovered && !dmMode ? (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
-          title="Delete scene"
+        <div
           style={{
             position: "absolute",
             top: 10,
             right: 10,
             zIndex: 2,
-            width: 24,
-            height: 24,
-            borderRadius: 999,
-            background: "rgba(0,0,0,0.5)",
-            color: T.ink2,
             display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            border: `1px solid ${T.rule}`,
-            cursor: "pointer",
+            gap: 6,
           }}
         >
-          <Glyph name="close" size={12} />
-        </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit();
+            }}
+            title="Edit scene"
+            style={{
+              width: 24,
+              height: 24,
+              borderRadius: 999,
+              background: "rgba(0,0,0,0.5)",
+              color: T.ink2,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              border: `1px solid ${T.rule}`,
+              cursor: "pointer",
+            }}
+          >
+            <Glyph name="sliders" size={12} />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            title="Delete scene"
+            style={{
+              width: 24,
+              height: 24,
+              borderRadius: 999,
+              background: "rgba(0,0,0,0.5)",
+              color: T.ink2,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              border: `1px solid ${T.rule}`,
+              cursor: "pointer",
+            }}
+          >
+            <Glyph name="close" size={12} />
+          </button>
+        </div>
       ) : null}
     </div>
   );
