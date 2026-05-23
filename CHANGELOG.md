@@ -12,6 +12,28 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile audio engi
 
 ---
 
+## [0.0.15] — 2026‑05‑23 — Fix: autoqueue from clicked row + loop stale closure
+
+Two bugs from a real-session run that both have the same root: the queue and loop state weren't being read at the right time.
+
+### Fixed — Autoqueue when clicking a track row
+
+- Clicking a track in the library only called `handlePlayTrack(track)` without touching the queue, so when the track ended `onEnded`'s queue-findIndex returned `-1` (empty queue) and playback just stopped. Shuffle and the letter hotkeys built a queue themselves so they were fine; row clicks were the broken path.
+- `DesktopLibraryView` now passes the visible filtered list as a second arg to `onPlayTrack`. `handlePlayTrack(track, queueContext)` builds an autoqueue: clicked track at index 0, everything after it in its original order next, then everything before it (so the queue wraps the visible list once). When that track ends, the next-in-queue plays — same category, same filter, same sort order.
+
+### Fixed — Loop wrap not working when mode changed mid-playback
+
+- `onEnded` closed over `queue` and `loopMode` at subscription time (inside `handlePlayTrack`). If the user enabled **loop queue** *after* starting playback, the callback still saw `loopMode === "off"` when the track ended and didn't wrap. Same staleness for the queue.
+- Now `loopMode` and `queue` are mirrored into refs (`loopModeRef`, `queueRef`) and `onEnded` reads from those — live values, not subscription-time snapshots. Loop track was unaffected because that path uses `HTMLAudioElement.loop` natively and never reaches `onEnded`.
+
+### Verification
+
+- `pnpm -r typecheck` — clean across all 5 projects.
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Tauri-runtime feature — manual verification on `pnpm tauri dev`. Try: click any Combat track → let it play out → next Combat track plays. Enable loop queue mid-track → at the end, queue wraps to the first track.
+
+---
+
 ## [0.0.14] — 2026‑05‑23 — Fix: "All" grade pill clipped
 
 ### Fixed
