@@ -225,13 +225,20 @@ export function DesktopLibraryView({
           {GRADES_INCLUDING_ALL.map((g) => {
             const active = gradeFilter === g;
             const label = g ?? "—";
+            // "All" needs more room than the single-letter chips; everything
+            // else fills the 26px minimum exactly so the row stays uniform.
+            const isAll = g === "All";
             return (
               <button
                 key={String(g)}
                 onClick={() => setGradeFilter(g)}
                 style={{
-                  width: 26,
+                  minWidth: 26,
                   height: 26,
+                  padding: isAll ? "0 10px" : 0,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                   borderRadius: 6,
                   background: active ? cat.color + "22" : T.bgChip,
                   color: active ? cat.color : T.ink2,
