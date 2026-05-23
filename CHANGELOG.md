@@ -12,6 +12,15 @@ Nothing yet — Phase 2 mobile + sync work continues here.
 
 ---
 
+## [0.0.6] — 2026‑05‑23 — Right-click pin menu on search results + suppress WebView context menu
+
+### Fixed
+
+- Right-clicking a row in the **search overlay** previously fell through to the WebView's native Back / Refresh / Inspect menu — there was no `onContextMenu` handler on `SearchResultRow`. Now wired through to the same pin-to-slot popup as Library track rows. Closing the search overlay first so the pin menu isn't obscured by it.
+- WebView default right-click menu suppressed globally via a single `document` listener in `App.tsx`. Inputs / textareas keep the native menu (so copy/paste still works for the search input and dice modifier fields).
+
+---
+
 ## [0.0.5] — 2026‑05‑23 — Categorize: pack-name lookup for flat libraries
 
 ### Fixed
@@ -161,7 +170,8 @@ Initial repository commit. Pre‑production state: design and spec only, no prod
 
 ---
 
-[Unreleased]: https://github.com/Rayzold/Major-Ambience/compare/v0.0.5...HEAD
+[Unreleased]: https://github.com/Rayzold/Major-Ambience/compare/v0.0.6...HEAD
+[0.0.6]: https://github.com/Rayzold/Major-Ambience/compare/v0.0.5...v0.0.6
 [0.0.5]: https://github.com/Rayzold/Major-Ambience/compare/v0.0.4...v0.0.5
 [0.0.4]: https://github.com/Rayzold/Major-Ambience/compare/v0.0.3...v0.0.4
 [0.0.3]: https://github.com/Rayzold/Major-Ambience/compare/v0.0.2...v0.0.3

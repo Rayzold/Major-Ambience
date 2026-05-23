@@ -903,6 +903,14 @@ export function Library() {
             setSearchQuery("");
             searchInputRef.current?.blur();
           }}
+          onContextMenu={(t, x, y) => {
+            // Close the search overlay so the pin menu isn't covered by it,
+            // but keep the query around so re-opening search lands on the
+            // same results.
+            setSearchOpen(false);
+            searchInputRef.current?.blur();
+            if (!dmMode) setPinMenu({ track: t, x, y });
+          }}
           onDismiss={() => {
             setSearchOpen(false);
             setSearchQuery("");
