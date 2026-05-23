@@ -20,6 +20,12 @@ export type InitiativeTrackerProps = {
   tracksById: ReadonlyMap<string, Track>;
   onChange: (next: Combatant[]) => void;
   onTurnChange: (newIdx: number) => void;
+  /**
+   * Open the track-picker for combatant `id` at the click position.
+   * Library decides what to render (we don't import TrackPickerOverlay
+   * here — Library owns the popover so it can sit above the tab content).
+   */
+  onPickTurnSound: (combatantId: string, x: number, y: number) => void;
 };
 
 export function InitiativeTracker({
@@ -28,6 +34,7 @@ export function InitiativeTracker({
   tracksById,
   onChange,
   onTurnChange,
+  onPickTurnSound,
 }: InitiativeTrackerProps) {
   const [name, setName] = useState("");
   const [initiative, setInitiative] = useState("");
@@ -254,11 +261,29 @@ export function InitiativeTracker({
                   }}
                 />
               </div>
-              <div
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (ts) {
+                    // Already assigned — click clears it. Right-click on the
+                    // row's broader area is reserved for context menu later.
+                    clearTurnSound(c.id);
+                  } else {
+                    onPickTurnSound(c.id, e.clientX, e.clientY);
+                  }
+                }}
+                onContextMenu={(e) => {
+                  // Right-click on the speaker always reopens the picker,
+                  // even if a sound is already set — convenient when you
+                  // want to swap rather than clear-then-reassign.
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onPickTurnSound(c.id, e.clientX, e.clientY);
+                }}
                 title={
                   ts
-                    ? `Turn sound: ${ts.title}`
-                    : "Drag a track from the Library onto this row to assign a turn sound"
+                    ? `Turn sound: ${ts.title}\nClick to clear · right-click to change`
+                    : "Click to pick a turn sound for this combatant"
                 }
                 style={{
                   width: 28,
@@ -272,13 +297,12 @@ export function InitiativeTracker({
                   display: "inline-flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  cursor: ts ? "pointer" : "default",
+                  cursor: "pointer",
                   position: "relative",
                 }}
-                onClick={ts ? () => clearTurnSound(c.id) : undefined}
               >
                 <Glyph name={ts && tsCat ? tsCat.glyph : "speaker"} size={13} />
-              </div>
+              </button>
               <button
                 onClick={() => remove(c.id)}
                 title="Remove"
@@ -315,7 +339,7 @@ export function InitiativeTracker({
           }}
         >
           <span>
-            Drop a track onto a row to assign its turn sound.
+            Click the speaker on a row to pick its turn sound.
           </span>
           <button
             onClick={clear}

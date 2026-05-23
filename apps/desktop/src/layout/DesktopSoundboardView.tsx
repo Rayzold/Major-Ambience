@@ -11,6 +11,7 @@ export type DesktopSoundboardViewProps = {
   tracksById: Map<string, Track>;
   isPlaying: (page: string, slot: number) => boolean;
   onAssign: (page: "A" | "B" | "C", slot: number, trackId: string) => void;
+  onPickRequest: (page: "A" | "B" | "C", slot: number, x: number, y: number) => void;
   onFire: (page: "A" | "B" | "C", slot: number) => void;
   onStop: (page: "A" | "B" | "C", slot: number) => void;
   onClear: (page: "A" | "B" | "C", slot: number) => void;
@@ -29,6 +30,7 @@ export function DesktopSoundboardView({
   tracksById,
   isPlaying,
   onAssign,
+  onPickRequest,
   onFire,
   onStop,
   onClear,
@@ -78,7 +80,7 @@ export function DesktopSoundboardView({
             <span style={{ fontStyle: "italic", color: SFX_TEAL }}>Soundboard</span>
           </h1>
           <p style={{ margin: 0, fontSize: 13, color: T.ink2, maxWidth: 560, lineHeight: 1.45 }}>
-            24 slots across pages A / B / C. Drag a track from the Library onto a pad to assign, click the pad to fire. Loop and per-pad volume on every slot.
+            24 slots across pages A / B / C. Click an empty pad to pick a track from your library; click an assigned pad to fire. Loop and per-pad volume on every slot.
           </p>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
@@ -134,6 +136,7 @@ export function DesktopSoundboardView({
               track={track}
               playing={isPlaying(page, slotNum)}
               onAssign={(trackId) => onAssign(page, slotNum, trackId)}
+              onPickRequest={(x, y) => onPickRequest(page, slotNum, x, y)}
               onFire={() => onFire(page, slotNum)}
               onStop={() => onStop(page, slotNum)}
               onClear={() => onClear(page, slotNum)}

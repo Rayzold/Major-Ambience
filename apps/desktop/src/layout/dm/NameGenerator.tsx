@@ -1,8 +1,8 @@
 // Race-aware NPC name generator panel.
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Glyph, T } from "@mc/ui";
-import { rollName, RACE_OPTIONS, type Race } from "../../lib/dm-names.js";
+import { rollNameAvoiding, RACE_OPTIONS, type Race } from "../../lib/dm-names.js";
 
 export type RolledName = {
   first: string;
@@ -28,8 +28,20 @@ const RACE_GLYPH: Record<Exclude<Race, "any">, string> = {
 export function NameGenerator({ history, onHistory }: NameGeneratorProps) {
   const [race, setRace] = useState<Race>("any");
 
+  // Anti-repeat set — every full name we've already rolled this session
+  // is off-limits for the next roll. Caps practical "variety" at
+  // (first count × last count) per race; rolling a 31st name after
+  // already exhausting 30 will reuse the oldest by design.
+  const recentSet = useMemo(
+    () =>
+      new Set(
+        history.map((n) => `${n.first}${n.last ? ` ${n.last}` : ""}`.trim()),
+      ),
+    [history],
+  );
+
   function handleRoll() {
-    const next = rollName(race);
+    const next = rollNameAvoiding(race, recentSet);
     const rolled: RolledName = { ...next, rolledAt: Date.now() };
     onHistory([rolled, ...history].slice(0, HISTORY_LIMIT));
   }
