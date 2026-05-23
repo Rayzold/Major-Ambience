@@ -8,7 +8,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-Nothing yet — Phase 2 mobile + sync work continues here.
+Nothing yet — Phase 2 cloud sync proper + mobile + IAP continue here.
+
+---
+
+## [0.0.7] — 2026‑05‑23 — Local sync blob: export + import to JSON file
+
+First step toward cloud sync from `DESIGN.md § 6` / `BUILD_GUIDE § 6.3`. Implements the `SyncBlob` wire format and the export/import flow against a local file. Cloud (Cloudflare Workers + KV + magic-link auth) ships once that infra is set up — same blob format will travel over the wire.
+
+### Added
+
+- `SyncBlob` type in `@mc/core` (`sync-blob.ts`) per `BUILD_GUIDE § 6.3` — version, updatedAt, deviceId, grades (keyed by content-based `trackKey(title, pack)`), notes, scenes, soundboard, npcHistory, config subset.
+- `@mc/data/sync-repo`: `buildSyncBlob(db, opts)` reads everything from SQLite and returns the blob; `applySyncBlob(db, blob)` applies it back with per-top-level-key replace semantics. Grade merge survives across devices because `trackKey` is `hash(title + pack)` — same audio on a new machine inherits the same grade.
+- Rust commands `write_text_file` + `read_text_file` for arbitrary-path JSON I/O. `dialog:allow-save` permission added.
+- `apps/desktop/src/lib/sync.ts`: `exportSyncBlob()` prompts for a save location, writes the JSON; `pickAndLoadSyncBlob()` prompts for a file and parses without applying; `applyLoadedBlob(blob)` commits the parsed blob to SQLite.
+- Settings popup grew a **Sync** section with Export and Import buttons, plus a one-line copy explaining the local-file model.
+- `SyncImportConfirm` modal — shows the file name, exported-at timestamp, optional device label, and counts (grades, scenes, soundboard slots) before applying. Calls out the destructive replace semantics in a red note.
+- Stable per-device id stored in the config table as `device_id` (UUID, generated on first export).
 
 ---
 
@@ -170,7 +186,8 @@ Initial repository commit. Pre‑production state: design and spec only, no prod
 
 ---
 
-[Unreleased]: https://github.com/Rayzold/Major-Ambience/compare/v0.0.6...HEAD
+[Unreleased]: https://github.com/Rayzold/Major-Ambience/compare/v0.0.7...HEAD
+[0.0.7]: https://github.com/Rayzold/Major-Ambience/compare/v0.0.6...v0.0.7
 [0.0.6]: https://github.com/Rayzold/Major-Ambience/compare/v0.0.5...v0.0.6
 [0.0.5]: https://github.com/Rayzold/Major-Ambience/compare/v0.0.4...v0.0.5
 [0.0.4]: https://github.com/Rayzold/Major-Ambience/compare/v0.0.3...v0.0.4

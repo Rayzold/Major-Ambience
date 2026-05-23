@@ -73,6 +73,16 @@ fn is_macos_resource_fork(p: &Path) -> bool {
         .unwrap_or(false)
 }
 
+#[tauri::command]
+fn write_text_file(path: String, contents: String) -> Result<(), String> {
+    std::fs::write(&path, contents).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn read_text_file(path: String) -> Result<String, String> {
+    std::fs::read_to_string(&path).map_err(|e| e.to_string())
+}
+
 fn is_audio_file(p: &Path) -> bool {
     let ext = p
         .extension()
@@ -102,7 +112,11 @@ pub fn run() {
                 .add_migrations("sqlite:major-ambience.db", migrations)
                 .build(),
         )
-        .invoke_handler(tauri::generate_handler![scan_folder])
+        .invoke_handler(tauri::generate_handler![
+            scan_folder,
+            write_text_file,
+            read_text_file
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

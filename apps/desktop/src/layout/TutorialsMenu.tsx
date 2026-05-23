@@ -18,6 +18,8 @@ export type TutorialsMenuProps = {
   currentTheme: ThemeId;
   onPickTheme: (id: ThemeId) => void;
   onPickTutorial: (id: string) => void;
+  onExportSync: () => void;
+  onImportSync: () => void;
   onDismiss: () => void;
 };
 
@@ -30,6 +32,8 @@ export function TutorialsMenu({
   currentTheme,
   onPickTheme,
   onPickTutorial,
+  onExportSync,
+  onImportSync,
   onDismiss,
 }: TutorialsMenuProps) {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -146,6 +150,62 @@ export function TutorialsMenu({
             </button>
           );
         })}
+
+        <div style={{ height: 6 }} />
+        <SectionHeader title="Sync" />
+        <div
+          style={{
+            padding: "0 6px 4px",
+            fontSize: 10,
+            color: T.ink3,
+            lineHeight: 1.4,
+          }}
+        >
+          Save grades + scenes + soundboard to a JSON file you can carry
+          between devices. Cloud sync ships later.
+        </div>
+        <div style={{ display: "flex", gap: 6, padding: "4px 6px 8px" }}>
+          <button
+            onClick={onExportSync}
+            style={{
+              flex: 1,
+              padding: "8px 10px",
+              borderRadius: 8,
+              background: T.goldSoft,
+              border: `1px solid ${T.goldEdge}`,
+              color: T.gold,
+              fontSize: 12,
+              fontWeight: 500,
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+            }}
+          >
+            <Glyph name="folder" size={12} /> Export
+          </button>
+          <button
+            onClick={onImportSync}
+            style={{
+              flex: 1,
+              padding: "8px 10px",
+              borderRadius: 8,
+              background: T.bgChip,
+              border: `1px solid ${T.rule}`,
+              color: T.ink2,
+              fontSize: 12,
+              fontWeight: 500,
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+            }}
+          >
+            <Glyph name="folder" size={12} /> Import
+          </button>
+        </div>
 
         <div style={{ height: 6 }} />
         <SectionHeader title="Tutorials" />
