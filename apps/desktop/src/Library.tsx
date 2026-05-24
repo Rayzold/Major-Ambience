@@ -78,6 +78,15 @@ type PlaybackState = {
   trackId: string;
   handle: TrackHandle;
   startedAt: number;
+  /**
+   * Detachers for the onProgress + onEnded subscriptions wired to this
+   * handle. When a new handlePlayTrack starts, we call these *before*
+   * the crossfade so the outgoing handle stops fighting the incoming
+   * one for setCurrentTime — otherwise the scrubber visibly oscillates
+   * between the two positions during the fade-out tail.
+   */
+  unsubProgress: () => void;
+  unsubEnded: () => void;
 };
 
 export function Library() {
@@ -702,9 +711,23 @@ export function Library() {
 
       const previous = playback;
       if (previous) {
+        // Detach the previous handle's onProgress + onEnded BEFORE the
+        // crossfade starts. Otherwise both handles fire setCurrentTime
+        // for the full fade duration and the scrubber visibly jitters
+        // between the outgoing position (near end) and the incoming
+        // position (near 0). The old handle keeps playing for the
+        // fade-out — crossfade() destroys it when the ramp completes.
+        previous.unsubProgress();
+        previous.unsubEnded();
         crossfade(previous.handle, next, fadeMs / 1000, backend);
       }
-      setPlayback({ trackId: track.id, handle: next, startedAt: performance.now() });
+      setPlayback({
+        trackId: track.id,
+        handle: next,
+        startedAt: performance.now(),
+        unsubProgress: subProgress,
+        unsubEnded: subEnded,
+      });
       setIsPlaying(true);
       setCurrentTime(0);
 
@@ -777,6 +800,11 @@ export function Library() {
   function handleStopAll() {
     const backend = getAudioBackend();
     if (playback) {
+      // Detach subscriptions first so the trailing onEnded that fires
+      // when we destroy() doesn't try to advance the queue or flip
+      // isPlaying back on.
+      playback.unsubProgress();
+      playback.unsubEnded();
       backend.pause(playback.handle);
       backend.destroy(playback.handle);
     }
