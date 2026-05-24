@@ -12,6 +12,30 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile audio engi
 
 ---
 
+## [0.0.22] — 2026‑05‑24 — Durations without playing · Length filter
+
+Until now the TIME column only filled in for tracks the user had actually played — capture happened inside `handlePlayTrack` on first load. Browsing a fresh library showed "—" for every row, which made it impossible to pick a track of the right length without hitting Play on each one. This release probes every track's duration in the background and adds a Length filter so the user can scope the table to short stingers, full ambient beds, or anything in between.
+
+### Added — Background duration scanner
+
+- New `apps/desktop/src/lib/duration-scan.ts` probes file metadata via a transient `<audio preload="metadata">` element. No playback graph, no fetch of the audio body — just enough to read the duration header.
+- Runs 4 probes in parallel with an 8-second per-file timeout (corrupt MP3s otherwise hang `loadedmetadata` indefinitely). Each successful probe persists immediately to SQLite via `setDuration` and patches the React `tracks` state, so the TIME column fills in live rather than waiting for the whole batch.
+- Library wires an effect that auto-fires whenever `tracks` updates with rows missing durations: initial load from SQLite, fresh folder scan, drag-drop import, sync-blob restore. A fingerprint of the missing-id set deduplicates so a successful probe doesn't re-trigger the scan, and an `isScanningDurations` guard blocks concurrent runs.
+- Failed probes (timeout / unreadable) leave the row null so a future rescan can pick it up; they don't get persisted as `0`.
+
+### Added — Length filter pills
+
+- New "Length" pill row above the track table, mirroring the Grade pill UX: **Any · <1m · 1–3m · 3–5m · 5m+**. Active pill picks up the category's accent color the same way Grade does.
+- Filter logic in `filteredTracks` excludes tracks whose duration falls outside the chosen bucket *and* tracks the scanner hasn't probed yet (so picking "1–3m" doesn't show unknowns). "Any" disables the filter entirely.
+- Bucket boundaries: `<60s`, `60–180s`, `180–300s`, `≥300s`.
+
+### Verification
+
+- `pnpm -r typecheck` — clean across all 5 projects.
+- Manual: open a fresh folder, watch the TIME column populate top-down without playing anything. Switch to a category, click "1–3m" — rows outside that range vanish, count in the All tab still reflects the unfiltered total.
+
+---
+
 ## [0.0.21] — 2026‑05‑24 — Scrubber jitter fix during crossfade
 
 A regression surfaced once 0.0.20 made track-loop self-crossfades visible: the playhead bar visibly oscillated between two positions for the full fade duration. Same root cause hits every track-to-track transition, but the loop crossfade made it obvious because it fires automatically near the end of every play.
