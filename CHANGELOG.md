@@ -12,6 +12,47 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile audio engi
 
 ---
 
+## [0.0.21] — 2026‑05‑24 — Scrubber jitter fix during crossfade
+
+A regression surfaced once 0.0.20 made track-loop self-crossfades visible: the playhead bar visibly oscillated between two positions for the full fade duration. Same root cause hits every track-to-track transition, but the loop crossfade made it obvious because it fires automatically near the end of every play.
+
+### Fixed — Detach outgoing handle's subscriptions before crossfade
+
+- `PlaybackState` now carries the `unsubProgress` + `unsubEnded` detachers for the live handle.
+- When `handlePlayTrack` starts a new playback, it calls the outgoing handle's detachers **before** the crossfade begins. The outgoing handle keeps playing through the fade-out (`crossfade()` destroys it on completion), but it no longer fires `setCurrentTime` into React — only the incoming handle drives the scrubber.
+- `handleStopAll` also detaches before destroying, so the trailing `onEnded` can't try to advance the queue or flip `isPlaying` back on after the user hit Stop.
+
+### Verification
+
+- `pnpm -r typecheck` — clean.
+- Manual: enable Loop (O), set fade ≥ 3s, watch the scrubber as the loop point fires — it should advance smoothly into the new playback's 0:00 with no back-and-forth jitter to the outgoing position.
+
+---
+
+## [0.0.20] — 2026‑05‑24 — Loop crossfades into itself
+
+Track-loop mode used to flip `HTMLAudioElement.loop = true`, which is a hard cut at the loop point. That made ambient beds (designed for seamless looping but recorded with a fade-in/out on the file itself) sound clicky on every revolution. Track loop now self-crossfades — the same fade duration the rest of the engine uses.
+
+### Changed — Track loop is JS-driven
+
+- Native `audio.loop` stays **off** in both loop modes. The desktop engine handles both in JS so the crossfade ramp can apply.
+- "track" loop: when `onProgress` sees `remaining ≤ fadeSec`, a fresh `handlePlayTrack(currentTrack)` kicks off. The existing crossfade ramps the new handle in while the old handle ramps out, so the loop point sounds like a blend instead of a click.
+- For tracks shorter than the configured fade, the trigger window clamps to `duration / 2` so we don't fire the loop crossfade at t=0 and chain restarts without ever playing the body.
+- A `loopCrossfadeKicked` latch (per-handle closure) ensures the trigger fires once per playback even though `onProgress` fires several times a second.
+
+### Internal — onEnded guard
+
+- The old handle still reaches its natural end during the crossfade tail. Without a guard, its `onEnded` would flip `isPlaying` off mid-loop. Added an early-return when `loopCrossfadeKicked` is true, so the superseded handle no longer touches transport state.
+- `handleCycleLoop` no longer pokes the live `HTMLAudioElement.loop` flag — `loopModeRef` drives the trigger, so flipping the mode mid-track applies on the next loop iteration without restarting the clip.
+
+### Verification
+
+- `pnpm -r typecheck` — clean across all 5 projects.
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual: enable Loop (O hotkey), tune the fade slider to ~3–4s, let an ambient track ride a full cycle. You should hear the loop point as a smooth blend, not a click.
+
+---
+
 ## [0.0.19] — 2026‑05‑24 — Polish: window state · empty-state copy · stale placeholders
 
 Small-scope round of rough-edge fixes.
