@@ -15,6 +15,7 @@ import { T, FONT_DISPLAY } from "../../src/tokens";
 import { Glyph } from "../../src/Glyph";
 import { getDb } from "../../src/data/db";
 import { searchTracks } from "../../src/data/tracks-repo";
+import { playTrack } from "../../src/audio/store";
 
 export default function SearchScreen() {
   const [query, setQuery] = useState("");
@@ -108,18 +109,28 @@ export default function SearchScreen() {
         data={results}
         keyExtractor={(t) => t.id}
         contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 24 }}
-        renderItem={({ item }) => <ResultRow track={item} />}
+        renderItem={({ item }) => (
+          <ResultRow
+            track={item}
+            onPress={() => {
+              // Search picks a single track — no auto-advance queue.
+              // The user came here looking for a specific clip.
+              void playTrack(item, [item]);
+            }}
+          />
+        )}
       />
     </View>
   );
 }
 
-function ResultRow({ track }: { track: Track }) {
+function ResultRow({ track, onPress }: { track: Track; onPress: () => void }) {
   const meta = CATEGORIES.find((c) => c.id === track.category);
   const color = meta?.color ?? T.ink2;
   const glyph = meta?.glyph ?? "spark";
   return (
     <Pressable
+      onPress={onPress}
       style={({ pressed }) => ({
         flexDirection: "row",
         alignItems: "center",
