@@ -12,6 +12,30 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile audio engi
 
 ---
 
+## [0.0.20] — 2026‑05‑24 — Loop crossfades into itself
+
+Track-loop mode used to flip `HTMLAudioElement.loop = true`, which is a hard cut at the loop point. That made ambient beds (designed for seamless looping but recorded with a fade-in/out on the file itself) sound clicky on every revolution. Track loop now self-crossfades — the same fade duration the rest of the engine uses.
+
+### Changed — Track loop is JS-driven
+
+- Native `audio.loop` stays **off** in both loop modes. The desktop engine handles both in JS so the crossfade ramp can apply.
+- "track" loop: when `onProgress` sees `remaining ≤ fadeSec`, a fresh `handlePlayTrack(currentTrack)` kicks off. The existing crossfade ramps the new handle in while the old handle ramps out, so the loop point sounds like a blend instead of a click.
+- For tracks shorter than the configured fade, the trigger window clamps to `duration / 2` so we don't fire the loop crossfade at t=0 and chain restarts without ever playing the body.
+- A `loopCrossfadeKicked` latch (per-handle closure) ensures the trigger fires once per playback even though `onProgress` fires several times a second.
+
+### Internal — onEnded guard
+
+- The old handle still reaches its natural end during the crossfade tail. Without a guard, its `onEnded` would flip `isPlaying` off mid-loop. Added an early-return when `loopCrossfadeKicked` is true, so the superseded handle no longer touches transport state.
+- `handleCycleLoop` no longer pokes the live `HTMLAudioElement.loop` flag — `loopModeRef` drives the trigger, so flipping the mode mid-track applies on the next loop iteration without restarting the clip.
+
+### Verification
+
+- `pnpm -r typecheck` — clean across all 5 projects.
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual: enable Loop (O hotkey), tune the fade slider to ~3–4s, let an ambient track ride a full cycle. You should hear the loop point as a smooth blend, not a click.
+
+---
+
 ## [0.0.19] — 2026‑05‑24 — Polish: window state · empty-state copy · stale placeholders
 
 Small-scope round of rough-edge fixes.

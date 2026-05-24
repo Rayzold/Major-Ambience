@@ -628,22 +628,59 @@ export function Library() {
         setTrackDurationSec(realDurSec!);
       }
 
-      // Native looping for "track" mode — HTMLAudioElement.loop replays
-      // without firing 'ended', so the queue advance below sits idle until
-      // the user changes loopMode. "queue" mode lets the track end naturally
-      // and is handled in the onEnded callback.
-      if (raw) raw.audio.loop = loopMode === "track";
+      // Native loop stays off — both loop modes are handled in JS so the
+      // crossfade ramp can apply (HTMLAudioElement.loop is a hard cut).
+      // "track" loops via the self-crossfade trigger in onProgress below;
+      // "queue" loops via the onEnded handler wrapping to the queue head.
+      if (raw) raw.audio.loop = false;
+
+      // Latch — onProgress fires several times per second, but we only
+      // want to kick the self-crossfade once per playback. Reset on each
+      // fresh handlePlayTrack call by virtue of being a new closure.
+      let loopCrossfadeKicked = false;
 
       const subProgress = backend.onProgress(next, (t) => {
         setCurrentTime(t);
         const r = backend.getRawHandle(next);
         if (r && Number.isFinite(r.audio.duration)) {
           setTrackDurationSec(r.audio.duration);
+
+          // Self-crossfade loop for "track" mode. When we enter the last
+          // `fadeSec` of playback, start a fresh playback of the same
+          // track. handlePlayTrack's existing crossfade ramps the new
+          // handle in while the old handle ramps out, so the loop point
+          // sounds like a smooth blend instead of the hard cut you'd get
+          // from HTMLAudioElement.loop. fadeMs comes from the captured
+          // closure so a mid-track slider change applies on the NEXT
+          // iteration, not the one currently fading.
+          //
+          // For tracks shorter than the configured fade we clamp the
+          // trigger window to half the duration so we don't fire at t=0
+          // and chain self-loops without ever playing the body.
+          const dur = r.audio.duration;
+          const fadeSec = Math.min(fadeMs / 1000, dur / 2);
+          if (
+            !loopCrossfadeKicked &&
+            loopModeRef.current === "track" &&
+            dur > 0 &&
+            fadeSec > 0 &&
+            dur - t <= fadeSec
+          ) {
+            loopCrossfadeKicked = true;
+            // No queueContext — looping the same track shouldn't rewrite
+            // the queue ordering the user already built up.
+            void handlePlayTrack(track);
+          }
         }
       });
       const subEnded = backend.onEnded(next, () => {
         subProgress();
         subEnded();
+        // When the self-crossfade already kicked off a fresh playback of
+        // the same track, the new handle is now the live one — letting
+        // this ended event run would flip isPlaying off mid-loop and
+        // potentially advance the queue past the just-restarted track.
+        if (loopCrossfadeKicked) return;
         setIsPlaying(false);
         // Read loopMode + queue from refs — values captured in this
         // closure at subscription time get stale if the user changes
@@ -708,25 +745,22 @@ export function Library() {
   }
 
   /**
-   * Cycle loop mode: off → track → queue → off. Persists to config and
-   * applies live to the currently-loaded HTMLAudioElement so the change
-   * takes effect without restarting the track.
+   * Cycle loop mode: off → track → queue → off. Persists to config.
+   * The actual loop behavior is driven by `loopModeRef` reads inside
+   * the active handlePlayTrack closures, so flipping the mode mid-track
+   * takes effect on the next loop trigger (track loop) or natural end
+   * (queue loop) — no need to poke the live HTMLAudioElement here.
    *
    * Mode semantics:
-   *   - off    HTMLAudioElement.loop = false; onEnded advances or stops.
-   *   - track  HTMLAudioElement.loop = true; same track replays natively.
-   *   - queue  HTMLAudioElement.loop = false; onEnded wraps queue → first.
+   *   - off    onEnded advances the queue or stops.
+   *   - track  onProgress kicks a fresh playback of the same track when
+   *            remaining ≤ fadeSec, so the loop point crossfades.
+   *   - queue  onEnded wraps queue → first when the last track ends.
    */
   async function handleCycleLoop() {
     const next: "off" | "track" | "queue" =
       loopMode === "off" ? "track" : loopMode === "track" ? "queue" : "off";
     setLoopMode(next);
-    // Apply to the currently-playing handle so the user sees the change
-    // mid-track without having to re-trigger play.
-    if (playback) {
-      const raw = getAudioBackend().getRawHandle(playback.handle);
-      if (raw) raw.audio.loop = next === "track";
-    }
     const db = await getDb();
     await setConfig(db, "loop_mode", next);
   }
