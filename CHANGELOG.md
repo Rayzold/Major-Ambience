@@ -12,6 +12,30 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile background
 
 ---
 
+## [0.0.23] — 2026‑05‑24 — Name-generator gender · Next-button fallback
+
+Two small DM-side fixes. The name generator now respects a male/female pick, and the transport's Next button no longer silently no-ops when the queue is empty.
+
+### Added — Gender toggle in the name generator
+
+- `apps/desktop/src/lib/dm-names.ts` splits each race's first-name list into `firstMale` / `firstFemale`. Last names stay shared. The Race/Gender data still drives `rollName` and `rollNameAvoiding`, now both accept a `Gender` argument (`"any" | "male" | "female"`); `"any"` flips a coin per roll.
+- New `GENDER_OPTIONS` pill set rendered above the race pills in `NameGenerator.tsx` with the same active-state styling. State is panel-local — no persistence, matches how the Race pill works.
+- `RolledName` carries an optional `gender` field so freshly rolled history items remember what gender bucket they came from. Old persisted history without the field still loads (field is optional).
+
+### Fixed — Next button falls back to the playing track's category
+
+- `handleNext` in `Library.tsx` no longer bails on `queue.length === 0`. When the queue is empty or you're already on the last item, it now looks up the playing track's category, weighted-shuffles the rest of that category (excluding the current track), sets the result as the new queue, and plays the head.
+- This was a silent no-op whenever the user reached a playing track via a path that didn't seed a queue: a Search result, a Recently-Played row, or any one-shot play. The previous behavior was indistinguishable from a broken button.
+- Reuses the same `weightedShuffle` semantics the Shuffle button and letter hotkeys already use — S=6×, A=4×, B=2×, C/D/Ungraded=1×, F excluded.
+
+### Verification
+
+- `pnpm -r typecheck` — clean across all 5 projects.
+- Manual (name gender): open the DM Tools tab → Names panel. Pick a race + gender combination, hit Roll name; first names should be drawn from the matching gendered list. "Any" gender randomly picks between the two per roll.
+- Manual (Next fallback): play a track from Search or Recently Played (queue stays at 0). Press the Next button — a new queue from the same category should appear and the next track plays.
+
+---
+
 ## [0.0.20] — 2026‑05‑24 — Mobile audio engine (first cut)
 
 The mobile app finally plays sound. Library and Search are wired through a brand-new `ExpoAudioBackend` so an imported track is one tap away from the speaker.
