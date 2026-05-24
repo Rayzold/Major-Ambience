@@ -8,7 +8,57 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile audio engine (react-native-track-player, needs EAS dev-client) is the next mobile ticket.
+Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile background audio config (Info.plist / Android foreground service) and SFX-bus ducking on mobile are the immediate follow-ups to v0.0.20.
+
+---
+
+## [0.0.20] — 2026‑05‑24 — Mobile audio engine (first cut)
+
+The mobile app finally plays sound. Library and Search are wired through a brand-new `ExpoAudioBackend` so an imported track is one tap away from the speaker.
+
+### Added — `ExpoAudioBackend`
+
+- New `apps/mobile/src/audio/expo-audio-backend.ts` implements the `AudioBackend` contract from `@mc/core` on top of `expo-audio` (the supported Expo audio API in SDK 56+; `expo-av` is deprecated). One JS class per app, one native `AudioPlayer` per loaded track.
+- `loadTrack` / `play` / `pause` / `seek` / `destroy` / `onProgress` / `onEnded` all map to expo-audio primitives. Bus selection (`music` vs `soundboard`) is accepted at the interface level; per-bus gain is tracked in JS for the future ducker (no separate mix-bus in expo-audio).
+- `setGain(handle, target, rampSeconds)` runs a JS-driven ~60Hz linear ramp because expo-audio has no native gain-ramp API. Cancels any in-flight ramp before scheduling a new one, so back-to-back crossfades don't fight each other.
+- `crossfade()` from `@mc/core` works unchanged — same signature, same semantics as on desktop.
+
+### Added — Now-Playing store + persistent mini-player
+
+- `apps/mobile/src/audio/store.ts` exposes a tiny `useSyncExternalStore`-backed module singleton: `nowPlaying`, `playing`, `positionSec`, `durationSec`, `queue`, plus `playTrack` / `togglePlay` / `skipNext` / `stop`. No Context, no Zustand — the surface is small enough.
+- `playTrack(track, queue)` fades in over 600ms, crossfading any prior handle, and slices the queue past the just-started track so auto-advance lands on the next adjacent row.
+- `MiniPlayer` renders above the bottom tab bar (in root `_layout.tsx`, so it persists across the category-detail stack route too). Shows progress, title, pack, up-next count, play/pause, skip, stop.
+
+### Added — Category detail screen
+
+- New route `app/category/[id].tsx` — tap a tile on the Library tab to open the full track list for that category. Tapping a row plays it and fills the queue with the rest of the visible list (mirrors desktop row-click-fills-queue from v0.0.15). Active-track row gets the category-color left border + tint.
+
+### Added — Search → play
+
+- Tapping a Search result now plays the track. Single-track queue (no auto-advance) since search picks a specific clip rather than browsing a list.
+
+### Changed — Library tab navigation
+
+- Category tiles are now `Pressable` with `onPress` routing to `/category/[id]`. Tile press feedback fades to 0.7 opacity.
+- Tab refresh uses `useFocusEffect` so counts re-read after returning from category detail or after an import.
+
+### Internal
+
+- `setAudioModeAsync({ playsInSilentMode: true, interruptionMode: "duckOthers" })` runs once on first load. iOS won't route through the silent switch without this. Background audio (`shouldPlayInBackground: true`) is off for now — needs an EAS dev-client build with the audio capability, which is a separate ticket.
+- Root layout switched to `SafeAreaProvider` + `SafeAreaView` for the mini-player so it clears the home indicator on devices with no hardware bezel.
+- Mobile package bumped 0.0.8 → 0.0.9.
+
+### Out of scope (next mobile tickets)
+
+- **Background playback** — needs `app.json` audio mode + EAS dev-client; current build pauses on screen-off.
+- **SFX-bus ducking** — interface is wired (`setBusGain`), but no soundboard yet on mobile to fire it from.
+- **Scenes + Soundboard tabs** — both still show the placeholder copy; they need their own data wiring + screens.
+
+### Verification
+
+- `pnpm -r typecheck` — local; will be re-run in CI once the branch lands.
+- Manual verification needs a phone — install on iOS / Android via Expo Go: `cd apps/mobile && pnpm start`, then import an MP3 from the Library tab, tap a category tile, tap a row. Mini-player should appear with progress, play/pause, skip-to-next.
+- If `pnpm install` doesn't pick the right `expo-audio` version for SDK 56, run `cd apps/mobile && npx expo install expo-audio` to let the Expo CLI write the matched range back.
 
 ---
 

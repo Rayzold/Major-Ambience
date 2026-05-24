@@ -2,7 +2,7 @@
 // Import button in the header that drives the expo-document-picker flow
 // (apps/mobile/src/lib/import.ts) and persists tracks via expo-sqlite.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useRouter, useFocusEffect, type Href } from "expo-router";
 import { CATEGORIES } from "@mc/ui/categories";
 import { T, FONT_DISPLAY } from "../../src/tokens";
 import { Glyph } from "../../src/Glyph";
@@ -19,6 +20,7 @@ import { countByCategory, countTracks } from "../../src/data/tracks-repo";
 import { importTracks } from "../../src/lib/import";
 
 export default function LibraryScreen() {
+  const router = useRouter();
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [total, setTotal] = useState(0);
   const [importing, setImporting] = useState(false);
@@ -30,11 +32,15 @@ export default function LibraryScreen() {
     setTotal(t);
   }, []);
 
-  useEffect(() => {
-    refresh().catch((err) => {
-      console.error("Library refresh failed:", err);
-    });
-  }, [refresh]);
+  // Re-count every time the user comes back to this tab — covers the
+  // case where they imported tracks elsewhere or graded something.
+  useFocusEffect(
+    useCallback(() => {
+      refresh().catch((err) => {
+        console.error("Library refresh failed:", err);
+      });
+    }, [refresh]),
+  );
 
   const handleImport = useCallback(async () => {
     if (importing) return;
@@ -112,6 +118,10 @@ export default function LibraryScreen() {
             desc={c.desc}
             glyph={c.glyph}
             count={counts[c.id] ?? 0}
+            // Typed routes haven't seen /category/[id] yet — metro
+            // regenerates apps/mobile/.expo/types/router.d.ts on next
+            // `expo start`. Until then we cast to satisfy strict mode.
+            onPress={() => router.push(`/category/${c.id}` as Href)}
           />
         ))}
       </View>
@@ -164,6 +174,7 @@ function CategoryTile({
   desc,
   glyph,
   count,
+  onPress,
 }: {
   color: string;
   dark: string;
@@ -171,17 +182,20 @@ function CategoryTile({
   desc: string;
   glyph: string;
   count: number;
+  onPress: () => void;
 }) {
   return (
     <Pressable
-      style={{
+      onPress={onPress}
+      style={({ pressed }) => ({
         width: "47%",
         backgroundColor: dark,
         borderRadius: 16,
         padding: 16,
         borderWidth: 1,
         borderColor: `${color}33`,
-      }}
+        opacity: pressed ? 0.7 : 1,
+      })}
     >
       <View
         style={{
