@@ -31,6 +31,7 @@ import {
 } from "@mc/data";
 import { applyTheme, CATEGORIES, findCategory, type ThemeId } from "@mc/ui";
 import { scanFolderToTracks } from "./lib/scan.js";
+import { scanDurations, tracksMissingDuration } from "./lib/duration-scan.js";
 import { getAudioBackend } from "./lib/audio.js";
 import { DesktopDmToolkit } from "./layout/DesktopDmToolkit.js";
 import { DesktopHeader } from "./layout/DesktopHeader.js";
@@ -129,6 +130,12 @@ export function Library() {
   const [trackDurationSec, setTrackDurationSec] = useState(0);
   const [queue, setQueue] = useState<Track[]>([]);
   const [scanStatus, setScanStatus] = useState<string>("");
+  /**
+   * True while the background duration scanner is filling in missing
+   * `durationMs` values for the current library. Disables the manual
+   * "Scan durations" button and gates concurrent runs.
+   */
+  const [isScanningDurations, setIsScanningDurations] = useState(false);
   const [fadeMs, setFadeMs] = useState(DEFAULT_FADE_MS);
   const [masterVolume, setMasterVolume] = useState(DEFAULT_VOLUME);
   const [duckingPct, setDuckingPctState] = useState(DEFAULT_DUCKING);
@@ -554,6 +561,96 @@ export function Library() {
       setIsScanning(false);
     }
   }, []);
+
+  /**
+   * Fill in missing `durationMs` values for the given tracks (or every
+   * track when called with no args). Runs in the background — probes
+   * file metadata via a hidden `<audio preload="metadata">`, persists
+   * each duration to SQLite as it resolves, and patches the React
+   * `tracks` state incrementally so the TIME column fills in live
+   * instead of blocking on the whole batch.
+   *
+   * Re-entry guard: `isScanningDurations` ref-mirrors the state so a
+   * second call while one is in flight is a no-op (e.g. the user
+   * mashing the manual button or a re-render triggering the effect).
+   */
+  const handleScanDurations = useCallback(
+    async (subset?: readonly Track[]) => {
+      if (isScanningDurations) return;
+      const db = await getDb();
+      // Snapshot the live state via a setter callback so we always
+      // scan the freshest list, even if `tracks` in this closure is
+      // stale from when the effect captured it.
+      const source = subset ?? tracks;
+      const todo = tracksMissingDuration(source);
+      if (todo.length === 0) return;
+
+      setIsScanningDurations(true);
+      try {
+        await scanDurations(todo, {
+          onProgress: ({ done, total, lastResult }) => {
+            if (!lastResult) return;
+            // Persist successful probes only — a 0-duration result
+            // means the file errored or timed out, leaving the row
+            // null so a future retry can pick it up.
+            if (lastResult.durationMs > 0) {
+              void setDuration(db, lastResult.trackId, lastResult.durationMs);
+              setTracks((prev) =>
+                prev.map((t) =>
+                  t.id === lastResult.trackId
+                    ? { ...t, durationMs: lastResult.durationMs }
+                    : t,
+                ),
+              );
+            }
+            // Light status line so the user knows it's working —
+            // skipped after the batch finishes so the next scan-step
+            // message can replace it.
+            if (done < total) {
+              setScanStatus(
+                `Reading durations… ${done.toLocaleString()} / ${total.toLocaleString()}`,
+              );
+            }
+          },
+        });
+        setScanStatus(
+          `Read durations for ${todo.length.toLocaleString()} track${todo.length === 1 ? "" : "s"}.`,
+        );
+      } catch (err) {
+        console.error("[library] duration scan failed:", err);
+        setScanStatus(
+          `Duration scan failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      } finally {
+        setIsScanningDurations(false);
+      }
+    },
+    [isScanningDurations, tracks],
+  );
+
+  // Auto-scan durations whenever the track list grows (initial load or
+  // a fresh folder scan). Fires only when we know there's something to
+  // probe so we don't repeatedly walk a fully-probed library on every
+  // render. The handler's own re-entry guard makes the double-fire
+  // (initial mount + folder scan) safe.
+  const lastAutoScanIds = useRef<string>("");
+  useEffect(() => {
+    const missing = tracksMissingDuration(tracks);
+    if (missing.length === 0) {
+      lastAutoScanIds.current = "";
+      return;
+    }
+    // Fingerprint the set of missing IDs so we don't re-trigger when a
+    // probe lands and `tracks` updates with one fewer null duration —
+    // the existing scan picks that up via its own iteration.
+    const fingerprint = missing
+      .slice(0, 50)
+      .map((t) => t.id)
+      .join("|") + `:${missing.length}`;
+    if (fingerprint === lastAutoScanIds.current) return;
+    lastAutoScanIds.current = fingerprint;
+    void handleScanDurations(missing);
+  }, [tracks, handleScanDurations]);
 
   // Drag a folder onto the window to scan it. Tauri 2 exposes a
   // webview-level drag-drop event that includes the OS path string —

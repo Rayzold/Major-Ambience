@@ -8,6 +8,32 @@ import { CATEGORIES, findCategory, Glyph, GradeChip, T, Visualizer, type Categor
 const GRADES_INCLUDING_ALL: Array<"All" | Grade> = ["All", "S", "A", "B", "C", "D", "F"];
 
 /**
+ * Duration filter buckets. Matches the spec the user reaches for when
+ * picking music for a scene: stingers, short loops, full ambient beds,
+ * cinematic long-form. "Any" disables the filter; everything else
+ * hides tracks whose duration falls outside the bucket *or* hasn't
+ * been probed yet — the auto-scanner usually has it ready by then.
+ */
+type DurationBucket = "Any" | "<1m" | "1–3m" | "3–5m" | "5m+";
+const DURATION_BUCKETS: readonly DurationBucket[] = ["Any", "<1m", "1–3m", "3–5m", "5m+"];
+
+function bucketContains(bucket: DurationBucket, durationMs: number): boolean {
+  if (bucket === "Any") return true;
+  if (!Number.isFinite(durationMs) || durationMs <= 0) return false;
+  const sec = durationMs / 1000;
+  switch (bucket) {
+    case "<1m":
+      return sec < 60;
+    case "1–3m":
+      return sec >= 60 && sec < 180;
+    case "3–5m":
+      return sec >= 180 && sec < 300;
+    case "5m+":
+      return sec >= 300;
+  }
+}
+
+/**
  * Hero shape — same fields as `CategoryMeta` but with optional id so we
  * can render pseudo-views (Favorites, Recently played) that aren't real
  * categories. Real categories still satisfy this type.
@@ -67,6 +93,7 @@ export function DesktopLibraryView({
   const cat = (meta as CategoryMeta) ?? CATEGORIES[0]!;
   const [gradeFilter, setGradeFilter] = useState<"All" | Grade>("All");
   const [activeSubcat, setActiveSubcat] = useState<string>("All");
+  const [durationFilter, setDurationFilter] = useState<DurationBucket>("Any");
 
   const subcats = useMemo<readonly string[]>(() => {
     if (!cat.subcats) return ["All"];
@@ -80,9 +107,10 @@ export function DesktopLibraryView({
         const wanted = activeSubcat.toLowerCase();
         if ((t.subcategory ?? "").toLowerCase() !== wanted) return false;
       }
+      if (!bucketContains(durationFilter, t.durationMs)) return false;
       return true;
     });
-  }, [categoryTracks, gradeFilter, activeSubcat]);
+  }, [categoryTracks, gradeFilter, activeSubcat, durationFilter]);
 
   return (
     <div
@@ -237,42 +265,84 @@ export function DesktopLibraryView({
             );
           })}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span className="mc-eyebrow" style={{ marginRight: 4 }}>
-            Grade
-          </span>
-          {GRADES_INCLUDING_ALL.map((g) => {
-            const active = gradeFilter === g;
-            const label = g ?? "—";
-            // "All" needs more room than the single-letter chips; everything
-            // else fills the 26px minimum exactly so the row stays uniform.
-            const isAll = g === "All";
-            return (
-              <button
-                key={String(g)}
-                onClick={() => setGradeFilter(g)}
-                style={{
-                  minWidth: 26,
-                  height: 26,
-                  padding: isAll ? "0 10px" : 0,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: 6,
-                  background: active ? cat.color + "22" : T.bgChip,
-                  color: active ? cat.color : T.ink2,
-                  fontWeight: 600,
-                  fontSize: 11,
-                  fontFamily: "Geist Mono, monospace",
-                  border: active
-                    ? `1px solid ${cat.color}55`
-                    : `1px solid transparent`,
-                }}
-              >
-                {label}
-              </button>
-            );
-          })}
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span className="mc-eyebrow" style={{ marginRight: 4 }}>
+              Length
+            </span>
+            {DURATION_BUCKETS.map((b) => {
+              const active = durationFilter === b;
+              // "Any" gets a little extra width like the All-grade pill;
+              // the bucket labels need horizontal padding either way
+              // because they're 2-4 chars rather than single letters.
+              return (
+                <button
+                  key={b}
+                  onClick={() => setDurationFilter(b)}
+                  title={
+                    b === "Any"
+                      ? "Show tracks of any length"
+                      : `Show only tracks ${b === "5m+" ? "5 minutes or longer" : b.replace("–", " to ")}`
+                  }
+                  style={{
+                    minWidth: 26,
+                    height: 26,
+                    padding: "0 8px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: 6,
+                    background: active ? cat.color + "22" : T.bgChip,
+                    color: active ? cat.color : T.ink2,
+                    fontWeight: 600,
+                    fontSize: 11,
+                    fontFamily: "Geist Mono, monospace",
+                    border: active ? `1px solid ${cat.color}55` : `1px solid transparent`,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {b}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span className="mc-eyebrow" style={{ marginRight: 4 }}>
+              Grade
+            </span>
+            {GRADES_INCLUDING_ALL.map((g) => {
+              const active = gradeFilter === g;
+              const label = g ?? "—";
+              // "All" needs more room than the single-letter chips; everything
+              // else fills the 26px minimum exactly so the row stays uniform.
+              const isAll = g === "All";
+              return (
+                <button
+                  key={String(g)}
+                  onClick={() => setGradeFilter(g)}
+                  style={{
+                    minWidth: 26,
+                    height: 26,
+                    padding: isAll ? "0 10px" : 0,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: 6,
+                    background: active ? cat.color + "22" : T.bgChip,
+                    color: active ? cat.color : T.ink2,
+                    fontWeight: 600,
+                    fontSize: 11,
+                    fontFamily: "Geist Mono, monospace",
+                    border: active
+                      ? `1px solid ${cat.color}55`
+                      : `1px solid transparent`,
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
