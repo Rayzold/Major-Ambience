@@ -12,6 +12,45 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile background
 
 ---
 
+## [0.0.24] — 2026‑05‑24 — Removed-category soft delete · GM tool ideas log
+
+A way to hide bad / unwanted tracks from the library without deleting them from disk, plus a brainstorm doc capturing where the DM Toolkit could go next.
+
+### Added — `IDEAS.md`
+
+- Living brainstorm of future GM-tool additions, grouped by integration depth. Audio-integrated tools (random encounter table, tension countdown, mood deck, reaction roll) are flagged as the highest-value next moves because they reuse the track index and playback engine. Standalone tables and session utilities listed below as cheaper follow-ups.
+
+### Added — `removed` pseudo-category
+
+- New `"removed"` value on the `CategoryId` union. Lives outside the visible `CATEGORIES` array so it doesn't leak into the sidebar's Categories section, the Scene editor, the Pin-to-slot menu, or letter/number hotkeys — every iteration site only sees the real ten categories.
+- `findCategory()` resolves it via a separate `REMOVED_CATEGORY` meta so track-row rendering, the library hero, and the new sidebar entry all find a gray-tinted icon + colour without polluting the canonical category list.
+
+### Added — Trash icon on every track row
+
+- Hover any track row in the Library view — a `trash` glyph appears in a new 36px action column at the right edge (revealed by a new `.mc-row-action` CSS class with `opacity` transitioning from 0 → 0.7 on row hover → 1 on icon hover). Click sends the track to the Removed category instantly; no confirmation, the operation is fully reversible.
+- Implemented as a `<span role="button">` inside the row's `<button>` (nested `<button>`s would be invalid HTML); `e.stopPropagation()` on click + keyboard activation so the row's play handler never fires for this control.
+- In the Removed view itself, the same column shows an `undo` glyph instead. Clicking it re-runs `categorize(track.title, track.pack)` — the same auto-classifier the folder scan uses — and routes the track back to its best-guess category. The original pre-removal category isn't stored anywhere, so this is the closest reconstruction we can do without a new schema column.
+
+### Added — `Removed` sidebar row
+
+- New entry in the sidebar's Library section, between **Recently played** and the Categories list. Trash glyph + neutral gray tint so it doesn't pull the eye like Favorites does. Count badge shows the number of removed tracks; clicking jumps to the standard category-view code path with `activeCategory = "removed"`.
+
+### Changed — Favorites and Recently played exclude removed tracks
+
+- Both pseudo-views now filter `category !== "removed"` before grade / play-time bucketing. A soft-deleted track no longer keeps showing up in Favorites just because the user S-graded it earlier.
+
+### Internal — Glyph additions
+
+- `trash` (lid + lined body + two vertical strokes) and `undo` (curved back-arrow) added to `glyph-data.ts`. Both follow the existing `currentColor`-stroked style and render identically on desktop + mobile glyph paths.
+
+### Verification
+
+- `pnpm -r typecheck` — clean across all 5 projects.
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual: hover any library row, click the trash icon → row disappears from the current view, Removed sidebar count ticks up. Click Removed → see the row with the undo icon. Click undo → row re-categorizes and disappears from Removed. Favorites / Recently played do not list removed tracks. Search still finds them (intentional, so a recently-removed track can be located and restored from anywhere).
+
+---
+
 ## [0.0.20] — 2026‑05‑24 — Mobile audio engine (first cut)
 
 The mobile app finally plays sound. Library and Search are wired through a brand-new `ExpoAudioBackend` so an imported track is one tap away from the speaker.

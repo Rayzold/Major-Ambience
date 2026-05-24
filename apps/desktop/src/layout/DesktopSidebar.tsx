@@ -11,8 +11,11 @@ export type DesktopSidebarProps = {
   onSelect: (c: CategoryId) => void;
   onSelectFavorites: () => void;
   onSelectRecent: () => void;
+  /** Open the Removed view — selects the "removed" pseudo-category. */
+  onSelectRemoved: () => void;
   favoritesCount: number;
   recentCount: number;
+  removedCount: number;
   totalTrackCount: number;
   countByCategory: ReadonlyMap<CategoryId, number>;
   rootFolderName: string | undefined;
@@ -34,8 +37,10 @@ export function DesktopSidebar({
   onSelect,
   onSelectFavorites,
   onSelectRecent,
+  onSelectRemoved,
   favoritesCount,
   recentCount,
+  removedCount,
   totalTrackCount,
   countByCategory,
   rootFolderName,
@@ -127,6 +132,17 @@ export function DesktopSidebar({
           active={activeView === "recent"}
           onClick={onSelectRecent}
           tint="#7d92dd"
+        />
+        <SidebarRow
+          icon="trash"
+          label="Removed"
+          count={removedCount}
+          // Removed view lives in the regular category code path (it's a
+          // real CategoryId), so the activeView check is "category" + the
+          // selected category being "removed".
+          active={activeView === "category" && selected === "removed"}
+          onClick={onSelectRemoved}
+          tint="#888"
         />
       </SidebarSection>
 

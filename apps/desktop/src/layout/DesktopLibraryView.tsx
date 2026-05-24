@@ -70,6 +70,18 @@ export type DesktopLibraryViewProps = {
   onShuffleCategory: () => void;
   onTrackContextMenu: (track: Track, x: number, y: number) => void;
   /**
+   * Soft-delete: send a track to the "removed" category. Shown as a
+   * trash icon on every row in normal categories. The Removed view
+   * itself shows the inverse — see `onRestoreTrack`.
+   */
+  onRemoveTrack: (track: Track) => void;
+  /**
+   * Inverse of remove — re-categorize (via the existing auto-classifier)
+   * and pull the track back out of "removed". Only relevant in the
+   * Removed view; rows there get an undo icon in place of the trash.
+   */
+  onRestoreTrack: (track: Track) => void;
+  /**
    * True when this view is a pseudo-view (favorites / recent). Hides the
    * subcategory tabs (they have no meaning) and the Save-as-scene
    * placeholder button.
@@ -87,6 +99,8 @@ export function DesktopLibraryView({
   onSelectRow,
   onShuffleCategory,
   onTrackContextMenu,
+  onRemoveTrack,
+  onRestoreTrack,
   isPseudoView,
   dmMode,
 }: DesktopLibraryViewProps) {
@@ -350,7 +364,7 @@ export function DesktopLibraryView({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "32px 1fr 240px 70px 60px 60px",
+          gridTemplateColumns: "32px 1fr 240px 70px 60px 60px 36px",
           padding: "8px 32px",
           fontSize: 10,
           color: T.ink3,
@@ -365,6 +379,7 @@ export function DesktopLibraryView({
         <div>{dmMode ? "" : "Plays"}</div>
         <div>{dmMode ? "" : "Grade"}</div>
         <div>Time</div>
+        <div />
       </div>
 
       <div data-mc-tour="track-table">
@@ -400,6 +415,8 @@ export function DesktopLibraryView({
               }
             }}
             onContextMenu={(x, y) => onTrackContextMenu(t, x, y)}
+            onRemove={() => onRemoveTrack(t)}
+            onRestore={() => onRestoreTrack(t)}
             dmMode={dmMode}
           />
         ))
@@ -418,6 +435,8 @@ function DesktopTrackRow({
   isSelected,
   onTap,
   onContextMenu,
+  onRemove,
+  onRestore,
   dmMode,
 }: {
   track: Track;
@@ -426,10 +445,13 @@ function DesktopTrackRow({
   isSelected: boolean;
   onTap: (e: React.MouseEvent<HTMLButtonElement>) => void;
   onContextMenu: (x: number, y: number) => void;
+  onRemove: () => void;
+  onRestore: () => void;
   dmMode: boolean;
 }) {
   const c = findCategory(track.category);
   if (!c) return null;
+  const isRemoved = track.category === "removed";
   // Selected rows get a gold-tinted background that wins over the
   // currently-playing tint. Playing-and-selected falls back to a blend
   // of both — gold accents, the playing gradient stays underneath.
@@ -454,7 +476,7 @@ function DesktopTrackRow({
       }}
       style={{
         display: "grid",
-        gridTemplateColumns: "32px 1fr 240px 70px 60px 60px",
+        gridTemplateColumns: "32px 1fr 240px 70px 60px 60px 36px",
         padding: "10px 32px",
         alignItems: "center",
         gap: 8,
@@ -559,6 +581,42 @@ function DesktopTrackRow({
       <div className="mc-mono" style={{ fontSize: 12, color: T.ink2 }}>
         {formatMs(track.durationMs)}
       </div>
+      {/* Action button — trash on normal rows, undo on removed-view rows.
+          A <span role="button"> instead of a real <button> because the
+          surrounding row already is one and nested buttons are invalid
+          HTML. stopPropagation on click + keydown so the row's onTap
+          never fires for this control. */}
+      <span
+        role="button"
+        tabIndex={0}
+        className="mc-row-action"
+        title={isRemoved ? "Restore (re-categorize)" : "Remove from library"}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (isRemoved) onRestore();
+          else onRemove();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            e.stopPropagation();
+            if (isRemoved) onRestore();
+            else onRemove();
+          }
+        }}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 28,
+          height: 28,
+          borderRadius: 7,
+          color: T.ink3,
+          cursor: "pointer",
+        }}
+      >
+        <Glyph name={isRemoved ? "undo" : "trash"} size={14} />
+      </span>
     </button>
   );
 }
