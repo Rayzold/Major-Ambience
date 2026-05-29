@@ -61,6 +61,18 @@ CREATE TABLE IF NOT EXISTS config (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS scenes (
+  id TEXT PRIMARY KEY,
+  payload TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS soundboard (
+  page TEXT NOT NULL,
+  slot INTEGER NOT NULL,
+  payload TEXT NOT NULL,
+  PRIMARY KEY (page, slot)
+);
 `;
 
 /** Row shape as it comes out of expo-sqlite (snake_case). */

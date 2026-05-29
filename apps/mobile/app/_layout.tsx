@@ -33,6 +33,14 @@ export default function RootLayout() {
               name="category/[id]"
               options={{ title: "Category", presentation: "card" }}
             />
+            <Stack.Screen
+              name="now-playing"
+              options={{
+                presentation: "modal",
+                headerShown: false,
+                animation: "slide_from_bottom",
+              }}
+            />
             <Stack.Screen name="modal" options={{ presentation: "modal", title: "About" }} />
           </Stack>
         </View>
