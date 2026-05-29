@@ -12,11 +12,9 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile background
 
 ---
 
-## [0.0.25] — 2026‑05‑24 — DM Toolkit expansion: encounters · timers · generators
+## [0.0.26] — 2026‑05‑24 — DM Toolkit expansion: encounters · timers · generators · utilities
 
-GM-tool additions from `IDEAS.md`, shipped together. **Encounters** — roll tables where each row can be wired to a track or a category, so rolling an encounter drops the right music. **Timers** — tension countdowns that fire a stinger (and duck the music) at zero. **Generators** — the standalone roll tables (loot, NPC, tavern, settlement, weather, crit/fumble, wild magic, trap, quest) under one tab.
-
-> Numbering note: this is a desktop release (bumps the three desktop version files 0.0.22 → 0.0.25, the natural step after desktop PRs #24 → 0.0.23 and #25 → 0.0.24). The unified CHANGELOG slot `0.0.25` is also used by mobile PR #26 — whichever merges second renumbers to `0.0.26`.
+GM-tool additions from `IDEAS.md`, shipped together. **Encounters** — roll tables where each row can be wired to a track or a category, so rolling an encounter drops the right music. **Timers** — tension countdowns that fire a stinger (and duck the music) at zero. **Generators** — the standalone roll tables (loot, NPC, tavern, settlement, weather, crit/fumble, wild magic, trap, quest) under one tab. Plus utilities — a combat-tracker HP/AC upgrade, an XP/loot **Ledger**, and a **Recap** composer.
 
 ### Added — Encounter tables tab
 
@@ -59,8 +57,8 @@ GM-tool additions from `IDEAS.md`, shipped together. **Encounters** — roll tab
 ### Internal
 
 - `TrackPickerOverlay` gains two new target kinds, `encounterEntry` and `timerStinger` (alongside `pad` and `turnSound`), routed in `Library.tsx` to bind a track to a table entry / a timer's stinger.
-- DM-tool state persists to SQLite config under `dm_encounter_tables` and `dm_countdown_timers` (JSON), loaded on init — same pattern as `dm_combatants` / `dm_name_history` / `dm_roll_history`.
-- Desktop version 0.0.22 → 0.0.25.
+- DM-tool state persists to SQLite config under `dm_encounter_tables`, `dm_countdown_timers`, `dm_xp_ledger`, and `dm_recap` (JSON), loaded on init — same pattern as `dm_combatants` / `dm_name_history` / `dm_roll_history`.
+- Desktop version 0.0.24 → 0.0.26.
 
 ### Verification
 
@@ -72,6 +70,109 @@ GM-tool additions from `IDEAS.md`, shipped together. **Encounters** — roll tab
 - Manual (combat tracker): Initiative → add a combatant, set HP cur/max + AC; drop HP to 0 → row goes red + strikethrough. Reload → values persist.
 - Manual (ledger): Ledger → add XP, set party size, watch the per-player split; add loot lines. Reload → persists.
 - Manual (recap): play a track, Recap → pin a moment (tagged with the track), Copy recap → paste-ready block on the clipboard.
+
+---
+
+## [0.0.25] — 2026‑05‑24 — Mobile scenes + soundboard + Now Playing
+
+Mobile gets three of its biggest missing surfaces. The Scenes and Soundboard tabs were placeholder copy until now; both are real, and a tap on the mini-player expands to a full Now Playing screen.
+
+> Mobile-only release: bumps `apps/mobile/package.json` 0.0.9 → 0.0.10; desktop version files untouched.
+
+### Added — Soundboard tab
+
+- 3 pages (A/B/C) × 8 pads. Assign any library track to a pad, tap to fire, with per-pad volume and loop. New `apps/mobile/src/audio/soundboard-store.ts` tracks each active pad independently (one `AudioPlayer` per pad on the `soundboard` bus).
+- Persistence via new `apps/mobile/src/data/soundboard-repo.ts` + a `soundboard (page, slot, payload)` table (`schema.ts`). Slot config is a JSON payload keyed by `(page, slot)` with an `ON CONFLICT` upsert.
+- Non-looping pads auto-stop via the backend's `onEnded` callback (not a duration timer — mobile often hasn't probed `durationMs`, so a timer would either never fire or drift). Looping pads run until an explicit stop. The onEnded listener is detached on manual stop so it can't fire against a destroyed handle.
+
+### Added — Scenes tab
+
+- Save and restore complete mood snapshots — category, queue, soundboard page, fade, ducking, and per-category volumes — captured from the live player state. List / create / delete from the tab.
+- Persistence via new `apps/mobile/src/data/scenes-repo.ts` + a `scenes (id, payload)` table, sorted by `json_extract(payload, '$.createdAt')`. Parameterized queries, `ON CONFLICT` upsert, and `safeParse` guards on read.
+
+### Added — Now Playing screen
+
+- New full-screen `app/now-playing.tsx` (visualizer, transport, queue) opened by tapping the mini-player. Auto-dismisses back when nothing is playing. Registered as a route in `app/_layout.tsx`.
+- `MiniPlayer` is now tappable to expand. The route string is cast `as Href` until Expo regenerates `.expo/types/router.d.ts` on the next dev start (standard typed-routes dance for a brand-new route file).
+
+### Internal
+
+- Mobile data layer stores scenes / soundboard slots as JSON `payload` blobs rather than the structured columns the desktop uses. Pragmatic for the expo-sqlite adapter; worth keeping in mind for sync-blob format parity down the line.
+- Mobile package bumped 0.0.9 → 0.0.10.
+
+### Verification
+
+- `pnpm -r typecheck` — clean across all 5 projects.
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual (needs a device / simulator): `pnpm --filter @mc/mobile start`. Soundboard tab → assign a track to a pad, tap to play, toggle loop, adjust volume, stop. Scenes tab → start playback, save a scene, restore it. Tap the mini-player → Now Playing expands; controls + queue work; dismiss returns to the previous tab.
+
+---
+
+## [0.0.24] — 2026‑05‑24 — Removed-category soft delete · GM tool ideas log
+
+A way to hide bad / unwanted tracks from the library without deleting them from disk, plus a brainstorm doc capturing where the DM Toolkit could go next.
+
+### Added — `IDEAS.md`
+
+- Living brainstorm of future GM-tool additions, grouped by integration depth. Audio-integrated tools (random encounter table, tension countdown, mood deck, reaction roll) are flagged as the highest-value next moves because they reuse the track index and playback engine. Standalone tables and session utilities listed below as cheaper follow-ups.
+
+### Added — `removed` pseudo-category
+
+- New `"removed"` value on the `CategoryId` union. Lives outside the visible `CATEGORIES` array so it doesn't leak into the sidebar's Categories section, the Scene editor, the Pin-to-slot menu, or letter/number hotkeys — every iteration site only sees the real ten categories.
+- `findCategory()` resolves it via a separate `REMOVED_CATEGORY` meta so track-row rendering, the library hero, and the new sidebar entry all find a gray-tinted icon + colour without polluting the canonical category list.
+
+### Added — Trash icon on every track row
+
+- Hover any track row in the Library view — a `trash` glyph appears in a new 36px action column at the right edge (revealed by a new `.mc-row-action` CSS class with `opacity` transitioning from 0 → 0.7 on row hover → 1 on icon hover). Click sends the track to the Removed category instantly; no confirmation, the operation is fully reversible.
+- Implemented as a `<span role="button">` inside the row's `<button>` (nested `<button>`s would be invalid HTML); `e.stopPropagation()` on click + keyboard activation so the row's play handler never fires for this control.
+- In the Removed view itself, the same column shows an `undo` glyph instead. Clicking it re-runs `categorize(track.title, track.pack)` — the same auto-classifier the folder scan uses — and routes the track back to its best-guess category. The original pre-removal category isn't stored anywhere, so this is the closest reconstruction we can do without a new schema column.
+
+### Added — `Removed` sidebar row
+
+- New entry in the sidebar's Library section, between **Recently played** and the Categories list. Trash glyph + neutral gray tint so it doesn't pull the eye like Favorites does. Count badge shows the number of removed tracks; clicking jumps to the standard category-view code path with `activeCategory = "removed"`.
+
+### Changed — Favorites and Recently played exclude removed tracks
+
+- Both pseudo-views now filter `category !== "removed"` before grade / play-time bucketing. A soft-deleted track no longer keeps showing up in Favorites just because the user S-graded it earlier.
+
+### Fixed — Track-row subtitle no longer wraps/overlaps the title
+
+- The new 36px action column narrowed the `1fr` title cell enough that the "Last played …" subtitle (which had no wrap control) broke a word per line and the vertical stack collided with the title above it. The subtitle now gets the same `nowrap` + `overflow: hidden` + `textOverflow: ellipsis` treatment as the title and pack cells.
+- Polished further: the subtitle is now time-first (`2h ago` instead of `Last played 2h ago`) so the part that matters survives truncation at narrow widths; the full "Last played …" label moved to a hover tooltip.
+
+### Internal — Glyph additions
+
+- `trash` (lid + lined body + two vertical strokes) and `undo` (curved back-arrow) added to `glyph-data.ts`. Both follow the existing `currentColor`-stroked style and render identically on desktop + mobile glyph paths.
+
+### Verification
+
+- `pnpm -r typecheck` — clean across all 5 projects.
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual: hover any library row, click the trash icon → row disappears from the current view, Removed sidebar count ticks up. Click Removed → see the row with the undo icon. Click undo → row re-categorizes and disappears from Removed. Favorites / Recently played do not list removed tracks. Search still finds them (intentional, so a recently-removed track can be located and restored from anywhere).
+
+---
+
+## [0.0.23] — 2026‑05‑24 — Name-generator gender · Next-button fallback
+
+Two small DM-side fixes. The name generator now respects a male/female pick, and the transport's Next button no longer silently no-ops when the queue is empty.
+
+### Added — Gender toggle in the name generator
+
+- `apps/desktop/src/lib/dm-names.ts` splits each race's first-name list into `firstMale` / `firstFemale`. Last names stay shared. The Race/Gender data still drives `rollName` and `rollNameAvoiding`, now both accept a `Gender` argument (`"any" | "male" | "female"`); `"any"` flips a coin per roll.
+- New `GENDER_OPTIONS` pill set rendered above the race pills in `NameGenerator.tsx` with the same active-state styling. State is panel-local — no persistence, matches how the Race pill works.
+- `RolledName` carries an optional `gender` field so freshly rolled history items remember what gender bucket they came from. Old persisted history without the field still loads (field is optional).
+
+### Fixed — Next button falls back to the playing track's category
+
+- `handleNext` in `Library.tsx` no longer bails on `queue.length === 0`. When the queue is empty or you're already on the last item, it now looks up the playing track's category, weighted-shuffles the rest of that category (excluding the current track), sets the result as the new queue, and plays the head.
+- This was a silent no-op whenever the user reached a playing track via a path that didn't seed a queue: a Search result, a Recently-Played row, or any one-shot play. The previous behavior was indistinguishable from a broken button.
+- Reuses the same `weightedShuffle` semantics the Shuffle button and letter hotkeys already use — S=6×, A=4×, B=2×, C/D/Ungraded=1×, F excluded.
+
+### Verification
+
+- `pnpm -r typecheck` — clean across all 5 projects.
+- Manual (name gender): open the DM Tools tab → Names panel. Pick a race + gender combination, hit Roll name; first names should be drawn from the matching gendered list. "Any" gender randomly picks between the two per roll.
+- Manual (Next fallback): play a track from Search or Recently Played (queue stays at 0). Press the Next button — a new queue from the same category should appear and the next track plays.
 
 ---
 
@@ -617,42 +718,25 @@ First Phase 2 milestone. Three locked DESIGN.md features that round out the desk
 
 ### Added — DM Mode (`DESIGN.md § 6.2`)
 
-<<<<<<< HEAD
-- Single toggle on the theatre icon in the header. Red "DM MODE" pill next to the logo with a soft red glow when on.
-- Hides editing affordances that would either distract at the table or reveal private GM judgment: grade chips (track rows, transport, right rail), play counts, right-click pin menu + drag-to-assign, Save current scene, scene delete chip, per-pad clear/loop/volume controls, settings icon, Open Folder, DM Toolkit.
-- Keeps player-facing affordances visible: category sidebar, track list, search, scenes/soundboard tabs, fade/duck/volume sliders, prev/play/next, scrubber, orb visualizer.
-- Persisted as `dm_mode` in `config`.
-=======
 - Single toggle on the theatre icon in the header. Red "DM MODE" pill appears next to the logo with a soft red glow when on.
 - Hides editing affordances that would either distract at the table or reveal private GM judgment: grade chips (track rows, transport, right rail), play counts, right-click pin menu + drag-to-assign, Save current scene, scene delete chip, per-pad clear/loop/volume controls, settings icon, Open Folder, DM Toolkit.
 - Keeps every player-facing affordance visible: category sidebar, track list, search, scenes/soundboard tabs, fade/duck/volume sliders, prev/play/next, scrubber, orb visualizer.
 - Persisted as `dm_mode` in `config`; reopening any popovers is blocked while DM Mode is on.
->>>>>>> 5df683c (feat(mobile): scaffold apps/mobile + workspace integration + UI shell)
 
 ### Added — DM Toolkit (`DESIGN.md § 6.3`)
 
 - Fourth header tab + entry from the dice icon in the right cluster.
-<<<<<<< HEAD
-- Three-column desktop layout: **Names** (race-aware NPC generator), **Dice** (d4–d100 with adv/dis on d20, nat-20/nat-1 highlighting), **Initiative** (add combatants with init + condition, sort descending, prev/next cycle).
-- **Turn sounds** — drag a track onto a combatant *or* right-click any track in the Library and pick a combatant from a new "Set as turn sound" section. On turn advance, the active combatant's turn sound fires through the soundboard bus — auto-ducks the music exactly like a regular pad.
-=======
 - Three-column desktop layout:
   - **Names** — race-aware NPC generator across Any / Human / Elf / Dwarf / Orc / Halfling. Click name to copy. Last 30 in scrollable history.
   - **Dice** — d4 through d100 with count + modifier + advantage / disadvantage on d20. Each history row shows the formula, individual die faces (kept ones plain, discarded parenthesized), total in big tabular numerals. Nat 20 green, nat 1 red.
   - **Initiative** — add combatants with init + condition, sort descending, prev / next buttons cycle the active turn. Active row tinted gold with a left-edge stripe.
 - **Turn sounds** — drag a track row from the Library onto a combatant *or* right-click any track in the Library and pick a combatant from the new "Set as turn sound" section. On turn advance, the active combatant's turn sound fires through the **soundboard bus** — auto-ducks the music exactly like a regular pad.
->>>>>>> 5df683c (feat(mobile): scaffold apps/mobile + workspace integration + UI shell)
 - All three histories + the combatant roster persisted in the `config` table.
 
 ### Changed
 
-<<<<<<< HEAD
-- Right-click pin menu grew a "Set as turn sound" section below the soundboard grid.
-- Hardcoded `rgba(11,9,19,0.x)` translucent backgrounds replaced with theme-aware `T.chromeBg` / `T.popoverBg` / `T.modalBackdrop` references.
-=======
 - Right-click pin menu grew a "Set as turn sound" section below the soundboard grid. Avoids the cross-tab drag-and-drop awkwardness when the Library and DM Tools tabs are mutually exclusive.
 - Hardcoded `rgba(11,9,19,0.x)` translucent backgrounds throughout the layout replaced with theme-aware `T.chromeBg` / `T.popoverBg` / `T.modalBackdrop` references.
->>>>>>> 5df683c (feat(mobile): scaffold apps/mobile + workspace integration + UI shell)
 
 ---
 

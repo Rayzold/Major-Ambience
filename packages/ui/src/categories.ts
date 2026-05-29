@@ -20,6 +20,25 @@ export type CategoryMeta = {
   shortcut: string;
 };
 
+/**
+ * The "removed" pseudo-category. Kept OUT of `CATEGORIES` so it doesn't
+ * leak into the sidebar's Categories section, the Scene editor, the
+ * Pin-to-slot menu, or letter / number hotkeys — all of which iterate
+ * `CATEGORIES`. Track-row rendering still finds it via `findCategory`
+ * because the lookup checks this constant after the main list. Access
+ * is via a dedicated "Removed" entry in the Library section of the
+ * sidebar, similar to Favorites and Recently played.
+ */
+export const REMOVED_CATEGORY: CategoryMeta = {
+  id: "removed",
+  name: "Removed",
+  glyph: "trash",
+  color: "#888",
+  dark: "#1a1a1a",
+  desc: "Tracks you've hidden from the library. Restore from this view to send them back to a real category.",
+  shortcut: "_", // unreachable — keyboard handler only allows /[a-zA-Z]/
+};
+
 export const CATEGORIES: readonly CategoryMeta[] = [
   {
     id: "combat",
@@ -115,6 +134,7 @@ export const CATEGORIES: readonly CategoryMeta[] = [
 ];
 
 export function findCategory(id: CategoryId): CategoryMeta | undefined {
+  if (id === "removed") return REMOVED_CATEGORY;
   return CATEGORIES.find((c) => c.id === id);
 }
 

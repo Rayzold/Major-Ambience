@@ -128,6 +128,17 @@ function ResultRow({ track, onPress }: { track: Track; onPress: () => void }) {
   const meta = CATEGORIES.find((c) => c.id === track.category);
   const color = meta?.color ?? T.ink2;
   const glyph = meta?.glyph ?? "spark";
+  
+  const formatDuration = (ms: number | null | undefined): string => {
+    if (!ms || ms <= 0) return "";
+    const totalSec = Math.floor(ms / 1000);
+    const min = Math.floor(totalSec / 60);
+    const sec = totalSec % 60;
+    return `${min}:${String(sec).padStart(2, "0")}`;
+  };
+
+  const duration = formatDuration(track.durationMs);
+
   return (
     <Pressable
       onPress={onPress}
@@ -168,6 +179,8 @@ function ResultRow({ track, onPress }: { track: Track; onPress: () => void }) {
         >
           {track.pack || "—"}
           {track.subcategory ? ` · ${track.subcategory}` : ""}
+          {track.grade ? ` · ${track.grade}` : ""}
+          {duration ? ` · ${duration}` : ""}
         </Text>
       </View>
     </Pressable>

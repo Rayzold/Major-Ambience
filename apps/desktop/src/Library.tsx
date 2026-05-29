@@ -6,7 +6,7 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import type { CategoryId, Grade, Scene, SoundboardSlot, Track, TrackHandle } from "@mc/core";
-import { crossfade, weightedShuffle } from "@mc/core";
+import { categorize, crossfade, weightedShuffle } from "@mc/core";
 import {
   bumpPlayCount,
   clearSlot,
@@ -233,7 +233,9 @@ export function Library() {
     if (activeView === "favorites") {
       const order: Record<string, number> = { S: 0, A: 1 };
       return tracks
-        .filter((t) => t.grade === "S" || t.grade === "A")
+        .filter(
+          (t) => t.category !== "removed" && (t.grade === "S" || t.grade === "A"),
+        )
         .slice()
         .sort((a, b) => {
           const ga = order[a.grade ?? ""] ?? 9;
@@ -244,7 +246,12 @@ export function Library() {
     }
     if (activeView === "recent") {
       return tracks
-        .filter((t) => t.lastPlayedAt !== undefined && t.lastPlayedAt !== null)
+        .filter(
+          (t) =>
+            t.category !== "removed" &&
+            t.lastPlayedAt !== undefined &&
+            t.lastPlayedAt !== null,
+        )
         .slice()
         .sort((a, b) => (b.lastPlayedAt ?? 0) - (a.lastPlayedAt ?? 0))
         .slice(0, 25);
@@ -291,15 +298,29 @@ export function Library() {
     queueRef.current = queue;
   }, [queue]);
 
-  /** Live counts for the Favorites + Recently played sidebar rows. */
+  /** Live counts for the Favorites + Recently played + Removed sidebar rows.
+   *  Favorites and Recent exclude "removed" tracks so the user's soft-delete
+   *  doesn't keep haunting those library shortcuts. The Removed count
+   *  obviously *only* counts those. */
   const favoritesCount = useMemo(
-    () => tracks.filter((t) => t.grade === "S" || t.grade === "A").length,
+    () =>
+      tracks.filter(
+        (t) => t.category !== "removed" && (t.grade === "S" || t.grade === "A"),
+      ).length,
     [tracks],
   );
   const recentCount = useMemo(
     () =>
-      tracks.filter((t) => t.lastPlayedAt !== undefined && t.lastPlayedAt !== null)
-        .length,
+      tracks.filter(
+        (t) =>
+          t.category !== "removed" &&
+          t.lastPlayedAt !== undefined &&
+          t.lastPlayedAt !== null,
+      ).length,
+    [tracks],
+  );
+  const removedCount = useMemo(
+    () => tracks.filter((t) => t.category === "removed").length,
     [tracks],
   );
 
@@ -983,12 +1004,29 @@ export function Library() {
   }
 
   function handleNext() {
-    if (!playback || queue.length === 0) return;
+    if (!playback) return;
     const idx = queue.findIndex((t) => t.id === playback.trackId);
     if (idx !== -1 && idx + 1 < queue.length) {
       const t = queue[idx + 1];
       if (t) void handlePlayTrack(t);
+      return;
     }
+    // Queue exhausted (or never built) — fall back to the playing track's
+    // category. Weighted-shuffle the rest, set as new queue, play the head.
+    // Without this, the Next button silently no-ops whenever the user got
+    // here via a search row, Recently Played, or any other entry point
+    // that didn't seed a queue.
+    const current = tracks.find((t) => t.id === playback.trackId);
+    if (!current) return;
+    const pool = (tracksByCategory.get(current.category) ?? []).filter(
+      (t) => t.id !== current.id,
+    );
+    if (pool.length === 0) return;
+    const shuffled = weightedShuffle(pool);
+    if (shuffled.length === 0) return;
+    setQueue([current, ...shuffled]);
+    const first = shuffled[0];
+    if (first) void handlePlayTrack(first);
   }
 
   async function handleShuffleCategory() {
@@ -1174,6 +1212,32 @@ export function Library() {
           ? { ...rest, category, subcategory }
           : { ...rest, category };
       }),
+    );
+  }
+
+  /**
+   * Soft-delete: move a track into the "removed" pseudo-category.
+   * Persists + patches local state. If the track is currently playing
+   * it keeps playing — soft-delete only hides it from the library
+   * views, the file is untouched on disk.
+   */
+  async function handleRemoveTrack(track: Track) {
+    await handleSetTrackCategory(track.id, "removed", null);
+  }
+
+  /**
+   * Inverse of remove. Re-runs the auto-categorizer over the track's
+   * filename + pack folder so the track lands in its best-guess
+   * category, the same way it would on a fresh folder scan. The
+   * original pre-removal category isn't stored anywhere, so this is
+   * the closest reconstruction we can do without a new schema column.
+   */
+  async function handleRestoreTrack(track: Track) {
+    const result = categorize(track.title, track.pack);
+    await handleSetTrackCategory(
+      track.id,
+      result.category,
+      result.subcategory ?? null,
     );
   }
 
@@ -1596,8 +1660,13 @@ export function Library() {
           }}
           onSelectFavorites={() => setActiveView("favorites")}
           onSelectRecent={() => setActiveView("recent")}
+          onSelectRemoved={() => {
+            setActiveCategory("removed");
+            setActiveView("category");
+          }}
           favoritesCount={favoritesCount}
           recentCount={recentCount}
+          removedCount={removedCount}
           totalTrackCount={tracks.length}
           countByCategory={countByCategory}
           rootFolderName={rootFolderName}
@@ -1622,6 +1691,8 @@ export function Library() {
             onTrackContextMenu={(t, x, y) =>
               dmMode ? undefined : setPinMenu({ track: t, x, y })
             }
+            onRemoveTrack={(t) => void handleRemoveTrack(t)}
+            onRestoreTrack={(t) => void handleRestoreTrack(t)}
             isPseudoView={activeView !== "category"}
             dmMode={dmMode}
           />
