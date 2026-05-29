@@ -44,6 +44,7 @@ import { DesktopTransport } from "./layout/DesktopTransport.js";
 import type { Combatant } from "./layout/dm/InitiativeTracker.js";
 import type { RolledName } from "./layout/dm/NameGenerator.js";
 import type { EncounterTable } from "./layout/dm/EncounterTables.js";
+import type { CountdownTimer } from "./layout/dm/TensionCountdown.js";
 import type { RollResult } from "./lib/dm-dice.js";
 import { KeyboardHelpOverlay } from "./layout/KeyboardHelpOverlay.js";
 import { PinToSlotMenu } from "./layout/PinToSlotMenu.js";
@@ -170,6 +171,7 @@ export function Library() {
    *   - "pad" → soundboard pad assignment via handlePadAssign
    *   - "turnSound" → combatant turn-sound via handleCombatantsChange
    *   - "encounterEntry" → encounter-table entry track binding
+   *   - "timerStinger" → countdown-timer stinger binding
    */
   const [pickerOverlay, setPickerOverlay] = useState<
     | { x: number; y: number; target: { kind: "pad"; page: "A" | "B" | "C"; slot: number } }
@@ -179,6 +181,7 @@ export function Library() {
         y: number;
         target: { kind: "encounterEntry"; tableId: string; entryId: string };
       }
+    | { x: number; y: number; target: { kind: "timerStinger"; timerId: string } }
     | null
   >(null);
   const [theme, setTheme] = useState<ThemeId>(DEFAULT_THEME);
@@ -187,6 +190,7 @@ export function Library() {
   const [rollHistory, setRollHistory] = useState<RollResult[]>([]);
   const [combatants, setCombatants] = useState<Combatant[]>([]);
   const [encounterTables, setEncounterTables] = useState<EncounterTable[]>([]);
+  const [countdownTimers, setCountdownTimers] = useState<CountdownTimer[]>([]);
   const [currentTurnIdx, setCurrentTurnIdx] = useState(0);
 
   // ── Derived ─────────────────────────────────────────────────────────────
@@ -379,6 +383,14 @@ export function Library() {
         if (encRaw) {
           try {
             setEncounterTables(JSON.parse(encRaw) as EncounterTable[]);
+          } catch {
+            /* swallow */
+          }
+        }
+        const timersRaw = await getConfig(db, "dm_countdown_timers");
+        if (timersRaw) {
+          try {
+            setCountdownTimers(JSON.parse(timersRaw) as CountdownTimer[]);
           } catch {
             /* swallow */
           }
@@ -1265,6 +1277,12 @@ export function Library() {
     await setConfig(db, "dm_encounter_tables", JSON.stringify(next));
   }
 
+  async function handleCountdownTimersChange(next: CountdownTimer[]) {
+    setCountdownTimers(next);
+    const db = await getDb();
+    await setConfig(db, "dm_countdown_timers", JSON.stringify(next));
+  }
+
   function handleTurnChange(newIdx: number) {
     setCurrentTurnIdx(newIdx);
     // Fire turn sound through soundboard bus (auto-ducks music).
@@ -1629,6 +1647,17 @@ export function Library() {
               if (t) void handlePlayTrack(t);
             }}
             onPlayCategory={(categoryId) => void handlePlayRandomFromCategory(categoryId)}
+            countdownTimers={countdownTimers}
+            onCountdownTimers={(next) => void handleCountdownTimersChange(next)}
+            onPickStinger={(timerId, x, y) =>
+              setPickerOverlay({ x, y, target: { kind: "timerStinger", timerId } })
+            }
+            onFireStinger={(trackId) => {
+              const t = tracks.find((tk) => tk.id === trackId);
+              // Reserved pseudo-pad slot (90) on the soundboard bus so the
+              // stinger auto-ducks the music, same mechanism as turn sounds.
+              if (t) void firePad("A", 90, t, { loop: false, volume: 0.95 });
+            }}
           />
         )}
 
@@ -1796,21 +1825,25 @@ export function Library() {
               ? `Pad ${pickerOverlay.target.page}·${pickerOverlay.target.slot}`
               : pickerOverlay.target.kind === "encounterEntry"
                 ? "Encounter track"
-                : "Turn sound"
+                : pickerOverlay.target.kind === "timerStinger"
+                  ? "Timer stinger"
+                  : "Turn sound"
           }
           subtitle={
             pickerOverlay.target.kind === "pad"
               ? "Pick a track to assign to this soundboard pad."
               : pickerOverlay.target.kind === "encounterEntry"
                 ? "Plays when this entry is rolled."
-                : (() => {
-                    const t = pickerOverlay.target;
-                    if (t.kind !== "turnSound") return "";
-                    const target = combatants.find((c) => c.id === t.combatantId);
-                    return target
-                      ? `Fires automatically when it's ${target.name}'s turn.`
-                      : "Fires automatically on this combatant's turn.";
-                  })()
+                : pickerOverlay.target.kind === "timerStinger"
+                  ? "Fires when this timer hits zero (ducks the music)."
+                  : (() => {
+                      const t = pickerOverlay.target;
+                      if (t.kind !== "turnSound") return "";
+                      const target = combatants.find((c) => c.id === t.combatantId);
+                      return target
+                        ? `Fires automatically when it's ${target.name}'s turn.`
+                        : "Fires automatically on this combatant's turn.";
+                    })()
           }
           onPick={(track) => {
             const target = pickerOverlay.target;
@@ -1839,6 +1872,12 @@ export function Library() {
               );
               void handleEncounterTablesChange(next);
               setScanStatus(`Bound "${track.title}" to an encounter entry.`);
+            } else if (target.kind === "timerStinger") {
+              const next = countdownTimers.map((tm) =>
+                tm.id === target.timerId ? { ...tm, stingerTrackId: track.id } : tm,
+              );
+              void handleCountdownTimersChange(next);
+              setScanStatus(`Set "${track.title}" as a timer stinger.`);
             } else {
               const next = combatants.map((c) =>
                 c.id === target.combatantId

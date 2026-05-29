@@ -12,9 +12,9 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile background
 
 ---
 
-## [0.0.25] — 2026‑05‑24 — DM Toolkit: random encounter tables
+## [0.0.25] — 2026‑05‑24 — DM Toolkit: encounter tables + tension countdown
 
-The first of the GM-tool additions from `IDEAS.md`. A fourth DM Toolkit tab — **Encounters** — lets a GM build roll tables where each row can be wired to a track or a category, so rolling an encounter also drops the right music.
+The first two GM-tool additions from `IDEAS.md`, shipped together. A fourth DM Toolkit tab — **Encounters** — lets a GM build roll tables where each row can be wired to a track or a category, so rolling an encounter also drops the right music. A fifth tab — **Timers** — runs tension countdowns that fire a stinger (and duck the music) at zero.
 
 > Numbering note: this is a desktop release (bumps the three desktop version files 0.0.22 → 0.0.25, the natural step after desktop PRs #24 → 0.0.23 and #25 → 0.0.24). The unified CHANGELOG slot `0.0.25` is also used by mobile PR #26 — whichever merges second renumbers to `0.0.26`.
 
@@ -25,17 +25,26 @@ The first of the GM-tool additions from `IDEAS.md`. A fourth DM Toolkit tab — 
 - Each entry can bind **one** audio source: a **category** (via inline `<select>` — rolling weighted-shuffles it) or a **specific track** (via the existing `TrackPickerOverlay` — rolling plays it once). Binding is exclusive; picking one clears the other. A "clear" control removes the binding.
 - **Roll** picks a random entry among the non-empty rows, highlights it, shows a result banner, and fires the bound audio through the same engine paths the rest of the app uses (`handlePlayTrack` for a track, `handlePlayRandomFromCategory` for a category).
 
+### Added — Tension countdown tab
+
+- New `apps/desktop/src/layout/dm/TensionCountdown.tsx` panel, registered as the `timers` tool (clock glyph).
+- Multiple independent named timers — "ritual completes in 5m", "reinforcements in 3m". Each has a big MM:SS clock with Start/Pause, Reset, and +30s, plus duration presets (1m / 3m / 5m / 10m).
+- Each timer can bind a **stinger** track. At zero the timer flashes red and fires the stinger on the soundboard bus (auto-ducking the music), reusing the same `firePad` pseudo-slot mechanism as Initiative turn sounds.
+- A single 1Hz interval drives all running timers, mounted only while at least one runs; the tick reads timers / runtime / callback through refs so it never closes over stale values.
+- Timer *configs* (name, duration, stinger) persist under `dm_countdown_timers`; the running state (remaining, ticking) is component-local and resets on reload — a countdown shouldn't resume mid-flight after a restart.
+
 ### Internal
 
-- `TrackPickerOverlay` gains a third target kind, `encounterEntry` (alongside `pad` and `turnSound`), routed in `Library.tsx` to bind a track to a table entry.
-- Tables persist to SQLite config under `dm_encounter_tables` (JSON), loaded on init — same pattern as `dm_combatants` / `dm_name_history` / `dm_roll_history`.
+- `TrackPickerOverlay` gains two new target kinds, `encounterEntry` and `timerStinger` (alongside `pad` and `turnSound`), routed in `Library.tsx` to bind a track to a table entry / a timer's stinger.
+- DM-tool state persists to SQLite config under `dm_encounter_tables` and `dm_countdown_timers` (JSON), loaded on init — same pattern as `dm_combatants` / `dm_name_history` / `dm_roll_history`.
 - Desktop version 0.0.22 → 0.0.25.
 
 ### Verification
 
 - `pnpm -r typecheck` — clean across all 5 projects.
 - `pnpm -r test` — 169/169 vitest cases still pass.
-- Manual: DM Tools → Encounters → add a table, add entries, bind one to a category and one to a specific track, hit Roll. The rolled entry highlights and its bound audio starts; rolling an unbound entry just shows the result with no audio.
+- Manual (encounters): DM Tools → Encounters → add a table, add entries, bind one to a category and one to a specific track, hit Roll. The rolled entry highlights and its bound audio starts; an unbound entry just shows the result.
+- Manual (timers): DM Tools → Timers → add a timer, pick a preset, bind a stinger, Start. At zero the clock flashes and the stinger fires while the music ducks. +30s extends a running clock; Reset returns to the full duration.
 
 ---
 

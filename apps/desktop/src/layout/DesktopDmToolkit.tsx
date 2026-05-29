@@ -10,12 +10,14 @@ import { DiceRoller } from "./dm/DiceRoller.js";
 import { NameGenerator } from "./dm/NameGenerator.js";
 import { InitiativeTracker } from "./dm/InitiativeTracker.js";
 import { EncounterTables } from "./dm/EncounterTables.js";
+import { TensionCountdown } from "./dm/TensionCountdown.js";
 import type { Combatant } from "./dm/InitiativeTracker.js";
 import type { RolledName } from "./dm/NameGenerator.js";
 import type { EncounterTable } from "./dm/EncounterTables.js";
+import type { CountdownTimer } from "./dm/TensionCountdown.js";
 import type { RollResult } from "../lib/dm-dice.js";
 
-type DmTool = "initiative" | "names" | "dice" | "encounters";
+type DmTool = "initiative" | "names" | "dice" | "encounters" | "timers";
 
 export type DesktopDmToolkitProps = {
   nameHistory: RolledName[];
@@ -37,6 +39,12 @@ export type DesktopDmToolkitProps = {
   onPlayTrack: (trackId: string) => void;
   /** Fire a bound category (weighted shuffle) from a rolled encounter entry. */
   onPlayCategory: (categoryId: CategoryId) => void;
+  countdownTimers: CountdownTimer[];
+  onCountdownTimers: (next: CountdownTimer[]) => void;
+  /** Open the track-picker to bind a stinger to a countdown timer. */
+  onPickStinger: (timerId: string, x: number, y: number) => void;
+  /** Fire a timer's stinger (soundboard bus, ducks music) at zero. */
+  onFireStinger: (trackId: string) => void;
 };
 
 const TOOLS: Array<{ id: DmTool; label: string; glyph: string; eyebrow: string }> = [
@@ -44,6 +52,7 @@ const TOOLS: Array<{ id: DmTool; label: string; glyph: string; eyebrow: string }
   { id: "names", label: "Names", glyph: "mask", eyebrow: "NPCs" },
   { id: "dice", label: "Dice", glyph: "dice", eyebrow: "Roller" },
   { id: "encounters", label: "Encounters", glyph: "compass", eyebrow: "Random tables" },
+  { id: "timers", label: "Timers", glyph: "clock", eyebrow: "Countdown" },
 ];
 
 export function DesktopDmToolkit({
@@ -62,6 +71,10 @@ export function DesktopDmToolkit({
   onPickEntryTrack,
   onPlayTrack,
   onPlayCategory,
+  countdownTimers,
+  onCountdownTimers,
+  onPickStinger,
+  onFireStinger,
 }: DesktopDmToolkitProps) {
   // Default to Initiative — most useful at-the-table, and the dynamic
   // counter ("· 2 in combat") changes most often, so the tab badge
@@ -169,7 +182,7 @@ export function DesktopDmToolkit({
           <NameGenerator history={nameHistory} onHistory={onNameHistory} />
         ) : tool === "dice" ? (
           <DiceRoller history={rollHistory} onHistory={onRollHistory} />
-        ) : (
+        ) : tool === "encounters" ? (
           <EncounterTables
             tables={encounterTables}
             onTables={onEncounterTables}
@@ -177,6 +190,14 @@ export function DesktopDmToolkit({
             onPickEntryTrack={onPickEntryTrack}
             onPlayTrack={onPlayTrack}
             onPlayCategory={onPlayCategory}
+          />
+        ) : (
+          <TensionCountdown
+            timers={countdownTimers}
+            onTimers={onCountdownTimers}
+            tracksById={tracksById}
+            onPickStinger={onPickStinger}
+            onFireStinger={onFireStinger}
           />
         )}
       </div>
