@@ -142,6 +142,7 @@ export function DesktopDmToolkit({
       <div
         style={{
           display: "flex",
+          flexWrap: "wrap",
           gap: 4,
           padding: "12px 24px 4px",
         }}
