@@ -39,6 +39,11 @@ A way to hide bad / unwanted tracks from the library without deleting them from 
 
 - Both pseudo-views now filter `category !== "removed"` before grade / play-time bucketing. A soft-deleted track no longer keeps showing up in Favorites just because the user S-graded it earlier.
 
+### Fixed — Track-row subtitle no longer wraps/overlaps the title
+
+- The new 36px action column narrowed the `1fr` title cell enough that the "Last played …" subtitle (which had no wrap control) broke a word per line and the vertical stack collided with the title above it. The subtitle now gets the same `nowrap` + `overflow: hidden` + `textOverflow: ellipsis` treatment as the title and pack cells.
+- Polished further: the subtitle is now time-first (`2h ago` instead of `Last played 2h ago`) so the part that matters survives truncation at narrow widths; the full "Last played …" label moved to a hover tooltip.
+
 ### Internal — Glyph additions
 
 - `trash` (lid + lined body + two vertical strokes) and `undo` (curved back-arrow) added to `glyph-data.ts`. Both follow the existing `currentColor`-stroked style and render identically on desktop + mobile glyph paths.

@@ -552,9 +552,24 @@ function DesktopTrackRow({
           {track.lastPlayedAt ? (
             <div
               className="mc-mono"
-              style={{ fontSize: 10, color: T.ink3, marginTop: 2 }}
+              title={`Last played ${relativePlayed(track.lastPlayedAt)}`}
+              style={{
+                fontSize: 10,
+                color: T.ink3,
+                marginTop: 2,
+                // Match the title row's truncation. Without these, the
+                // line wraps each word to its own row at narrow widths
+                // (e.g. when the new action column eats the title
+                // column) and collides visually with the title above.
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
             >
-              Last played {relativePlayed(track.lastPlayedAt)}
+              {/* Time-first (no "Last played" prefix) so the part that
+                  matters survives truncation at narrow widths; the full
+                  label lives in the title tooltip above. */}
+              {relativePlayed(track.lastPlayedAt)}
             </div>
           ) : null}
         </div>
