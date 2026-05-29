@@ -12,6 +12,41 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile background
 
 ---
 
+## [0.0.25] — 2026‑05‑24 — Mobile scenes + soundboard + Now Playing
+
+Mobile gets three of its biggest missing surfaces. The Scenes and Soundboard tabs were placeholder copy until now; both are real, and a tap on the mini-player expands to a full Now Playing screen.
+
+> Mobile-only release: bumps `apps/mobile/package.json` 0.0.9 → 0.0.10; desktop version files untouched.
+
+### Added — Soundboard tab
+
+- 3 pages (A/B/C) × 8 pads. Assign any library track to a pad, tap to fire, with per-pad volume and loop. New `apps/mobile/src/audio/soundboard-store.ts` tracks each active pad independently (one `AudioPlayer` per pad on the `soundboard` bus).
+- Persistence via new `apps/mobile/src/data/soundboard-repo.ts` + a `soundboard (page, slot, payload)` table (`schema.ts`). Slot config is a JSON payload keyed by `(page, slot)` with an `ON CONFLICT` upsert.
+- Non-looping pads auto-stop via the backend's `onEnded` callback (not a duration timer — mobile often hasn't probed `durationMs`, so a timer would either never fire or drift). Looping pads run until an explicit stop. The onEnded listener is detached on manual stop so it can't fire against a destroyed handle.
+
+### Added — Scenes tab
+
+- Save and restore complete mood snapshots — category, queue, soundboard page, fade, ducking, and per-category volumes — captured from the live player state. List / create / delete from the tab.
+- Persistence via new `apps/mobile/src/data/scenes-repo.ts` + a `scenes (id, payload)` table, sorted by `json_extract(payload, '$.createdAt')`. Parameterized queries, `ON CONFLICT` upsert, and `safeParse` guards on read.
+
+### Added — Now Playing screen
+
+- New full-screen `app/now-playing.tsx` (visualizer, transport, queue) opened by tapping the mini-player. Auto-dismisses back when nothing is playing. Registered as a route in `app/_layout.tsx`.
+- `MiniPlayer` is now tappable to expand. The route string is cast `as Href` until Expo regenerates `.expo/types/router.d.ts` on the next dev start (standard typed-routes dance for a brand-new route file).
+
+### Internal
+
+- Mobile data layer stores scenes / soundboard slots as JSON `payload` blobs rather than the structured columns the desktop uses. Pragmatic for the expo-sqlite adapter; worth keeping in mind for sync-blob format parity down the line.
+- Mobile package bumped 0.0.9 → 0.0.10.
+
+### Verification
+
+- `pnpm -r typecheck` — clean across all 5 projects.
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual (needs a device / simulator): `pnpm --filter @mc/mobile start`. Soundboard tab → assign a track to a pad, tap to play, toggle loop, adjust volume, stop. Scenes tab → start playback, save a scene, restore it. Tap the mini-player → Now Playing expands; controls + queue work; dismiss returns to the previous tab.
+
+---
+
 ## [0.0.24] — 2026‑05‑24 — Removed-category soft delete · GM tool ideas log
 
 A way to hide bad / unwanted tracks from the library without deleting them from disk, plus a brainstorm doc capturing where the DM Toolkit could go next.

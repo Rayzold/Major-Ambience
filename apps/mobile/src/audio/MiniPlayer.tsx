@@ -1,14 +1,16 @@
 // Mini-player surfaced above the tab bar on every screen. Shows the
 // currently playing track (chip color + title + pack), play/pause, and
-// skip. Hidden when nothing is loaded.
+// skip. Hidden when nothing is loaded. Tap to expand to full Now Playing.
 
 import { Pressable, Text, View } from "react-native";
+import { useRouter, type Href } from "expo-router";
 import { CATEGORIES } from "@mc/ui/categories";
 import { T } from "../tokens";
 import { Glyph } from "../Glyph";
 import { skipNext, stop, togglePlay, usePlayer } from "./store";
 
 export function MiniPlayer() {
+  const router = useRouter();
   const { nowPlaying, playing, positionSec, durationSec, queue } = usePlayer();
   if (!nowPlaying) return null;
 
@@ -47,35 +49,50 @@ export function MiniPlayer() {
       </View>
 
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-        <View
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 8,
-            backgroundColor: `${color}22`,
-            borderWidth: 1,
-            borderColor: `${color}55`,
+        {/* Tappable track info area - expands to Now Playing */}
+        <Pressable
+          // `now-playing` is a new route — cast to Href until Expo
+          // regenerates .expo/types/router.d.ts on the next dev start.
+          onPress={() => router.push("/now-playing" as Href)}
+          style={({ pressed }) => ({
+            flexDirection: "row",
             alignItems: "center",
-            justifyContent: "center",
-          }}
+            gap: 10,
+            flex: 1,
+            minWidth: 0,
+            opacity: pressed ? 0.7 : 1,
+          })}
         >
-          <Glyph name={meta?.glyph ?? "spark"} size={18} color={color} />
-        </View>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text
-            numberOfLines={1}
-            style={{ color: T.ink, fontSize: 13, fontWeight: "600" }}
+          <View
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 8,
+              backgroundColor: `${color}22`,
+              borderWidth: 1,
+              borderColor: `${color}55`,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
           >
-            {nowPlaying.title}
-          </Text>
-          <Text
-            numberOfLines={1}
-            style={{ color: T.ink3, fontSize: 11, marginTop: 1 }}
-          >
-            {nowPlaying.pack || "—"}
-            {queue.length > 0 ? `  · ${queue.length} up next` : ""}
-          </Text>
-        </View>
+            <Glyph name={meta?.glyph ?? "spark"} size={18} color={color} />
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text
+              numberOfLines={1}
+              style={{ color: T.ink, fontSize: 13, fontWeight: "600" }}
+            >
+              {nowPlaying.title}
+            </Text>
+            <Text
+              numberOfLines={1}
+              style={{ color: T.ink3, fontSize: 11, marginTop: 1 }}
+            >
+              {nowPlaying.pack || "—"}
+              {queue.length > 0 ? `  · ${queue.length} up next` : ""}
+            </Text>
+          </View>
+        </Pressable>
         <IconButton glyph={playing ? "pause" : "play"} onPress={togglePlay} tint={color} />
         <IconButton
           glyph="next"
