@@ -132,6 +132,12 @@ export const GLYPHS: Record<string, GlyphDef> = {
   ],
   plus: [sp("M12 5v14 M5 12h14")],
   close: [sp("M6 6l12 12 M18 6L6 18")],
+  trash: [
+    sp("M3 6h18 M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14 M10 11v6 M14 11v6"),
+  ],
+  undo: [
+    sp("M9 14l-5-5 5-5 M4 9h10a6 6 0 0 1 0 12h-4"),
+  ],
   pin: [sp("M9 3l6 6-2 1 3 5-9 1-1-9 5 3 1-2z M9 14l-5 6")],
   note: [
     sp("M5 4h10l4 4v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z M15 4v4h4 M8 12h7 M8 16h7"),

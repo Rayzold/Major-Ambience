@@ -12,6 +12,50 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile background
 
 ---
 
+## [0.0.24] — 2026‑05‑24 — Removed-category soft delete · GM tool ideas log
+
+A way to hide bad / unwanted tracks from the library without deleting them from disk, plus a brainstorm doc capturing where the DM Toolkit could go next.
+
+### Added — `IDEAS.md`
+
+- Living brainstorm of future GM-tool additions, grouped by integration depth. Audio-integrated tools (random encounter table, tension countdown, mood deck, reaction roll) are flagged as the highest-value next moves because they reuse the track index and playback engine. Standalone tables and session utilities listed below as cheaper follow-ups.
+
+### Added — `removed` pseudo-category
+
+- New `"removed"` value on the `CategoryId` union. Lives outside the visible `CATEGORIES` array so it doesn't leak into the sidebar's Categories section, the Scene editor, the Pin-to-slot menu, or letter/number hotkeys — every iteration site only sees the real ten categories.
+- `findCategory()` resolves it via a separate `REMOVED_CATEGORY` meta so track-row rendering, the library hero, and the new sidebar entry all find a gray-tinted icon + colour without polluting the canonical category list.
+
+### Added — Trash icon on every track row
+
+- Hover any track row in the Library view — a `trash` glyph appears in a new 36px action column at the right edge (revealed by a new `.mc-row-action` CSS class with `opacity` transitioning from 0 → 0.7 on row hover → 1 on icon hover). Click sends the track to the Removed category instantly; no confirmation, the operation is fully reversible.
+- Implemented as a `<span role="button">` inside the row's `<button>` (nested `<button>`s would be invalid HTML); `e.stopPropagation()` on click + keyboard activation so the row's play handler never fires for this control.
+- In the Removed view itself, the same column shows an `undo` glyph instead. Clicking it re-runs `categorize(track.title, track.pack)` — the same auto-classifier the folder scan uses — and routes the track back to its best-guess category. The original pre-removal category isn't stored anywhere, so this is the closest reconstruction we can do without a new schema column.
+
+### Added — `Removed` sidebar row
+
+- New entry in the sidebar's Library section, between **Recently played** and the Categories list. Trash glyph + neutral gray tint so it doesn't pull the eye like Favorites does. Count badge shows the number of removed tracks; clicking jumps to the standard category-view code path with `activeCategory = "removed"`.
+
+### Changed — Favorites and Recently played exclude removed tracks
+
+- Both pseudo-views now filter `category !== "removed"` before grade / play-time bucketing. A soft-deleted track no longer keeps showing up in Favorites just because the user S-graded it earlier.
+
+### Fixed — Track-row subtitle no longer wraps/overlaps the title
+
+- The new 36px action column narrowed the `1fr` title cell enough that the "Last played …" subtitle (which had no wrap control) broke a word per line and the vertical stack collided with the title above it. The subtitle now gets the same `nowrap` + `overflow: hidden` + `textOverflow: ellipsis` treatment as the title and pack cells.
+- Polished further: the subtitle is now time-first (`2h ago` instead of `Last played 2h ago`) so the part that matters survives truncation at narrow widths; the full "Last played …" label moved to a hover tooltip.
+
+### Internal — Glyph additions
+
+- `trash` (lid + lined body + two vertical strokes) and `undo` (curved back-arrow) added to `glyph-data.ts`. Both follow the existing `currentColor`-stroked style and render identically on desktop + mobile glyph paths.
+
+### Verification
+
+- `pnpm -r typecheck` — clean across all 5 projects.
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual: hover any library row, click the trash icon → row disappears from the current view, Removed sidebar count ticks up. Click Removed → see the row with the undo icon. Click undo → row re-categorizes and disappears from Removed. Favorites / Recently played do not list removed tracks. Search still finds them (intentional, so a recently-removed track can be located and restored from anywhere).
+
+---
+
 ## [0.0.23] — 2026‑05‑24 — Name-generator gender · Next-button fallback
 
 Two small DM-side fixes. The name generator now respects a male/female pick, and the transport's Next button no longer silently no-ops when the queue is empty.
@@ -578,42 +622,25 @@ First Phase 2 milestone. Three locked DESIGN.md features that round out the desk
 
 ### Added — DM Mode (`DESIGN.md § 6.2`)
 
-<<<<<<< HEAD
-- Single toggle on the theatre icon in the header. Red "DM MODE" pill next to the logo with a soft red glow when on.
-- Hides editing affordances that would either distract at the table or reveal private GM judgment: grade chips (track rows, transport, right rail), play counts, right-click pin menu + drag-to-assign, Save current scene, scene delete chip, per-pad clear/loop/volume controls, settings icon, Open Folder, DM Toolkit.
-- Keeps player-facing affordances visible: category sidebar, track list, search, scenes/soundboard tabs, fade/duck/volume sliders, prev/play/next, scrubber, orb visualizer.
-- Persisted as `dm_mode` in `config`.
-=======
 - Single toggle on the theatre icon in the header. Red "DM MODE" pill appears next to the logo with a soft red glow when on.
 - Hides editing affordances that would either distract at the table or reveal private GM judgment: grade chips (track rows, transport, right rail), play counts, right-click pin menu + drag-to-assign, Save current scene, scene delete chip, per-pad clear/loop/volume controls, settings icon, Open Folder, DM Toolkit.
 - Keeps every player-facing affordance visible: category sidebar, track list, search, scenes/soundboard tabs, fade/duck/volume sliders, prev/play/next, scrubber, orb visualizer.
 - Persisted as `dm_mode` in `config`; reopening any popovers is blocked while DM Mode is on.
->>>>>>> 5df683c (feat(mobile): scaffold apps/mobile + workspace integration + UI shell)
 
 ### Added — DM Toolkit (`DESIGN.md § 6.3`)
 
 - Fourth header tab + entry from the dice icon in the right cluster.
-<<<<<<< HEAD
-- Three-column desktop layout: **Names** (race-aware NPC generator), **Dice** (d4–d100 with adv/dis on d20, nat-20/nat-1 highlighting), **Initiative** (add combatants with init + condition, sort descending, prev/next cycle).
-- **Turn sounds** — drag a track onto a combatant *or* right-click any track in the Library and pick a combatant from a new "Set as turn sound" section. On turn advance, the active combatant's turn sound fires through the soundboard bus — auto-ducks the music exactly like a regular pad.
-=======
 - Three-column desktop layout:
   - **Names** — race-aware NPC generator across Any / Human / Elf / Dwarf / Orc / Halfling. Click name to copy. Last 30 in scrollable history.
   - **Dice** — d4 through d100 with count + modifier + advantage / disadvantage on d20. Each history row shows the formula, individual die faces (kept ones plain, discarded parenthesized), total in big tabular numerals. Nat 20 green, nat 1 red.
   - **Initiative** — add combatants with init + condition, sort descending, prev / next buttons cycle the active turn. Active row tinted gold with a left-edge stripe.
 - **Turn sounds** — drag a track row from the Library onto a combatant *or* right-click any track in the Library and pick a combatant from the new "Set as turn sound" section. On turn advance, the active combatant's turn sound fires through the **soundboard bus** — auto-ducks the music exactly like a regular pad.
->>>>>>> 5df683c (feat(mobile): scaffold apps/mobile + workspace integration + UI shell)
 - All three histories + the combatant roster persisted in the `config` table.
 
 ### Changed
 
-<<<<<<< HEAD
-- Right-click pin menu grew a "Set as turn sound" section below the soundboard grid.
-- Hardcoded `rgba(11,9,19,0.x)` translucent backgrounds replaced with theme-aware `T.chromeBg` / `T.popoverBg` / `T.modalBackdrop` references.
-=======
 - Right-click pin menu grew a "Set as turn sound" section below the soundboard grid. Avoids the cross-tab drag-and-drop awkwardness when the Library and DM Tools tabs are mutually exclusive.
 - Hardcoded `rgba(11,9,19,0.x)` translucent backgrounds throughout the layout replaced with theme-aware `T.chromeBg` / `T.popoverBg` / `T.modalBackdrop` references.
->>>>>>> 5df683c (feat(mobile): scaffold apps/mobile + workspace integration + UI shell)
 
 ---
 

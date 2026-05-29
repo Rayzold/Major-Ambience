@@ -96,6 +96,10 @@ function buildCss(): string {
     .mc-scroll::-webkit-scrollbar { display: none; }
     .mc-row-tap { transition: background 0.12s; }
     .mc-row-tap:active { background: var(--mc-bgChip); }
+    .mc-row-action { opacity: 0; transition: opacity 0.12s, color 0.12s, background 0.12s; }
+    .mc-row-tap:hover .mc-row-action,
+    .mc-row-tap:focus-within .mc-row-action { opacity: 0.7; }
+    .mc-row-action:hover { opacity: 1 !important; color: var(--mc-ink); background: var(--mc-bgChip); }
     @keyframes mc-bar {
       0%,100% { transform: scaleY(0.25); }
       50%     { transform: scaleY(1); }

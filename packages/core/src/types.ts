@@ -12,7 +12,8 @@ export type CategoryId =
   | "rest"
   | "voices"
   | "sfx"
-  | "scifi";
+  | "scifi"
+  | "removed";
 
 export type CombatSubcategory = "battle" | "boss" | "skirmish";
 
