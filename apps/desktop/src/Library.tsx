@@ -956,12 +956,29 @@ export function Library() {
   }
 
   function handleNext() {
-    if (!playback || queue.length === 0) return;
+    if (!playback) return;
     const idx = queue.findIndex((t) => t.id === playback.trackId);
     if (idx !== -1 && idx + 1 < queue.length) {
       const t = queue[idx + 1];
       if (t) void handlePlayTrack(t);
+      return;
     }
+    // Queue exhausted (or never built) — fall back to the playing track's
+    // category. Weighted-shuffle the rest, set as new queue, play the head.
+    // Without this, the Next button silently no-ops whenever the user got
+    // here via a search row, Recently Played, or any other entry point
+    // that didn't seed a queue.
+    const current = tracks.find((t) => t.id === playback.trackId);
+    if (!current) return;
+    const pool = (tracksByCategory.get(current.category) ?? []).filter(
+      (t) => t.id !== current.id,
+    );
+    if (pool.length === 0) return;
+    const shuffled = weightedShuffle(pool);
+    if (shuffled.length === 0) return;
+    setQueue([current, ...shuffled]);
+    const first = shuffled[0];
+    if (first) void handlePlayTrack(first);
   }
 
   async function handleShuffleCategory() {

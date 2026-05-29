@@ -56,6 +56,30 @@ A way to hide bad / unwanted tracks from the library without deleting them from 
 
 ---
 
+## [0.0.23] — 2026‑05‑24 — Name-generator gender · Next-button fallback
+
+Two small DM-side fixes. The name generator now respects a male/female pick, and the transport's Next button no longer silently no-ops when the queue is empty.
+
+### Added — Gender toggle in the name generator
+
+- `apps/desktop/src/lib/dm-names.ts` splits each race's first-name list into `firstMale` / `firstFemale`. Last names stay shared. The Race/Gender data still drives `rollName` and `rollNameAvoiding`, now both accept a `Gender` argument (`"any" | "male" | "female"`); `"any"` flips a coin per roll.
+- New `GENDER_OPTIONS` pill set rendered above the race pills in `NameGenerator.tsx` with the same active-state styling. State is panel-local — no persistence, matches how the Race pill works.
+- `RolledName` carries an optional `gender` field so freshly rolled history items remember what gender bucket they came from. Old persisted history without the field still loads (field is optional).
+
+### Fixed — Next button falls back to the playing track's category
+
+- `handleNext` in `Library.tsx` no longer bails on `queue.length === 0`. When the queue is empty or you're already on the last item, it now looks up the playing track's category, weighted-shuffles the rest of that category (excluding the current track), sets the result as the new queue, and plays the head.
+- This was a silent no-op whenever the user reached a playing track via a path that didn't seed a queue: a Search result, a Recently-Played row, or any one-shot play. The previous behavior was indistinguishable from a broken button.
+- Reuses the same `weightedShuffle` semantics the Shuffle button and letter hotkeys already use — S=6×, A=4×, B=2×, C/D/Ungraded=1×, F excluded.
+
+### Verification
+
+- `pnpm -r typecheck` — clean across all 5 projects.
+- Manual (name gender): open the DM Tools tab → Names panel. Pick a race + gender combination, hit Roll name; first names should be drawn from the matching gendered list. "Any" gender randomly picks between the two per roll.
+- Manual (Next fallback): play a track from Search or Recently Played (queue stays at 0). Press the Next button — a new queue from the same category should appear and the next track plays.
+
+---
+
 ## [0.0.20] — 2026‑05‑24 — Mobile audio engine (first cut)
 
 The mobile app finally plays sound. Library and Search are wired through a brand-new `ExpoAudioBackend` so an imported track is one tap away from the speaker.
@@ -598,42 +622,25 @@ First Phase 2 milestone. Three locked DESIGN.md features that round out the desk
 
 ### Added — DM Mode (`DESIGN.md § 6.2`)
 
-<<<<<<< HEAD
-- Single toggle on the theatre icon in the header. Red "DM MODE" pill next to the logo with a soft red glow when on.
-- Hides editing affordances that would either distract at the table or reveal private GM judgment: grade chips (track rows, transport, right rail), play counts, right-click pin menu + drag-to-assign, Save current scene, scene delete chip, per-pad clear/loop/volume controls, settings icon, Open Folder, DM Toolkit.
-- Keeps player-facing affordances visible: category sidebar, track list, search, scenes/soundboard tabs, fade/duck/volume sliders, prev/play/next, scrubber, orb visualizer.
-- Persisted as `dm_mode` in `config`.
-=======
 - Single toggle on the theatre icon in the header. Red "DM MODE" pill appears next to the logo with a soft red glow when on.
 - Hides editing affordances that would either distract at the table or reveal private GM judgment: grade chips (track rows, transport, right rail), play counts, right-click pin menu + drag-to-assign, Save current scene, scene delete chip, per-pad clear/loop/volume controls, settings icon, Open Folder, DM Toolkit.
 - Keeps every player-facing affordance visible: category sidebar, track list, search, scenes/soundboard tabs, fade/duck/volume sliders, prev/play/next, scrubber, orb visualizer.
 - Persisted as `dm_mode` in `config`; reopening any popovers is blocked while DM Mode is on.
->>>>>>> 5df683c (feat(mobile): scaffold apps/mobile + workspace integration + UI shell)
 
 ### Added — DM Toolkit (`DESIGN.md § 6.3`)
 
 - Fourth header tab + entry from the dice icon in the right cluster.
-<<<<<<< HEAD
-- Three-column desktop layout: **Names** (race-aware NPC generator), **Dice** (d4–d100 with adv/dis on d20, nat-20/nat-1 highlighting), **Initiative** (add combatants with init + condition, sort descending, prev/next cycle).
-- **Turn sounds** — drag a track onto a combatant *or* right-click any track in the Library and pick a combatant from a new "Set as turn sound" section. On turn advance, the active combatant's turn sound fires through the soundboard bus — auto-ducks the music exactly like a regular pad.
-=======
 - Three-column desktop layout:
   - **Names** — race-aware NPC generator across Any / Human / Elf / Dwarf / Orc / Halfling. Click name to copy. Last 30 in scrollable history.
   - **Dice** — d4 through d100 with count + modifier + advantage / disadvantage on d20. Each history row shows the formula, individual die faces (kept ones plain, discarded parenthesized), total in big tabular numerals. Nat 20 green, nat 1 red.
   - **Initiative** — add combatants with init + condition, sort descending, prev / next buttons cycle the active turn. Active row tinted gold with a left-edge stripe.
 - **Turn sounds** — drag a track row from the Library onto a combatant *or* right-click any track in the Library and pick a combatant from the new "Set as turn sound" section. On turn advance, the active combatant's turn sound fires through the **soundboard bus** — auto-ducks the music exactly like a regular pad.
->>>>>>> 5df683c (feat(mobile): scaffold apps/mobile + workspace integration + UI shell)
 - All three histories + the combatant roster persisted in the `config` table.
 
 ### Changed
 
-<<<<<<< HEAD
-- Right-click pin menu grew a "Set as turn sound" section below the soundboard grid.
-- Hardcoded `rgba(11,9,19,0.x)` translucent backgrounds replaced with theme-aware `T.chromeBg` / `T.popoverBg` / `T.modalBackdrop` references.
-=======
 - Right-click pin menu grew a "Set as turn sound" section below the soundboard grid. Avoids the cross-tab drag-and-drop awkwardness when the Library and DM Tools tabs are mutually exclusive.
 - Hardcoded `rgba(11,9,19,0.x)` translucent backgrounds throughout the layout replaced with theme-aware `T.chromeBg` / `T.popoverBg` / `T.modalBackdrop` references.
->>>>>>> 5df683c (feat(mobile): scaffold apps/mobile + workspace integration + UI shell)
 
 ---
 

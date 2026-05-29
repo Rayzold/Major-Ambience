@@ -2,12 +2,19 @@
 
 import { useMemo, useState } from "react";
 import { Glyph, T } from "@mc/ui";
-import { rollNameAvoiding, RACE_OPTIONS, type Race } from "../../lib/dm-names.js";
+import {
+  rollNameAvoiding,
+  RACE_OPTIONS,
+  GENDER_OPTIONS,
+  type Race,
+  type Gender,
+} from "../../lib/dm-names.js";
 
 export type RolledName = {
   first: string;
   last: string;
   race: Exclude<Race, "any">;
+  gender?: Exclude<Gender, "any">;
   rolledAt: number;
 };
 
@@ -27,6 +34,7 @@ const RACE_GLYPH: Record<Exclude<Race, "any">, string> = {
 
 export function NameGenerator({ history, onHistory }: NameGeneratorProps) {
   const [race, setRace] = useState<Race>("any");
+  const [gender, setGender] = useState<Gender>("any");
 
   // Anti-repeat set — every full name we've already rolled this session
   // is off-limits for the next roll. Caps practical "variety" at
@@ -41,7 +49,7 @@ export function NameGenerator({ history, onHistory }: NameGeneratorProps) {
   );
 
   function handleRoll() {
-    const next = rollNameAvoiding(race, recentSet);
+    const next = rollNameAvoiding(race, gender, recentSet);
     const rolled: RolledName = { ...next, rolledAt: Date.now() };
     onHistory([rolled, ...history].slice(0, HISTORY_LIMIT));
   }
@@ -79,33 +87,58 @@ export function NameGenerator({ history, onHistory }: NameGeneratorProps) {
       <div
         style={{
           display: "flex",
-          flexWrap: "wrap",
-          gap: 6,
+          flexDirection: "column",
+          gap: 8,
           padding: "10px 14px 14px",
           borderBottom: `1px solid ${T.rule}`,
         }}
       >
-        {RACE_OPTIONS.map((opt) => {
-          const active = opt.id === race;
-          return (
-            <button
-              key={opt.id}
-              onClick={() => setRace(opt.id)}
-              style={{
-                padding: "5px 10px",
-                borderRadius: 999,
-                background: active ? T.goldSoft : T.bgChip,
-                color: active ? T.gold : T.ink2,
-                border: `1px solid ${active ? T.goldEdge : T.rule}`,
-                fontSize: 11,
-                fontWeight: 500,
-                cursor: "pointer",
-              }}
-            >
-              {opt.label}
-            </button>
-          );
-        })}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {GENDER_OPTIONS.map((opt) => {
+            const active = opt.id === gender;
+            return (
+              <button
+                key={opt.id}
+                onClick={() => setGender(opt.id)}
+                style={{
+                  padding: "5px 10px",
+                  borderRadius: 999,
+                  background: active ? T.goldSoft : T.bgChip,
+                  color: active ? T.gold : T.ink2,
+                  border: `1px solid ${active ? T.goldEdge : T.rule}`,
+                  fontSize: 11,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                }}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {RACE_OPTIONS.map((opt) => {
+            const active = opt.id === race;
+            return (
+              <button
+                key={opt.id}
+                onClick={() => setRace(opt.id)}
+                style={{
+                  padding: "5px 10px",
+                  borderRadius: 999,
+                  background: active ? T.goldSoft : T.bgChip,
+                  color: active ? T.gold : T.ink2,
+                  border: `1px solid ${active ? T.goldEdge : T.rule}`,
+                  fontSize: 11,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                }}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {history.length === 0 ? (
