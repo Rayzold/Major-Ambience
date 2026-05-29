@@ -11,13 +11,14 @@ import { NameGenerator } from "./dm/NameGenerator.js";
 import { InitiativeTracker } from "./dm/InitiativeTracker.js";
 import { EncounterTables } from "./dm/EncounterTables.js";
 import { TensionCountdown } from "./dm/TensionCountdown.js";
+import { Generators } from "./dm/Generators.js";
 import type { Combatant } from "./dm/InitiativeTracker.js";
 import type { RolledName } from "./dm/NameGenerator.js";
 import type { EncounterTable } from "./dm/EncounterTables.js";
 import type { CountdownTimer } from "./dm/TensionCountdown.js";
 import type { RollResult } from "../lib/dm-dice.js";
 
-type DmTool = "initiative" | "names" | "dice" | "encounters" | "timers";
+type DmTool = "initiative" | "names" | "dice" | "encounters" | "timers" | "generators";
 
 export type DesktopDmToolkitProps = {
   nameHistory: RolledName[];
@@ -53,6 +54,7 @@ const TOOLS: Array<{ id: DmTool; label: string; glyph: string; eyebrow: string }
   { id: "dice", label: "Dice", glyph: "dice", eyebrow: "Roller" },
   { id: "encounters", label: "Encounters", glyph: "compass", eyebrow: "Random tables" },
   { id: "timers", label: "Timers", glyph: "clock", eyebrow: "Countdown" },
+  { id: "generators", label: "Generators", glyph: "note", eyebrow: "Roll tables" },
 ];
 
 export function DesktopDmToolkit({
@@ -191,7 +193,7 @@ export function DesktopDmToolkit({
             onPlayTrack={onPlayTrack}
             onPlayCategory={onPlayCategory}
           />
-        ) : (
+        ) : tool === "timers" ? (
           <TensionCountdown
             timers={countdownTimers}
             onTimers={onCountdownTimers}
@@ -199,6 +201,8 @@ export function DesktopDmToolkit({
             onPickStinger={onPickStinger}
             onFireStinger={onFireStinger}
           />
+        ) : (
+          <Generators />
         )}
       </div>
     </div>

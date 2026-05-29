@@ -12,9 +12,9 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile background
 
 ---
 
-## [0.0.25] — 2026‑05‑24 — DM Toolkit: encounter tables + tension countdown
+## [0.0.25] — 2026‑05‑24 — DM Toolkit expansion: encounters · timers · generators
 
-The first two GM-tool additions from `IDEAS.md`, shipped together. A fourth DM Toolkit tab — **Encounters** — lets a GM build roll tables where each row can be wired to a track or a category, so rolling an encounter also drops the right music. A fifth tab — **Timers** — runs tension countdowns that fire a stinger (and duck the music) at zero.
+GM-tool additions from `IDEAS.md`, shipped together. **Encounters** — roll tables where each row can be wired to a track or a category, so rolling an encounter drops the right music. **Timers** — tension countdowns that fire a stinger (and duck the music) at zero. **Generators** — the standalone roll tables (loot, NPC, tavern, settlement, weather, crit/fumble, wild magic, trap, quest) under one tab.
 
 > Numbering note: this is a desktop release (bumps the three desktop version files 0.0.22 → 0.0.25, the natural step after desktop PRs #24 → 0.0.23 and #25 → 0.0.24). The unified CHANGELOG slot `0.0.25` is also used by mobile PR #26 — whichever merges second renumbers to `0.0.26`.
 
@@ -33,6 +33,13 @@ The first two GM-tool additions from `IDEAS.md`, shipped together. A fourth DM T
 - A single 1Hz interval drives all running timers, mounted only while at least one runs; the tick reads timers / runtime / callback through refs so it never closes over stale values.
 - Timer *configs* (name, duration, stinger) persist under `dm_countdown_timers`; the running state (remaining, ticking) is component-local and resets on reload — a countdown shouldn't resume mid-flight after a restart.
 
+### Added — Generators tab (standalone roll tables)
+
+- New `apps/desktop/src/lib/dm-generators.ts` (curated table data + roll logic) and `apps/desktop/src/layout/dm/Generators.tsx` panel, registered as the `generators` tool (note glyph). One tab houses all nine tables behind a selector — adding nine tabs would overflow the toolbar.
+- Tables: **Loot**, **NPC** (trait/flaw/ideal/voice), **Tavern** (name/drink/patron/rumor), **Settlement** (size/feature/mood), **Weather**, **Critical hit**, **Fumble**, **Wild magic**, **Trap** (type/save/effect), **Quest hook** (premise/obstacle/reward/catch).
+- Each generator is modeled as a list of facets; rolling picks one option per facet, so single-result tables (weather, loot…) and composite ones (NPC, tavern…) share one component. Results render as a stat block; click any result to copy it.
+- Pure data — no audio, no Library wiring, no persistence. History is session-local and filtered per active generator so switching tables doesn't mix results.
+
 ### Internal
 
 - `TrackPickerOverlay` gains two new target kinds, `encounterEntry` and `timerStinger` (alongside `pad` and `turnSound`), routed in `Library.tsx` to bind a track to a table entry / a timer's stinger.
@@ -45,6 +52,7 @@ The first two GM-tool additions from `IDEAS.md`, shipped together. A fourth DM T
 - `pnpm -r test` — 169/169 vitest cases still pass.
 - Manual (encounters): DM Tools → Encounters → add a table, add entries, bind one to a category and one to a specific track, hit Roll. The rolled entry highlights and its bound audio starts; an unbound entry just shows the result.
 - Manual (timers): DM Tools → Timers → add a timer, pick a preset, bind a stinger, Start. At zero the clock flashes and the stinger fires while the music ducks. +30s extends a running clock; Reset returns to the full duration.
+- Manual (generators): DM Tools → Generators → pick a table, hit Generate. Composite tables (NPC, tavern…) show a labeled stat block; single tables (weather, loot…) show one line. Click a result to copy it; switching tables shows only that table's history.
 
 ---
 
