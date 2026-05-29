@@ -11,6 +11,11 @@ export type Combatant = {
   name: string;
   initiative: number;
   condition: string;
+  /** Current / max hit points + armor class. All optional — older
+   *  persisted combatants (pre-0.0.25) simply won't have them. */
+  hp?: number;
+  maxHp?: number;
+  ac?: number;
   turnSoundTrackId?: string;
 };
 
@@ -62,6 +67,24 @@ export function InitiativeTracker({
 
   function update(id: string, patch: Partial<Combatant>) {
     onChange(combatants.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+  }
+
+  // Numeric stat setter that clears the key when the field is emptied
+  // (delete avoids exactOptionalPropertyTypes friction with `undefined`).
+  function setStat(id: string, key: "hp" | "maxHp" | "ac", raw: string) {
+    const v = raw.trim();
+    onChange(
+      combatants.map((c) => {
+        if (c.id !== id) return c;
+        const next = { ...c };
+        if (v === "") {
+          delete next[key];
+          return next;
+        }
+        const n = Number(v);
+        return Number.isFinite(n) ? { ...next, [key]: n } : c;
+      }),
+    );
   }
 
   function clearTurnSound(id: string) {
@@ -191,6 +214,7 @@ export function InitiativeTracker({
           const isActive = c.id === activeId;
           const ts = c.turnSoundTrackId ? tracksById.get(c.turnSoundTrackId) : undefined;
           const tsCat = ts ? findCategory(ts.category) : undefined;
+          const down = c.hp != null && c.hp <= 0;
           return (
             <div
               key={c.id}
@@ -210,12 +234,16 @@ export function InitiativeTracker({
               style={{
                 padding: "10px 14px",
                 borderBottom: `1px solid ${T.rule}`,
-                background: isActive
-                  ? `linear-gradient(90deg, ${T.gold}20, transparent 70%)`
-                  : "transparent",
-                borderLeft: `3px solid ${isActive ? T.gold : "transparent"}`,
+                background: down
+                  ? "#d9666618"
+                  : isActive
+                    ? `linear-gradient(90deg, ${T.gold}20, transparent 70%)`
+                    : "transparent",
+                borderLeft: `3px solid ${
+                  down ? "#d96666" : isActive ? T.gold : "transparent"
+                }`,
                 display: "grid",
-                gridTemplateColumns: "32px 1fr auto auto",
+                gridTemplateColumns: "30px 1fr 78px 42px 28px 24px",
                 gap: 8,
                 alignItems: "center",
               }}
@@ -236,7 +264,8 @@ export function InitiativeTracker({
                   style={{
                     fontSize: 14,
                     fontWeight: 500,
-                    color: isActive ? T.gold : T.ink,
+                    color: down ? "#d98a8a" : isActive ? T.gold : T.ink,
+                    textDecoration: down ? "line-through" : "none",
                     whiteSpace: "nowrap",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
@@ -261,6 +290,35 @@ export function InitiativeTracker({
                   }}
                 />
               </div>
+              {/* HP (current / max) */}
+              <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                <input
+                  value={c.hp ?? ""}
+                  onChange={(e) => setStat(c.id, "hp", e.currentTarget.value)}
+                  placeholder="HP"
+                  inputMode="numeric"
+                  title="Current HP"
+                  style={statInput(down ? "#d98a8a" : T.ink)}
+                />
+                <span style={{ color: T.ink3, fontSize: 11 }}>/</span>
+                <input
+                  value={c.maxHp ?? ""}
+                  onChange={(e) => setStat(c.id, "maxHp", e.currentTarget.value)}
+                  placeholder="—"
+                  inputMode="numeric"
+                  title="Max HP"
+                  style={statInput(T.ink3)}
+                />
+              </div>
+              {/* AC */}
+              <input
+                value={c.ac ?? ""}
+                onChange={(e) => setStat(c.id, "ac", e.currentTarget.value)}
+                placeholder="AC"
+                inputMode="numeric"
+                title="Armor class"
+                style={statInput(T.ink2)}
+              />
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -377,6 +435,23 @@ const inputStyle: React.CSSProperties = {
   outline: "none",
   minWidth: 0,
 };
+
+/** Compact numeric stat input (HP / AC cells). */
+function statInput(color: string): React.CSSProperties {
+  return {
+    width: "100%",
+    minWidth: 0,
+    padding: "4px 0",
+    borderRadius: 6,
+    background: T.bgChip,
+    border: `1px solid ${T.rule}`,
+    color,
+    fontSize: 12,
+    fontFamily: "Geist Mono, monospace",
+    textAlign: "center",
+    outline: "none",
+  };
+}
 
 function iconBtnMini(disabled: boolean): React.CSSProperties {
   return {

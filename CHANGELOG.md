@@ -40,6 +40,12 @@ GM-tool additions from `IDEAS.md`, shipped together. **Encounters** — roll tab
 - Each generator is modeled as a list of facets; rolling picks one option per facet, so single-result tables (weather, loot…) and composite ones (NPC, tavern…) share one component. Results render as a stat block; click any result to copy it.
 - Pure data — no audio, no Library wiring, no persistence. History is session-local and filtered per active generator so switching tables doesn't mix results.
 
+### Changed — Initiative tracker: HP / AC (combat-tracker upgrade)
+
+- `Combatant` gains optional `hp` / `maxHp` / `ac`. Each row now has compact current/max HP inputs and an AC input alongside the existing condition field; values persist with the rest of the combatant via `dm_combatants`.
+- A combatant at **0 or fewer HP** gets a red row tint + strikethrough name so the "who's down" read is instant.
+- Fields are optional and cleared by emptying the input (`delete` keeps it clean under `exactOptionalPropertyTypes`), so combatants saved before this release load untouched.
+
 ### Internal
 
 - `TrackPickerOverlay` gains two new target kinds, `encounterEntry` and `timerStinger` (alongside `pad` and `turnSound`), routed in `Library.tsx` to bind a track to a table entry / a timer's stinger.
