@@ -43,6 +43,7 @@ import { DesktopSoundboardView } from "./layout/DesktopSoundboardView.js";
 import { DesktopTransport } from "./layout/DesktopTransport.js";
 import type { Combatant } from "./layout/dm/InitiativeTracker.js";
 import type { RolledName } from "./layout/dm/NameGenerator.js";
+import type { EncounterTable } from "./layout/dm/EncounterTables.js";
 import type { RollResult } from "./lib/dm-dice.js";
 import { KeyboardHelpOverlay } from "./layout/KeyboardHelpOverlay.js";
 import { PinToSlotMenu } from "./layout/PinToSlotMenu.js";
@@ -168,10 +169,16 @@ export function Library() {
    * what the pick callback assigns:
    *   - "pad" → soundboard pad assignment via handlePadAssign
    *   - "turnSound" → combatant turn-sound via handleCombatantsChange
+   *   - "encounterEntry" → encounter-table entry track binding
    */
   const [pickerOverlay, setPickerOverlay] = useState<
     | { x: number; y: number; target: { kind: "pad"; page: "A" | "B" | "C"; slot: number } }
     | { x: number; y: number; target: { kind: "turnSound"; combatantId: string } }
+    | {
+        x: number;
+        y: number;
+        target: { kind: "encounterEntry"; tableId: string; entryId: string };
+      }
     | null
   >(null);
   const [theme, setTheme] = useState<ThemeId>(DEFAULT_THEME);
@@ -179,6 +186,7 @@ export function Library() {
   const [nameHistory, setNameHistory] = useState<RolledName[]>([]);
   const [rollHistory, setRollHistory] = useState<RollResult[]>([]);
   const [combatants, setCombatants] = useState<Combatant[]>([]);
+  const [encounterTables, setEncounterTables] = useState<EncounterTable[]>([]);
   const [currentTurnIdx, setCurrentTurnIdx] = useState(0);
 
   // ── Derived ─────────────────────────────────────────────────────────────
@@ -363,6 +371,14 @@ export function Library() {
         if (combRaw) {
           try {
             setCombatants(JSON.parse(combRaw) as Combatant[]);
+          } catch {
+            /* swallow */
+          }
+        }
+        const encRaw = await getConfig(db, "dm_encounter_tables");
+        if (encRaw) {
+          try {
+            setEncounterTables(JSON.parse(encRaw) as EncounterTable[]);
           } catch {
             /* swallow */
           }
@@ -1243,6 +1259,12 @@ export function Library() {
     await setConfig(db, "dm_combatants", JSON.stringify(next));
   }
 
+  async function handleEncounterTablesChange(next: EncounterTable[]) {
+    setEncounterTables(next);
+    const db = await getDb();
+    await setConfig(db, "dm_encounter_tables", JSON.stringify(next));
+  }
+
   function handleTurnChange(newIdx: number) {
     setCurrentTurnIdx(newIdx);
     // Fire turn sound through soundboard bus (auto-ducks music).
@@ -1597,6 +1619,16 @@ export function Library() {
             onPickTurnSound={(combatantId, x, y) =>
               setPickerOverlay({ x, y, target: { kind: "turnSound", combatantId } })
             }
+            encounterTables={encounterTables}
+            onEncounterTables={(next) => void handleEncounterTablesChange(next)}
+            onPickEntryTrack={(tableId, entryId, x, y) =>
+              setPickerOverlay({ x, y, target: { kind: "encounterEntry", tableId, entryId } })
+            }
+            onPlayTrack={(trackId) => {
+              const t = tracks.find((tk) => tk.id === trackId);
+              if (t) void handlePlayTrack(t);
+            }}
+            onPlayCategory={(categoryId) => void handlePlayRandomFromCategory(categoryId)}
           />
         )}
 
@@ -1762,19 +1794,23 @@ export function Library() {
           title={
             pickerOverlay.target.kind === "pad"
               ? `Pad ${pickerOverlay.target.page}·${pickerOverlay.target.slot}`
-              : "Turn sound"
+              : pickerOverlay.target.kind === "encounterEntry"
+                ? "Encounter track"
+                : "Turn sound"
           }
           subtitle={
             pickerOverlay.target.kind === "pad"
               ? "Pick a track to assign to this soundboard pad."
-              : (() => {
-                  const t = pickerOverlay.target;
-                  if (t.kind !== "turnSound") return "";
-                  const target = combatants.find((c) => c.id === t.combatantId);
-                  return target
-                    ? `Fires automatically when it's ${target.name}'s turn.`
-                    : "Fires automatically on this combatant's turn.";
-                })()
+              : pickerOverlay.target.kind === "encounterEntry"
+                ? "Plays when this entry is rolled."
+                : (() => {
+                    const t = pickerOverlay.target;
+                    if (t.kind !== "turnSound") return "";
+                    const target = combatants.find((c) => c.id === t.combatantId);
+                    return target
+                      ? `Fires automatically when it's ${target.name}'s turn.`
+                      : "Fires automatically on this combatant's turn.";
+                  })()
           }
           onPick={(track) => {
             const target = pickerOverlay.target;
@@ -1783,6 +1819,26 @@ export function Library() {
               setScanStatus(
                 `Pinned "${track.title}" to ${target.page}·${target.slot}.`,
               );
+            } else if (target.kind === "encounterEntry") {
+              const next = encounterTables.map((tbl) =>
+                tbl.id === target.tableId
+                  ? {
+                      ...tbl,
+                      entries: tbl.entries.map((en) =>
+                        en.id === target.entryId
+                          ? // Binding is exclusive — a track clears any category.
+                            (() => {
+                              const { categoryId: _c, ...rest } = en;
+                              void _c;
+                              return { ...rest, trackId: track.id };
+                            })()
+                          : en,
+                      ),
+                    }
+                  : tbl,
+              );
+              void handleEncounterTablesChange(next);
+              setScanStatus(`Bound "${track.title}" to an encounter entry.`);
             } else {
               const next = combatants.map((c) =>
                 c.id === target.combatantId

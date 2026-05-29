@@ -4,16 +4,18 @@
 // windows; tabbing trades simultaneity for legibility.
 
 import { useState } from "react";
-import type { Track } from "@mc/core";
+import type { CategoryId, Track } from "@mc/core";
 import { Glyph, T } from "@mc/ui";
 import { DiceRoller } from "./dm/DiceRoller.js";
 import { NameGenerator } from "./dm/NameGenerator.js";
 import { InitiativeTracker } from "./dm/InitiativeTracker.js";
+import { EncounterTables } from "./dm/EncounterTables.js";
 import type { Combatant } from "./dm/InitiativeTracker.js";
 import type { RolledName } from "./dm/NameGenerator.js";
+import type { EncounterTable } from "./dm/EncounterTables.js";
 import type { RollResult } from "../lib/dm-dice.js";
 
-type DmTool = "initiative" | "names" | "dice";
+type DmTool = "initiative" | "names" | "dice" | "encounters";
 
 export type DesktopDmToolkitProps = {
   nameHistory: RolledName[];
@@ -27,12 +29,21 @@ export type DesktopDmToolkitProps = {
   onTurnChange: (newIdx: number) => void;
   /** Open the track-picker for combatant `id` at the click position. */
   onPickTurnSound: (combatantId: string, x: number, y: number) => void;
+  encounterTables: EncounterTable[];
+  onEncounterTables: (next: EncounterTable[]) => void;
+  /** Open the track-picker to bind a track to an encounter entry. */
+  onPickEntryTrack: (tableId: string, entryId: string, x: number, y: number) => void;
+  /** Fire a bound track (single play) from a rolled encounter entry. */
+  onPlayTrack: (trackId: string) => void;
+  /** Fire a bound category (weighted shuffle) from a rolled encounter entry. */
+  onPlayCategory: (categoryId: CategoryId) => void;
 };
 
 const TOOLS: Array<{ id: DmTool; label: string; glyph: string; eyebrow: string }> = [
   { id: "initiative", label: "Initiative", glyph: "swords", eyebrow: "Tracker" },
   { id: "names", label: "Names", glyph: "mask", eyebrow: "NPCs" },
   { id: "dice", label: "Dice", glyph: "dice", eyebrow: "Roller" },
+  { id: "encounters", label: "Encounters", glyph: "compass", eyebrow: "Random tables" },
 ];
 
 export function DesktopDmToolkit({
@@ -46,6 +57,11 @@ export function DesktopDmToolkit({
   onCombatantsChange,
   onTurnChange,
   onPickTurnSound,
+  encounterTables,
+  onEncounterTables,
+  onPickEntryTrack,
+  onPlayTrack,
+  onPlayCategory,
 }: DesktopDmToolkitProps) {
   // Default to Initiative — most useful at-the-table, and the dynamic
   // counter ("· 2 in combat") changes most often, so the tab badge
@@ -151,8 +167,17 @@ export function DesktopDmToolkit({
           />
         ) : tool === "names" ? (
           <NameGenerator history={nameHistory} onHistory={onNameHistory} />
-        ) : (
+        ) : tool === "dice" ? (
           <DiceRoller history={rollHistory} onHistory={onRollHistory} />
+        ) : (
+          <EncounterTables
+            tables={encounterTables}
+            onTables={onEncounterTables}
+            tracksById={tracksById}
+            onPickEntryTrack={onPickEntryTrack}
+            onPlayTrack={onPlayTrack}
+            onPlayCategory={onPlayCategory}
+          />
         )}
       </div>
     </div>
