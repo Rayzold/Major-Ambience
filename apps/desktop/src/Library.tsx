@@ -45,6 +45,8 @@ import type { Combatant } from "./layout/dm/InitiativeTracker.js";
 import type { RolledName } from "./layout/dm/NameGenerator.js";
 import type { EncounterTable } from "./layout/dm/EncounterTables.js";
 import type { CountdownTimer } from "./layout/dm/TensionCountdown.js";
+import { EMPTY_LEDGER, type XpLedgerState } from "./layout/dm/XpLedger.js";
+import type { RecapMoment } from "./layout/dm/RecapComposer.js";
 import type { RollResult } from "./lib/dm-dice.js";
 import { KeyboardHelpOverlay } from "./layout/KeyboardHelpOverlay.js";
 import { PinToSlotMenu } from "./layout/PinToSlotMenu.js";
@@ -191,6 +193,8 @@ export function Library() {
   const [combatants, setCombatants] = useState<Combatant[]>([]);
   const [encounterTables, setEncounterTables] = useState<EncounterTable[]>([]);
   const [countdownTimers, setCountdownTimers] = useState<CountdownTimer[]>([]);
+  const [xpLedger, setXpLedger] = useState<XpLedgerState>(EMPTY_LEDGER);
+  const [recapMoments, setRecapMoments] = useState<RecapMoment[]>([]);
   const [currentTurnIdx, setCurrentTurnIdx] = useState(0);
 
   // ── Derived ─────────────────────────────────────────────────────────────
@@ -391,6 +395,22 @@ export function Library() {
         if (timersRaw) {
           try {
             setCountdownTimers(JSON.parse(timersRaw) as CountdownTimer[]);
+          } catch {
+            /* swallow */
+          }
+        }
+        const ledgerRaw = await getConfig(db, "dm_xp_ledger");
+        if (ledgerRaw) {
+          try {
+            setXpLedger({ ...EMPTY_LEDGER, ...(JSON.parse(ledgerRaw) as XpLedgerState) });
+          } catch {
+            /* swallow */
+          }
+        }
+        const recapRaw = await getConfig(db, "dm_recap");
+        if (recapRaw) {
+          try {
+            setRecapMoments(JSON.parse(recapRaw) as RecapMoment[]);
           } catch {
             /* swallow */
           }
@@ -1283,6 +1303,18 @@ export function Library() {
     await setConfig(db, "dm_countdown_timers", JSON.stringify(next));
   }
 
+  async function handleXpLedgerChange(next: XpLedgerState) {
+    setXpLedger(next);
+    const db = await getDb();
+    await setConfig(db, "dm_xp_ledger", JSON.stringify(next));
+  }
+
+  async function handleRecapMomentsChange(next: RecapMoment[]) {
+    setRecapMoments(next);
+    const db = await getDb();
+    await setConfig(db, "dm_recap", JSON.stringify(next));
+  }
+
   function handleTurnChange(newIdx: number) {
     setCurrentTurnIdx(newIdx);
     // Fire turn sound through soundboard bus (auto-ducks music).
@@ -1658,6 +1690,11 @@ export function Library() {
               // stinger auto-ducks the music, same mechanism as turn sounds.
               if (t) void firePad("A", 90, t, { loop: false, volume: 0.95 });
             }}
+            xpLedger={xpLedger}
+            onXpLedger={(next) => void handleXpLedgerChange(next)}
+            recapMoments={recapMoments}
+            onRecapMoments={(next) => void handleRecapMomentsChange(next)}
+            {...(currentTrack ? { nowPlayingLabel: currentTrack.title } : {})}
           />
         )}
 

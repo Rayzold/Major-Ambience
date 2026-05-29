@@ -12,13 +12,25 @@ import { InitiativeTracker } from "./dm/InitiativeTracker.js";
 import { EncounterTables } from "./dm/EncounterTables.js";
 import { TensionCountdown } from "./dm/TensionCountdown.js";
 import { Generators } from "./dm/Generators.js";
+import { XpLedger } from "./dm/XpLedger.js";
+import { RecapComposer } from "./dm/RecapComposer.js";
 import type { Combatant } from "./dm/InitiativeTracker.js";
 import type { RolledName } from "./dm/NameGenerator.js";
 import type { EncounterTable } from "./dm/EncounterTables.js";
 import type { CountdownTimer } from "./dm/TensionCountdown.js";
+import type { XpLedgerState } from "./dm/XpLedger.js";
+import type { RecapMoment } from "./dm/RecapComposer.js";
 import type { RollResult } from "../lib/dm-dice.js";
 
-type DmTool = "initiative" | "names" | "dice" | "encounters" | "timers" | "generators";
+type DmTool =
+  | "initiative"
+  | "names"
+  | "dice"
+  | "encounters"
+  | "timers"
+  | "generators"
+  | "ledger"
+  | "recap";
 
 export type DesktopDmToolkitProps = {
   nameHistory: RolledName[];
@@ -46,6 +58,12 @@ export type DesktopDmToolkitProps = {
   onPickStinger: (timerId: string, x: number, y: number) => void;
   /** Fire a timer's stinger (soundboard bus, ducks music) at zero. */
   onFireStinger: (trackId: string) => void;
+  xpLedger: XpLedgerState;
+  onXpLedger: (next: XpLedgerState) => void;
+  recapMoments: RecapMoment[];
+  onRecapMoments: (next: RecapMoment[]) => void;
+  /** Title of the currently-playing track, captured when a moment is pinned. */
+  nowPlayingLabel?: string;
 };
 
 const TOOLS: Array<{ id: DmTool; label: string; glyph: string; eyebrow: string }> = [
@@ -55,6 +73,8 @@ const TOOLS: Array<{ id: DmTool; label: string; glyph: string; eyebrow: string }
   { id: "encounters", label: "Encounters", glyph: "compass", eyebrow: "Random tables" },
   { id: "timers", label: "Timers", glyph: "clock", eyebrow: "Countdown" },
   { id: "generators", label: "Generators", glyph: "note", eyebrow: "Roll tables" },
+  { id: "ledger", label: "Ledger", glyph: "star", eyebrow: "XP & loot" },
+  { id: "recap", label: "Recap", glyph: "theatre", eyebrow: "Session log" },
 ];
 
 export function DesktopDmToolkit({
@@ -77,6 +97,11 @@ export function DesktopDmToolkit({
   onCountdownTimers,
   onPickStinger,
   onFireStinger,
+  xpLedger,
+  onXpLedger,
+  recapMoments,
+  onRecapMoments,
+  nowPlayingLabel,
 }: DesktopDmToolkitProps) {
   // Default to Initiative — most useful at-the-table, and the dynamic
   // counter ("· 2 in combat") changes most often, so the tab badge
@@ -201,8 +226,16 @@ export function DesktopDmToolkit({
             onPickStinger={onPickStinger}
             onFireStinger={onFireStinger}
           />
-        ) : (
+        ) : tool === "generators" ? (
           <Generators />
+        ) : tool === "ledger" ? (
+          <XpLedger ledger={xpLedger} onLedger={onXpLedger} />
+        ) : (
+          <RecapComposer
+            moments={recapMoments}
+            onMoments={onRecapMoments}
+            {...(nowPlayingLabel ? { nowPlayingLabel } : {})}
+          />
         )}
       </div>
     </div>

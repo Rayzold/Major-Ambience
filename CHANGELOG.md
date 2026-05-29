@@ -46,6 +46,16 @@ GM-tool additions from `IDEAS.md`, shipped together. **Encounters** — roll tab
 - A combatant at **0 or fewer HP** gets a red row tint + strikethrough name so the "who's down" read is instant.
 - Fields are optional and cleared by emptying the input (`delete` keeps it clean under `exactOptionalPropertyTypes`), so combatants saved before this release load untouched.
 
+### Added — XP / loot ledger tab
+
+- New `apps/desktop/src/layout/dm/XpLedger.tsx` (`ledger` tool, star glyph). A running party XP total with an editable party size and a live per-player split, plus a simple loot list (add / edit / remove). Add-XP accepts negatives to correct mistakes.
+- Persists as one JSON blob under `dm_xp_ledger`; merged over `EMPTY_LEDGER` defaults on load so a partial/old blob still hydrates.
+
+### Added — Recap composer tab
+
+- New `apps/desktop/src/layout/dm/RecapComposer.tsx` (`recap` tool, theatre glyph). Pin notable moments during play; each captures the currently-playing track title at pin time. **Copy recap** flattens them (oldest-first) into a paste-ready block. Persists under `dm_recap`.
+- A future enhancement noted in `IDEAS.md` — a global "Pin this" hotkey — is intentionally out of scope here; pinning is via the tab's input for now.
+
 ### Internal
 
 - `TrackPickerOverlay` gains two new target kinds, `encounterEntry` and `timerStinger` (alongside `pad` and `turnSound`), routed in `Library.tsx` to bind a track to a table entry / a timer's stinger.
@@ -59,6 +69,9 @@ GM-tool additions from `IDEAS.md`, shipped together. **Encounters** — roll tab
 - Manual (encounters): DM Tools → Encounters → add a table, add entries, bind one to a category and one to a specific track, hit Roll. The rolled entry highlights and its bound audio starts; an unbound entry just shows the result.
 - Manual (timers): DM Tools → Timers → add a timer, pick a preset, bind a stinger, Start. At zero the clock flashes and the stinger fires while the music ducks. +30s extends a running clock; Reset returns to the full duration.
 - Manual (generators): DM Tools → Generators → pick a table, hit Generate. Composite tables (NPC, tavern…) show a labeled stat block; single tables (weather, loot…) show one line. Click a result to copy it; switching tables shows only that table's history.
+- Manual (combat tracker): Initiative → add a combatant, set HP cur/max + AC; drop HP to 0 → row goes red + strikethrough. Reload → values persist.
+- Manual (ledger): Ledger → add XP, set party size, watch the per-player split; add loot lines. Reload → persists.
+- Manual (recap): play a track, Recap → pin a moment (tagged with the track), Copy recap → paste-ready block on the clipboard.
 
 ---
 
