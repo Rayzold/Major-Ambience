@@ -1,32 +1,37 @@
 // Race-aware NPC name data for the Name Generator.
 //
-// Lists are ~40-60 names per slot per race. That's enough to make repeats
-// rare within a session (a typical session generates 20-30 names);
-// `rollName()` additionally takes recent-history awareness via
-// `rollNameAvoiding()` below so back-to-back rolls don't collide on the
+// Each race carries gendered first-name lists (`firstMale` / `firstFemale`)
+// plus a shared `last`. Lists are ~25-40 names per slot per race — enough
+// that repeats within a session stay rare; `rollNameAvoiding()` below also
+// filters against recent history so back-to-back rolls don't collide on the
 // same full name even when the random draw would.
 
 export type Race = "any" | "human" | "elf" | "dwarf" | "orc" | "halfling";
+export type Gender = "any" | "male" | "female";
 
 type RaceData = {
-  first: readonly string[];
+  firstMale: readonly string[];
+  firstFemale: readonly string[];
   last: readonly string[];
 };
 
 const HUMAN: RaceData = {
-  first: [
-    "Aldric", "Alaric", "Anselm", "Branwen", "Brennan", "Brigid",
-    "Cassian", "Cedric", "Clement", "Dietrich", "Damaris", "Doran",
-    "Elara", "Edric", "Esme", "Falken", "Fenrik", "Felicity",
-    "Gwyneth", "Gareth", "Greta", "Halvard", "Hadrian", "Helena",
-    "Isolde", "Ivor", "Idris", "Jorah", "Jerrick", "Juniper",
-    "Kestrel", "Kael", "Katarin", "Lyssa", "Lothar", "Lenore",
-    "Magnus", "Mireille", "Marek", "Niamh", "Nathaniel", "Nyx",
-    "Osric", "Odette", "Orin", "Petra", "Percival", "Phaedra",
-    "Quill", "Quinn", "Roisin", "Rowan", "Rhett", "Soren",
-    "Sable", "Sigrid", "Talia", "Tobias", "Thea", "Ulric",
-    "Uriah", "Una", "Vesper", "Varian", "Vita", "Wynn",
-    "Wilhelm", "Winifred", "Yara", "Yvain", "Zephyr", "Zara",
+  firstMale: [
+    "Aldric", "Alaric", "Anselm", "Brennan", "Cassian", "Cedric",
+    "Clement", "Dietrich", "Doran", "Edric", "Falken", "Fenrik",
+    "Gareth", "Halvard", "Hadrian", "Ivor", "Idris", "Jorah",
+    "Jerrick", "Kael", "Lothar", "Magnus", "Marek", "Nathaniel",
+    "Osric", "Orin", "Percival", "Quill", "Rhett", "Rowan",
+    "Soren", "Tobias", "Ulric", "Uriah", "Varian", "Wilhelm",
+    "Yvain", "Zephyr",
+  ],
+  firstFemale: [
+    "Branwen", "Brigid", "Damaris", "Elara", "Esme", "Felicity",
+    "Gwyneth", "Greta", "Helena", "Isolde", "Juniper", "Kestrel",
+    "Katarin", "Lyssa", "Lenore", "Mireille", "Niamh", "Nyx",
+    "Odette", "Petra", "Phaedra", "Quinn", "Roisin", "Sable",
+    "Sigrid", "Talia", "Thea", "Una", "Vesper", "Vita",
+    "Wynn", "Winifred", "Yara", "Zara",
   ],
   last: [
     "Ashbrook", "Ashford", "Beaumont", "Blackwell", "Briar", "Carver",
@@ -45,18 +50,22 @@ const HUMAN: RaceData = {
 };
 
 const ELF: RaceData = {
-  first: [
-    "Aelar", "Adran", "Aramil", "Beiro", "Berrian", "Caelynn",
-    "Carric", "Dayereth", "Dryndren", "Enna", "Erevan", "Faelar",
-    "Galinndan", "Hadarai", "Heian", "Himo", "Immeral", "Ielenia",
-    "Iliphar", "Korfel", "Lael", "Laucian", "Lia", "Mindartis",
-    "Meriele", "Miqael", "Naivara", "Nailo", "Paelias", "Quelenna",
-    "Quarion", "Riardon", "Rolen", "Shanairra", "Soveliss", "Suhnaal",
-    "Thamior", "Tharivol", "Theren", "Theriatis", "Uthemar", "Vadania",
-    "Valanthe", "Vanuath", "Variel", "Xanaphia", "Xanthor", "Yhanell",
-    "Ydraad", "Aerin", "Aramil", "Carnen", "Eliandra", "Fenian",
-    "Galadriel", "Halaster", "Iaeven", "Jaerith", "Kethariel",
-    "Liryn", "Maerith",
+  firstMale: [
+    "Aelar", "Adran", "Aramil", "Beiro", "Berrian", "Carric",
+    "Dayereth", "Dryndren", "Erevan", "Faelar", "Galinndan", "Hadarai",
+    "Heian", "Himo", "Immeral", "Iliphar", "Korfel", "Laucian",
+    "Mindartis", "Miqael", "Nailo", "Paelias", "Quarion", "Riardon",
+    "Rolen", "Soveliss", "Suhnaal", "Thamior", "Tharivol", "Theren",
+    "Theriatis", "Uthemar", "Vanuath", "Variel", "Xanthor", "Ydraad",
+    "Aerin", "Carnen", "Fenian", "Halaster", "Jaerith", "Liryn",
+  ],
+  firstFemale: [
+    "Caelynn", "Enna", "Ielenia", "Lael", "Lia", "Meriele",
+    "Naivara", "Quelenna", "Shanairra", "Vadania", "Valanthe", "Xanaphia",
+    "Yhanell", "Eliandra", "Galadriel", "Iaeven", "Kethariel", "Maerith",
+    "Adrie", "Althaea", "Anastrianna", "Bethrynna", "Drusilia", "Felosial",
+    "Jelenneth", "Keyleth", "Leshanna", "Mialee", "Quillathe", "Sariel",
+    "Silaqui", "Thia",
   ],
   last: [
     "Amakiir", "Amastacia", "Aloro", "Caerdonel", "Casilltenirra",
@@ -72,17 +81,20 @@ const ELF: RaceData = {
 };
 
 const DWARF: RaceData = {
-  first: [
+  firstMale: [
     "Adrik", "Alberich", "Baern", "Barendd", "Brottor", "Bruenor",
     "Dain", "Darrak", "Delg", "Eberk", "Einkil", "Elaim",
     "Erias", "Fargrim", "Flint", "Gardain", "Gilthur", "Gimgen",
     "Gorat", "Harbek", "Helek", "Kildrak", "Kilvar", "Morgran",
     "Morkral", "Orsik", "Oskar", "Rangrim", "Rurik", "Taklinn",
-    "Tordek", "Thoradin", "Thorin", "Tordek", "Ulfgar", "Vondal",
-    "Veit", "Amber", "Artin", "Audhild", "Bardryn", "Dagnal",
-    "Diesa", "Eldeth", "Falkrunn", "Finellen", "Gunnloda", "Gurdis",
-    "Helja", "Hlin", "Kathra", "Kristryd", "Ilde", "Liftrasa",
-    "Mardred", "Riswynn", "Sannl", "Torgga", "Vistra",
+    "Tordek", "Thoradin", "Thorin", "Ulfgar", "Vondal", "Veit",
+    "Traubon", "Travok",
+  ],
+  firstFemale: [
+    "Amber", "Artin", "Audhild", "Bardryn", "Dagnal", "Diesa",
+    "Eldeth", "Falkrunn", "Finellen", "Gunnloda", "Gurdis", "Helja",
+    "Hlin", "Kathra", "Kristryd", "Ilde", "Liftrasa", "Mardred",
+    "Riswynn", "Sannl", "Torgga", "Vistra",
   ],
   last: [
     "Balderk", "Battlehammer", "Brawnanvil", "Burnharrow", "Caebrek",
@@ -98,16 +110,18 @@ const DWARF: RaceData = {
 };
 
 const ORC: RaceData = {
-  first: [
+  firstMale: [
     "Argrak", "Bagrak", "Bork", "Brak", "Brughor", "Dench",
     "Dorg", "Druvor", "Feng", "Gantar", "Gell", "Ghuriak",
     "Grom", "Grukruk", "Henk", "Holg", "Imsh", "Karash",
-    "Keth", "Krusk", "Mhurren", "Mugrash", "Nesha", "Omog",
-    "Ozren", "Rendar", "Ronk", "Shump", "Thokk", "Thurg",
-    "Ugnur", "Ulgrim", "Vola", "Volen", "Yevelda", "Zoraz",
-    "Baggi", "Bendoo", "Emen", "Engong", "Fistula", "Gomph",
-    "Greeba", "Kansif", "Mhuri", "Myev", "Neega", "Ovak",
-    "Ownka", "Sutha", "Vola", "Yevelda",
+    "Keth", "Krusk", "Mhurren", "Mugrash", "Omog", "Ozren",
+    "Rendar", "Ronk", "Shump", "Thokk", "Thurg", "Ugnur",
+    "Ulgrim", "Volen", "Zoraz", "Gomph",
+  ],
+  firstFemale: [
+    "Nesha", "Vola", "Yevelda", "Baggi", "Bendoo", "Emen",
+    "Engong", "Fistula", "Greeba", "Kansif", "Mhuri", "Myev",
+    "Neega", "Ovak", "Ownka", "Sutha",
   ],
   last: [
     "Skullsplitter", "Boneripper", "Ironjaw", "Stormfang",
@@ -123,17 +137,20 @@ const ORC: RaceData = {
 };
 
 const HALFLING: RaceData = {
-  first: [
+  firstMale: [
     "Alton", "Ander", "Bertram", "Beau", "Bilbo", "Cade",
     "Callum", "Corrin", "Dannad", "Danniel", "Eddie", "Eldon",
     "Errich", "Finnan", "Garret", "Garth", "Lindal", "Lyle",
     "Merric", "Milo", "Mungo", "Nebin", "Osborn", "Ostran",
-    "Oswen", "Perrin", "Poppy", "Reed", "Roscoe", "Sam",
-    "Shardon", "Tye", "Wellby", "Andry", "Astrid", "Bree",
-    "Callie", "Cora", "Euphemia", "Jasmine", "Jillian", "Kithri",
-    "Lavinia", "Lidda", "Merla", "Nedda", "Paela", "Pearl",
-    "Petunia", "Portia", "Robbie", "Rose", "Saral", "Seraphina",
-    "Shaena", "Trym", "Vani", "Willow",
+    "Oswen", "Perrin", "Reed", "Roscoe", "Sam", "Shardon",
+    "Tye", "Wellby", "Robbie",
+  ],
+  firstFemale: [
+    "Andry", "Astrid", "Bree", "Callie", "Cora", "Euphemia",
+    "Jasmine", "Jillian", "Kithri", "Lavinia", "Lidda", "Merla",
+    "Nedda", "Paela", "Pearl", "Petunia", "Poppy", "Portia",
+    "Rose", "Saral", "Seraphina", "Shaena", "Trym", "Vani",
+    "Willow",
   ],
   last: [
     "Brushgather", "Bramble", "Bramblefoot", "Cherrycheeks",
@@ -161,19 +178,31 @@ export type RolledNameResult = {
   first: string;
   last: string;
   race: Exclude<Race, "any">;
+  gender: Exclude<Gender, "any">;
 };
+
+function pickGender(gender: Gender): Exclude<Gender, "any"> {
+  if (gender === "any") return Math.random() < 0.5 ? "male" : "female";
+  return gender;
+}
+
+function firstNames(data: RaceData, gender: Exclude<Gender, "any">): readonly string[] {
+  return gender === "male" ? data.firstMale : data.firstFemale;
+}
 
 /**
  * Roll a single name. No history awareness — for tests and callers
  * that don't track recent rolls.
  */
-export function rollName(race: Race): RolledNameResult {
-  const actual =
+export function rollName(race: Race, gender: Gender = "any"): RolledNameResult {
+  const actualRace =
     race === "any" ? RACE_KEYS[Math.floor(Math.random() * RACE_KEYS.length)]! : race;
-  const data = TABLES[actual];
-  const first = data.first[Math.floor(Math.random() * data.first.length)] ?? "Unknown";
+  const actualGender = pickGender(gender);
+  const data = TABLES[actualRace];
+  const pool = firstNames(data, actualGender);
+  const first = pool[Math.floor(Math.random() * pool.length)] ?? "Unknown";
   const last = data.last[Math.floor(Math.random() * data.last.length)] ?? "";
-  return { first, last, race: actual };
+  return { first, last, race: actualRace, gender: actualGender };
 }
 
 /**
@@ -185,12 +214,13 @@ export function rollName(race: Race): RolledNameResult {
  */
 export function rollNameAvoiding(
   race: Race,
+  gender: Gender,
   recent: ReadonlySet<string>,
   maxAttempts = 20,
 ): RolledNameResult {
-  let last: RolledNameResult = rollName(race);
+  let last: RolledNameResult = rollName(race, gender);
   for (let i = 0; i < maxAttempts; i++) {
-    const candidate = rollName(race);
+    const candidate = rollName(race, gender);
     const fullName = `${candidate.first} ${candidate.last}`.trim();
     if (!recent.has(fullName)) return candidate;
     last = candidate;
@@ -205,4 +235,10 @@ export const RACE_OPTIONS: Array<{ id: Race; label: string }> = [
   { id: "dwarf", label: "Dwarf" },
   { id: "orc", label: "Orc" },
   { id: "halfling", label: "Halfling" },
+];
+
+export const GENDER_OPTIONS: Array<{ id: Gender; label: string }> = [
+  { id: "any", label: "Any" },
+  { id: "male", label: "Male" },
+  { id: "female", label: "Female" },
 ];
