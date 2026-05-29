@@ -12,6 +12,67 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile background
 
 ---
 
+## [0.0.26] — 2026‑05‑24 — DM Toolkit expansion: encounters · timers · generators · utilities
+
+GM-tool additions from `IDEAS.md`, shipped together. **Encounters** — roll tables where each row can be wired to a track or a category, so rolling an encounter drops the right music. **Timers** — tension countdowns that fire a stinger (and duck the music) at zero. **Generators** — the standalone roll tables (loot, NPC, tavern, settlement, weather, crit/fumble, wild magic, trap, quest) under one tab. Plus utilities — a combat-tracker HP/AC upgrade, an XP/loot **Ledger**, and a **Recap** composer.
+
+### Added — Encounter tables tab
+
+- New `apps/desktop/src/layout/dm/EncounterTables.tsx` panel, registered as the `encounters` tool in `DesktopDmToolkit` (compass glyph) alongside Initiative / Names / Dice.
+- Multiple named tables (create / rename / delete) via a pill selector — one per region/context (forest, dungeon, city…). Each table holds a list of free-text entries.
+- Each entry can bind **one** audio source: a **category** (via inline `<select>` — rolling weighted-shuffles it) or a **specific track** (via the existing `TrackPickerOverlay` — rolling plays it once). Binding is exclusive; picking one clears the other. A "clear" control removes the binding.
+- **Roll** picks a random entry among the non-empty rows, highlights it, shows a result banner, and fires the bound audio through the same engine paths the rest of the app uses (`handlePlayTrack` for a track, `handlePlayRandomFromCategory` for a category).
+
+### Added — Tension countdown tab
+
+- New `apps/desktop/src/layout/dm/TensionCountdown.tsx` panel, registered as the `timers` tool (clock glyph).
+- Multiple independent named timers — "ritual completes in 5m", "reinforcements in 3m". Each has a big MM:SS clock with Start/Pause, Reset, and +30s, plus duration presets (1m / 3m / 5m / 10m).
+- Each timer can bind a **stinger** track. At zero the timer flashes red and fires the stinger on the soundboard bus (auto-ducking the music), reusing the same `firePad` pseudo-slot mechanism as Initiative turn sounds.
+- A single 1Hz interval drives all running timers, mounted only while at least one runs; the tick reads timers / runtime / callback through refs so it never closes over stale values.
+- Timer *configs* (name, duration, stinger) persist under `dm_countdown_timers`; the running state (remaining, ticking) is component-local and resets on reload — a countdown shouldn't resume mid-flight after a restart.
+
+### Added — Generators tab (standalone roll tables)
+
+- New `apps/desktop/src/lib/dm-generators.ts` (curated table data + roll logic) and `apps/desktop/src/layout/dm/Generators.tsx` panel, registered as the `generators` tool (note glyph). One tab houses all nine tables behind a selector — adding nine tabs would overflow the toolbar.
+- Tables: **Loot**, **NPC** (trait/flaw/ideal/voice), **Tavern** (name/drink/patron/rumor), **Settlement** (size/feature/mood), **Weather**, **Critical hit**, **Fumble**, **Wild magic**, **Trap** (type/save/effect), **Quest hook** (premise/obstacle/reward/catch).
+- Each generator is modeled as a list of facets; rolling picks one option per facet, so single-result tables (weather, loot…) and composite ones (NPC, tavern…) share one component. Results render as a stat block; click any result to copy it.
+- Pure data — no audio, no Library wiring, no persistence. History is session-local and filtered per active generator so switching tables doesn't mix results.
+
+### Changed — Initiative tracker: HP / AC (combat-tracker upgrade)
+
+- `Combatant` gains optional `hp` / `maxHp` / `ac`. Each row now has compact current/max HP inputs and an AC input alongside the existing condition field; values persist with the rest of the combatant via `dm_combatants`.
+- A combatant at **0 or fewer HP** gets a red row tint + strikethrough name so the "who's down" read is instant.
+- Fields are optional and cleared by emptying the input (`delete` keeps it clean under `exactOptionalPropertyTypes`), so combatants saved before this release load untouched.
+
+### Added — XP / loot ledger tab
+
+- New `apps/desktop/src/layout/dm/XpLedger.tsx` (`ledger` tool, star glyph). A running party XP total with an editable party size and a live per-player split, plus a simple loot list (add / edit / remove). Add-XP accepts negatives to correct mistakes.
+- Persists as one JSON blob under `dm_xp_ledger`; merged over `EMPTY_LEDGER` defaults on load so a partial/old blob still hydrates.
+
+### Added — Recap composer tab
+
+- New `apps/desktop/src/layout/dm/RecapComposer.tsx` (`recap` tool, theatre glyph). Pin notable moments during play; each captures the currently-playing track title at pin time. **Copy recap** flattens them (oldest-first) into a paste-ready block. Persists under `dm_recap`.
+- A future enhancement noted in `IDEAS.md` — a global "Pin this" hotkey — is intentionally out of scope here; pinning is via the tab's input for now.
+
+### Internal
+
+- `TrackPickerOverlay` gains two new target kinds, `encounterEntry` and `timerStinger` (alongside `pad` and `turnSound`), routed in `Library.tsx` to bind a track to a table entry / a timer's stinger.
+- DM-tool state persists to SQLite config under `dm_encounter_tables`, `dm_countdown_timers`, `dm_xp_ledger`, and `dm_recap` (JSON), loaded on init — same pattern as `dm_combatants` / `dm_name_history` / `dm_roll_history`.
+- Desktop version 0.0.24 → 0.0.26.
+
+### Verification
+
+- `pnpm -r typecheck` — clean across all 5 projects.
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual (encounters): DM Tools → Encounters → add a table, add entries, bind one to a category and one to a specific track, hit Roll. The rolled entry highlights and its bound audio starts; an unbound entry just shows the result.
+- Manual (timers): DM Tools → Timers → add a timer, pick a preset, bind a stinger, Start. At zero the clock flashes and the stinger fires while the music ducks. +30s extends a running clock; Reset returns to the full duration.
+- Manual (generators): DM Tools → Generators → pick a table, hit Generate. Composite tables (NPC, tavern…) show a labeled stat block; single tables (weather, loot…) show one line. Click a result to copy it; switching tables shows only that table's history.
+- Manual (combat tracker): Initiative → add a combatant, set HP cur/max + AC; drop HP to 0 → row goes red + strikethrough. Reload → values persist.
+- Manual (ledger): Ledger → add XP, set party size, watch the per-player split; add loot lines. Reload → persists.
+- Manual (recap): play a track, Recap → pin a moment (tagged with the track), Copy recap → paste-ready block on the clipboard.
+
+---
+
 ## [0.0.25] — 2026‑05‑24 — Mobile scenes + soundboard + Now Playing
 
 Mobile gets three of its biggest missing surfaces. The Scenes and Soundboard tabs were placeholder copy until now; both are real, and a tap on the mini-player expands to a full Now Playing screen.

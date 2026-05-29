@@ -4,16 +4,33 @@
 // windows; tabbing trades simultaneity for legibility.
 
 import { useState } from "react";
-import type { Track } from "@mc/core";
+import type { CategoryId, Track } from "@mc/core";
 import { Glyph, T } from "@mc/ui";
 import { DiceRoller } from "./dm/DiceRoller.js";
 import { NameGenerator } from "./dm/NameGenerator.js";
 import { InitiativeTracker } from "./dm/InitiativeTracker.js";
+import { EncounterTables } from "./dm/EncounterTables.js";
+import { TensionCountdown } from "./dm/TensionCountdown.js";
+import { Generators } from "./dm/Generators.js";
+import { XpLedger } from "./dm/XpLedger.js";
+import { RecapComposer } from "./dm/RecapComposer.js";
 import type { Combatant } from "./dm/InitiativeTracker.js";
 import type { RolledName } from "./dm/NameGenerator.js";
+import type { EncounterTable } from "./dm/EncounterTables.js";
+import type { CountdownTimer } from "./dm/TensionCountdown.js";
+import type { XpLedgerState } from "./dm/XpLedger.js";
+import type { RecapMoment } from "./dm/RecapComposer.js";
 import type { RollResult } from "../lib/dm-dice.js";
 
-type DmTool = "initiative" | "names" | "dice";
+type DmTool =
+  | "initiative"
+  | "names"
+  | "dice"
+  | "encounters"
+  | "timers"
+  | "generators"
+  | "ledger"
+  | "recap";
 
 export type DesktopDmToolkitProps = {
   nameHistory: RolledName[];
@@ -27,12 +44,37 @@ export type DesktopDmToolkitProps = {
   onTurnChange: (newIdx: number) => void;
   /** Open the track-picker for combatant `id` at the click position. */
   onPickTurnSound: (combatantId: string, x: number, y: number) => void;
+  encounterTables: EncounterTable[];
+  onEncounterTables: (next: EncounterTable[]) => void;
+  /** Open the track-picker to bind a track to an encounter entry. */
+  onPickEntryTrack: (tableId: string, entryId: string, x: number, y: number) => void;
+  /** Fire a bound track (single play) from a rolled encounter entry. */
+  onPlayTrack: (trackId: string) => void;
+  /** Fire a bound category (weighted shuffle) from a rolled encounter entry. */
+  onPlayCategory: (categoryId: CategoryId) => void;
+  countdownTimers: CountdownTimer[];
+  onCountdownTimers: (next: CountdownTimer[]) => void;
+  /** Open the track-picker to bind a stinger to a countdown timer. */
+  onPickStinger: (timerId: string, x: number, y: number) => void;
+  /** Fire a timer's stinger (soundboard bus, ducks music) at zero. */
+  onFireStinger: (trackId: string) => void;
+  xpLedger: XpLedgerState;
+  onXpLedger: (next: XpLedgerState) => void;
+  recapMoments: RecapMoment[];
+  onRecapMoments: (next: RecapMoment[]) => void;
+  /** Title of the currently-playing track, captured when a moment is pinned. */
+  nowPlayingLabel?: string;
 };
 
 const TOOLS: Array<{ id: DmTool; label: string; glyph: string; eyebrow: string }> = [
   { id: "initiative", label: "Initiative", glyph: "swords", eyebrow: "Tracker" },
   { id: "names", label: "Names", glyph: "mask", eyebrow: "NPCs" },
   { id: "dice", label: "Dice", glyph: "dice", eyebrow: "Roller" },
+  { id: "encounters", label: "Encounters", glyph: "compass", eyebrow: "Random tables" },
+  { id: "timers", label: "Timers", glyph: "clock", eyebrow: "Countdown" },
+  { id: "generators", label: "Generators", glyph: "note", eyebrow: "Roll tables" },
+  { id: "ledger", label: "Ledger", glyph: "star", eyebrow: "XP & loot" },
+  { id: "recap", label: "Recap", glyph: "theatre", eyebrow: "Session log" },
 ];
 
 export function DesktopDmToolkit({
@@ -46,6 +88,20 @@ export function DesktopDmToolkit({
   onCombatantsChange,
   onTurnChange,
   onPickTurnSound,
+  encounterTables,
+  onEncounterTables,
+  onPickEntryTrack,
+  onPlayTrack,
+  onPlayCategory,
+  countdownTimers,
+  onCountdownTimers,
+  onPickStinger,
+  onFireStinger,
+  xpLedger,
+  onXpLedger,
+  recapMoments,
+  onRecapMoments,
+  nowPlayingLabel,
 }: DesktopDmToolkitProps) {
   // Default to Initiative — most useful at-the-table, and the dynamic
   // counter ("· 2 in combat") changes most often, so the tab badge
@@ -86,6 +142,7 @@ export function DesktopDmToolkit({
       <div
         style={{
           display: "flex",
+          flexWrap: "wrap",
           gap: 4,
           padding: "12px 24px 4px",
         }}
@@ -151,8 +208,35 @@ export function DesktopDmToolkit({
           />
         ) : tool === "names" ? (
           <NameGenerator history={nameHistory} onHistory={onNameHistory} />
-        ) : (
+        ) : tool === "dice" ? (
           <DiceRoller history={rollHistory} onHistory={onRollHistory} />
+        ) : tool === "encounters" ? (
+          <EncounterTables
+            tables={encounterTables}
+            onTables={onEncounterTables}
+            tracksById={tracksById}
+            onPickEntryTrack={onPickEntryTrack}
+            onPlayTrack={onPlayTrack}
+            onPlayCategory={onPlayCategory}
+          />
+        ) : tool === "timers" ? (
+          <TensionCountdown
+            timers={countdownTimers}
+            onTimers={onCountdownTimers}
+            tracksById={tracksById}
+            onPickStinger={onPickStinger}
+            onFireStinger={onFireStinger}
+          />
+        ) : tool === "generators" ? (
+          <Generators />
+        ) : tool === "ledger" ? (
+          <XpLedger ledger={xpLedger} onLedger={onXpLedger} />
+        ) : (
+          <RecapComposer
+            moments={recapMoments}
+            onMoments={onRecapMoments}
+            {...(nowPlayingLabel ? { nowPlayingLabel } : {})}
+          />
         )}
       </div>
     </div>
