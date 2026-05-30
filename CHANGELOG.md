@@ -8,7 +8,39 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile parity at: DM Toolkit (#35), background audio (#39), loop control (#40), grade pills (#41), removed-category (#42), Favorites + Recently played (this). Last remaining parity gap tracked in `BACKLOG.md`: the mobile duration probe (and the length filter blocked on it).
+Nothing yet — Phase 2 cloud sync proper + IAP continue here. **Mobile is now at full desktop parity** for the v0.x feature set: DM Toolkit (#35), background audio (#39), loop control (#40), grade pills (#41), removed-category (#42), Favorites + Recently played (#43), and the duration probe (this). The remaining mobile-only gap from `BACKLOG.md` is the length filter (the data dependency for which now exists — straight-forward UI follow-up).
+
+---
+
+## [0.0.21] — 2026‑05‑30 — Mobile background duration probe
+
+Adds the mobile parallel to desktop's `duration-scan.ts` (which has been around since #15). Without this, mobile track rows showed no length and the Now Playing scrubber stayed at `0:00` until the track was played to completion. Tracks imported on mobile would silently never get a `duration_ms` value persisted, so a future cross-device sync round-trip would have carried `null` for every mobile-imported track.
+
+> Mobile-only release: bumps `apps/mobile/package.json` 0.0.20 → 0.0.21. Desktop version files untouched.
+
+### Added — `apps/mobile/src/audio/duration-scan.ts`
+
+- `probeDuration(track)` — creates a transient `expo-audio` `AudioPlayer` for the track URI, listens for `playbackStatusUpdate`, resolves with the first `{ isLoaded: true, duration > 0 }` status. Never calls `.play()` — loading is enough to surface `AudioStatus.duration`. Belt-and-suspenders 8s timeout for corrupt files that never fire an `isLoaded: true` (matches desktop). `player.remove()` runs on every settle path so native resources release immediately.
+- `ensureDurationsProbed()` — one-shot, idempotent batch scanner. In-memory `_attempted` Set + `_running` flag mean concurrent calls (boot + tab focus + post-import) all collapse to a single scan. Concurrency capped at 2 (vs desktop's 4) — mobile has tighter native memory.
+- Failure sentinel matches desktop: `duration_ms = 0` for tried-and-failed, NULL for untried. Persisting 0 still re-queries on next boot, but the in-session attempted Set stops a re-probe in the same launch.
+
+### Added — `apps/mobile/src/data/tracks-repo.ts`
+
+- `updateDuration(db, trackId, durationMs)` — single-track UPDATE the scanner calls once per probe result.
+
+### Changed — `apps/mobile/app/(tabs)/index.tsx`
+
+- `useFocusEffect` now also calls `ensureDurationsProbed()`. Idempotent guard means re-focusing during a scan is a no-op.
+- Post-import: after the Alert dismisses and counts refresh, `ensureDurationsProbed()` runs again so newly imported tracks fill in their durations within seconds rather than waiting for the next tab focus.
+
+### Verification
+
+- `pnpm -r typecheck` — clean (5 of 5 projects).
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual (needs a device / simulator): `pnpm --filter @mc/mobile start`.
+  - Import a handful of tracks → category row durations fill in over the next few seconds (visible in the row subtitle: `Pack · grade · 3:42`).
+  - Open Now Playing while a never-probed track plays → scrubber + end-time populate as soon as the probe lands.
+  - Force-quit and relaunch → previously probed tracks have durations immediately, no re-probe.
 
 ---
 
