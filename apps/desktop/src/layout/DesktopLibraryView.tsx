@@ -258,6 +258,10 @@ export function DesktopLibraryView({
                 : categoryTracks.filter(
                     (t) => (t.subcategory ?? "").toLowerCase() === s.toLowerCase(),
                   ).length;
+            // Hide empty subcategory tabs ("Skirmish 0") — they take up
+            // space and create a false affordance. "All" always renders so
+            // there's at least one tab to anchor the strip.
+            if (s !== "All" && count === 0) return null;
             return (
               <button
                 key={s}
@@ -281,7 +285,7 @@ export function DesktopLibraryView({
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span className="mc-eyebrow" style={{ marginRight: 4 }}>
+            <span className="mc-eyebrow" style={{ marginRight: 4, flexShrink: 0 }}>
               Length
             </span>
             {DURATION_BUCKETS.map((b) => {
@@ -321,7 +325,7 @@ export function DesktopLibraryView({
             })}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span className="mc-eyebrow" style={{ marginRight: 4 }}>
+            <span className="mc-eyebrow" style={{ marginRight: 4, flexShrink: 0 }}>
               Grade
             </span>
             {GRADES_INCLUDING_ALL.map((g) => {
@@ -360,17 +364,25 @@ export function DesktopLibraryView({
         </div>
       </div>
 
-      {/* Column header */}
+      {/* Column header — sticks to the top of the scroll container so it
+          stays readable when the user scrolls into a long category. Opaque
+          chrome background so rows scrolling underneath don't show
+          through. */}
       <div
         style={{
           display: "grid",
           gridTemplateColumns: "32px 1fr 240px 70px 60px 60px 36px",
           padding: "8px 32px",
           fontSize: 10,
-          color: T.ink3,
+          fontWeight: 600,
+          color: T.ink2,
           textTransform: "uppercase",
-          letterSpacing: 0.12,
+          letterSpacing: 0.16,
           borderBottom: `1px solid ${T.rule}`,
+          position: "sticky",
+          top: 0,
+          zIndex: 1,
+          background: T.bg,
         }}
       >
         <div>#</div>
@@ -452,18 +464,25 @@ function DesktopTrackRow({
   const c = findCategory(track.category);
   if (!c) return null;
   const isRemoved = track.category === "removed";
+  const [hovered, setHovered] = useState(false);
   // Selected rows get a gold-tinted background that wins over the
   // currently-playing tint. Playing-and-selected falls back to a blend
   // of both — gold accents, the playing gradient stays underneath.
+  // Hover only kicks in for default rows so it doesn't fight the
+  // selected/playing tints.
   const bg = isSelected
     ? T.goldSoft
     : isPlaying
       ? `linear-gradient(90deg, ${c.color}14, transparent 40%)`
-      : "transparent";
+      : hovered
+        ? T.bgChip
+        : "transparent";
   return (
     <button
       className="mc-row-tap"
       onClick={onTap}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       onContextMenu={dmMode ? undefined : (e) => {
         e.preventDefault();
         onContextMenu(e.clientX, e.clientY);
@@ -586,9 +605,12 @@ function DesktopTrackRow({
         {track.pack}
       </div>
       <div className="mc-mono" style={{ fontSize: 11, color: T.ink3 }}>
-        {dmMode ? "" : `${track.playCount}×`}
+        {dmMode || track.playCount === 0 ? "" : track.playCount}
       </div>
-      {dmMode ? (
+      {/* Hide the empty box for ungraded tracks — only render the chip
+          when a grade actually exists, so a fresh library doesn't read
+          as a column of broken UI. */}
+      {dmMode || track.grade === null ? (
         <div />
       ) : (
         <GradeChip grade={track.grade} size={22} />

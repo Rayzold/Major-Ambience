@@ -12,6 +12,29 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile background
 
 ---
 
+## [0.0.28] — 2026‑05‑24 — UI polish (Batch A): track-list table
+
+First of several focused polish batches against the design-review punch list. This one tightens the Library track table.
+
+> Numbering: assumes PR #29 (player-view, 0.0.27) lands first. Renumber to 0.0.27 on rebase if not.
+
+### Changed — Track table
+
+- **Empty grade column hidden.** Ungraded tracks rendered an empty `GradeChip` placeholder that read as a broken UI element across a whole column on a fresh library. The chip now renders only when `grade !== null`.
+- **Plays column drops the `×` annotation.** "26×" → "26"; the "Plays" column header already provides the context, and the multiplication sign was an unconventional convention. Zero-count rows render blank rather than "0".
+- **Subcategory tabs with no tracks are hidden.** A "Skirmish 0" tab takes space and creates a false affordance; only the All tab is forced to render. Tabs reappear automatically once a matching track is added.
+- **Column header is sticky + opaque + a touch louder.** As you scroll a long category, the `#  TITLE  PACK  PLAYS  GRADE  TIME` header stays pinned at the top of the scroll container with a solid background so rows don't bleed through. Weight 600, slightly tighter color (`T.ink2`), wider letter-spacing.
+- **Row hover state.** Default rows now lift to `T.bgChip` on hover (via local `useState`) so the "which row am I about to click" question is unambiguous. Selected and currently-playing tints still win over hover.
+- **Filter eyebrow labels stop truncating.** `Length` and `Grade` labels in the pill rows had no `flexShrink: 0`, so at narrow widths "GRADE" clipped to "GRAD" with no obvious cause. Pinned to no-shrink.
+
+### Verification
+
+- `pnpm -r typecheck` — clean across all 5 projects.
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual: open the Library on a long category — scroll; column header stays at top. Hover any row → background tints; click → row plays / selects (no hover state on the active row). Ungraded tracks show no chip; played tracks show their count without the `×`. A category with a zero-count subcategory (e.g. Combat → Skirmish 0) hides that tab.
+
+---
+
 ## [0.0.26] — 2026‑05‑24 — DM Toolkit expansion: encounters · timers · generators · utilities
 
 GM-tool additions from `IDEAS.md`, shipped together. **Encounters** — roll tables where each row can be wired to a track or a category, so rolling an encounter drops the right music. **Timers** — tension countdowns that fire a stinger (and duck the music) at zero. **Generators** — the standalone roll tables (loot, NPC, tavern, settlement, weather, crit/fumble, wild magic, trap, quest) under one tab. Plus utilities — a combat-tracker HP/AC upgrade, an XP/loot **Ledger**, and a **Recap** composer.
