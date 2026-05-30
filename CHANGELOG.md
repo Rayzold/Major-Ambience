@@ -8,7 +8,46 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile background audio config (Info.plist / Android foreground service) and SFX-bus ducking on mobile are the immediate follow-ups to v0.0.20.
+Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile background audio config (Info.plist / Android foreground service) and SFX-bus ducking on mobile are the immediate follow-ups to v0.0.20. The remaining 5 DM tools (Initiative, XP Ledger, Recap, Encounters, Timers) follow up the mobile DM Toolkit foundation that just landed.
+
+---
+
+## [0.0.11] — 2026‑05‑30 — Mobile DM Toolkit foundation (Dice + Names + Generators)
+
+First slice of the mobile DM Toolkit. Adds a fifth bottom tab whose hub screen drills into per-tool stack routes; the three pure-logic tools land in this PR. The shared roll logic (`dm-dice`, `dm-names`, `dm-generators`) was lifted from `apps/desktop/src/lib/` into `@mc/core/dm` so both apps consume it.
+
+> Mobile-only release: bumps `apps/mobile/package.json` 0.0.10 → 0.0.11; desktop version files untouched. The desktop import sites changed (5 files) but the behaviour didn't.
+
+### Added — DM Tools tab + hub (`apps/mobile/app/(tabs)/dm.tsx`)
+
+- New fifth bottom tab using the `theatre` glyph — the same glyph the desktop header uses for DM Mode, so the entry point reads consistently across surfaces.
+- The hub is a 2-column grid of tool cards (`eyebrow / display title / blurb / gold icon orb`). Tap to push into the tool's stack route. The five tools that aren't ported yet (Initiative, XP Ledger, Recap, Encounters, Timers) render greyed-out with a "Coming soon" blurb so the eventual IA is visible.
+
+### Added — Dice (`apps/mobile/app/dm/dice.tsx`)
+
+- Polyhedral die picker (d4–d100), count + modifier stepper inputs (1–20 / signed), Straight / Advantage / Disadvantage toggle row (d20 only). Tap-and-go gold Roll button; full session-local history (cap 30) below.
+- History rows mirror the desktop's accent rules: green for `Nat 20`, red for `Nat 1`, gold for the latest non-crit. Faces show kept rolls plain and dropped rolls parenthesised, exactly as on desktop.
+
+### Added — Names (`apps/mobile/app/dm/names.tsx`)
+
+- Gender row (Any / Male / Female) above the race row (Any / Human / Elf / Dwarf / Orc / Halfling), driving `rollNameAvoiding()` with a `Set` of recent rolls so back-to-back collisions stay rare. Roll button + session history (cap 30) with per-race glyphs from the shared mapping.
+- Copy-to-clipboard intentionally deferred — `expo-clipboard` isn't installed yet and the dep add is a separate follow-up; on mobile the tappable feedback can stay minimal until then.
+
+### Added — Generators (`apps/mobile/app/dm/generators.tsx`)
+
+- Horizontally-scrolling pill picker across the 10 standalone tables (loot / NPC / tavern / settlement / weather / crit / fumble / wild magic / trap / quest hook). Active-blurb line under the pills. History is filtered to the active table so switching tables doesn't mix rolls.
+- Single-facet generators render as a single sentence; composite ones (NPC, tavern, settlement, trap, quest) render as a `LABEL  VALUE` two-column layout with the labels in mono.
+
+### Internal — `@mc/core/dm` subpath export
+
+- `apps/desktop/src/lib/dm-{dice,names,generators}.ts` → `packages/core/src/dm/{dice,names,generators}.ts`, surfaced via a new `./dm` subpath in `packages/core/package.json`. New `packages/core/src/dm/index.ts` barrel re-exports all three.
+- 5 desktop import sites updated (`Library.tsx`, `DesktopDmToolkit.tsx`, and the 3 panel components) to `@mc/core/dm`. No behaviour change on desktop.
+
+### Verification
+
+- `pnpm -r typecheck` — clean across all 5 projects (both before and after the lift; both before and after the new screens).
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual (needs a device / simulator): `pnpm --filter @mc/mobile start`. Bottom bar shows a fifth `DM Tools` tab. Open it → 2×4 grid of cards, three live + five greyed. Tap Dice → die row works, count/modifier steppers clamp 1–20, d20 advantage toggle appears and disappears as you change die, Roll appends a row at the top of history with the right accent for nat 1 / nat 20. Tap Names → gender + race pills change selection, Roll appends a row, repeated rolls stay varied. Tap Generators → horizontal pill row scrolls, blurb updates, Generate appends a result with the right shape (single sentence vs. labelled rows).
 
 ---
 

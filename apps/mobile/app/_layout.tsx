@@ -42,6 +42,9 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen name="modal" options={{ presentation: "modal", title: "About" }} />
+            <Stack.Screen name="dm/dice" options={{ title: "Dice", presentation: "card" }} />
+            <Stack.Screen name="dm/names" options={{ title: "Names", presentation: "card" }} />
+            <Stack.Screen name="dm/generators" options={{ title: "Generators", presentation: "card" }} />
           </Stack>
         </View>
         <SafeAreaView edges={["bottom"]} style={{ backgroundColor: T.bgRaise }}>

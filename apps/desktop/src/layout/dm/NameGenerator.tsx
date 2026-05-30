@@ -8,7 +8,7 @@ import {
   GENDER_OPTIONS,
   type Race,
   type Gender,
-} from "../../lib/dm-names.js";
+} from "@mc/core/dm";
 
 export type RolledName = {
   first: string;

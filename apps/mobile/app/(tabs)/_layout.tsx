@@ -57,6 +57,10 @@ export default function TabLayout() {
         name="search"
         options={{ title: "Search", tabBarIcon: tabIcon("search") }}
       />
+      <Tabs.Screen
+        name="dm"
+        options={{ title: "DM Tools", tabBarIcon: tabIcon("theatre") }}
+      />
       <Tabs.Screen name="two" options={{ href: null }} />
     </Tabs>
   );
