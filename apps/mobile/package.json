@@ -1,7 +1,7 @@
 {
   "name": "@mc/mobile",
   "main": "expo-router/entry",
-  "version": "0.0.15",
+  "version": "0.0.16",
   "private": true,
   "scripts": {
     "start": "expo start",
@@ -14,7 +14,7 @@
     "@mc/core": "workspace:*",
     "@mc/ui": "workspace:*",
     "expo": "~56.0.3",
-    "expo-audio": "~1.0.0",
+    "expo-audio": "~56.0.11",
     "expo-clipboard": "~56.0.3",
     "expo-constants": "~56.0.14",
     "expo-document-picker": "~56.0.0",

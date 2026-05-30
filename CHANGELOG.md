@@ -8,7 +8,47 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile background audio config (Info.plist / Android foreground service) is the last immediate follow-up to v0.0.20. The mobile DM Toolkit is now at desktop parity.
+Nothing yet — Phase 2 cloud sync proper + IAP continue here. The mobile DM Toolkit is at desktop parity and mobile background audio is now configured. Next mobile parity work tracked in `BACKLOG.md` (loop control, grade pills, removed-category, Favorites / Recently played, duration probe).
+
+---
+
+## [0.0.16] — 2026‑05‑30 — Mobile background audio + lock-screen controls
+
+Mobile audio now keeps playing when the app is backgrounded or the screen locks — previously the OS paused playback at backgrounding, killing GM sessions the moment the phone slept. iOS via the standard `UIBackgroundModes: ["audio"]`; Android via the `mediaPlayback` foreground service the `expo-audio` config plugin generates. The runtime audio mode flips `shouldPlayInBackground: true`, and every music track takes ownership of the lock-screen / Control Center entry through `setActiveForLockScreen` — without that, Android still pauses background audio after ~3 minutes.
+
+> Mobile-only release: bumps `apps/mobile/package.json` 0.0.15 → 0.0.16. Desktop version files untouched.
+
+### Changed — `apps/mobile/package.json`
+
+- `expo-audio: ~1.0.0` → `~56.0.11`. The `~1.0.0` range was a leftover from when the package first appeared; the SDK-56-aligned line carries the config plugin options and the `setActiveForLockScreen` / `clearLockScreenControls` methods this PR depends on.
+
+### Added — `apps/mobile/app.json` plugin entry
+
+- `["expo-audio", { "enableBackgroundPlayback": true, "microphonePermission": false, "recordAudioAndroid": false }]`. The plugin:
+  - On iOS, appends `"audio"` to `UIBackgroundModes` in the generated Info.plist.
+  - On Android, adds `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_MEDIA_PLAYBACK` permissions to the manifest and declares the `expo.modules.audio.service.AudioControlsService` (`android:foregroundServiceType="mediaPlayback"`, MediaSessionService intent-filter).
+  - `microphonePermission: false` skips `NSMicrophoneUsageDescription`; `recordAudioAndroid: false` skips `RECORD_AUDIO` — neither feature ships in this app.
+- Requires a new EAS dev-client / native build to take effect (`expo prebuild --clean` then a fresh `eas build` or `pnpm --filter @mc/mobile run android` / `run ios`). The new permissions can't be hot-reloaded from Expo Go.
+
+### Changed — `apps/mobile/src/audio/backend.ts`
+
+- `setAudioModeAsync` flipped: `shouldPlayInBackground: false → true`; `interruptionMode: "duckOthers" → "doNotMix"`; explicit `interruptionModeAndroid: "doNotMix"`. `doNotMix` is required when using `setActiveForLockScreen` (per the `expo-audio` docs note on `AudioMode`) — and also matches GM-session ergonomics: when ambient music starts, other audio apps yield rather than fight for the mix.
+
+### Added — lock-screen plumbing on `ExpoAudioBackend`
+
+- New `setLockScreenMetadata(handle, AudioMetadata)` method. Calls `player.setActiveForLockScreen(true, metadata)` and tracks `lockScreenHandleId` so subsequent music tracks transparently transfer ownership (only one player may own the session at a time per expo-audio). `destroy()` now also calls `player.clearLockScreenControls()` when destroying the active owner so the lock-screen widget clears.
+- `store.ts` `playTrack(track, queue)` calls `setLockScreenMetadata(handle, { title: track.title, artist: track.pack || undefined })` immediately after starting playback. Soundboard pads + stingers deliberately do NOT take the lock-screen — a fired pad shouldn't displace the music's Now-Playing entry.
+
+### Verification
+
+- `pnpm -r typecheck` — clean (5 of 5 projects).
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual (needs a fresh native build, NOT Expo Go): `pnpm --filter @mc/mobile prebuild --clean && pnpm --filter @mc/mobile run android` (or `run ios`):
+  - **Background**: start a track, swipe home / lock the phone → audio keeps playing.
+  - **Lock-screen**: track title (and pack as the "artist" line) appears on iOS lock-screen / Android notification shade; transport from the lock-screen pauses/resumes the in-app player.
+  - **Cross-track lock-screen handover**: skip to next → lock-screen entry updates to the new track without flicker.
+  - **Android 3-minute test**: leave the phone locked for 5+ minutes; playback continues (this is the regression `setActiveForLockScreen` prevents).
+  - **Sfx don't hijack lock-screen**: fire a soundboard pad while music plays → lock-screen entry stays on the music track, not the pad.
 
 ---
 
