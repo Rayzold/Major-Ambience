@@ -1,7 +1,7 @@
 {
   "name": "@mc/mobile",
   "main": "expo-router/entry",
-  "version": "0.0.18",
+  "version": "0.0.19",
   "private": true,
   "scripts": {
     "start": "expo start",

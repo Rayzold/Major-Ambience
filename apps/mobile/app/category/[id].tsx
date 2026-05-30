@@ -3,7 +3,7 @@
 // track auto-advances when the current one finishes. Mirrors desktop
 // row-click-fills-queue behavior.
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -13,12 +13,12 @@ import {
   View,
 } from "react-native";
 import { useLocalSearchParams, useNavigation } from "expo-router";
-import type { Grade, Track } from "@mc/core";
-import { CATEGORIES } from "@mc/ui/categories";
+import { categorize, type CategoryId, type Grade, type Track } from "@mc/core";
+import { CATEGORIES, findCategory } from "@mc/ui/categories";
 import { T, FONT_DISPLAY, FONT_MONO } from "../../src/tokens";
 import { Glyph } from "../../src/Glyph";
 import { getDb } from "../../src/data/db";
-import { listTracksByCategory } from "../../src/data/tracks-repo";
+import { listTracksByCategory, setCategory } from "../../src/data/tracks-repo";
 import { playTrack, usePlayer } from "../../src/audio/store";
 
 type GradeFilter = "All" | NonNullable<Grade>;
@@ -27,11 +27,67 @@ const GRADE_PILLS: GradeFilter[] = ["All", "S", "A", "B", "C", "D", "F"];
 export default function CategoryDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const navigation = useNavigation();
-  const meta = useMemo(() => CATEGORIES.find((c) => c.id === id), [id]);
+  // findCategory resolves both real categories and the "removed"
+  // pseudo-category — needed so the Removed view can render the same
+  // header chrome as the others. The route param is a raw string;
+  // the cast is bounded by findCategory returning undefined for
+  // anything that isn't a known CategoryId.
+  const meta = useMemo(
+    () => (id ? findCategory(id as CategoryId) : undefined),
+    [id],
+  );
+  const isRemoved = id === "removed";
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
   const [gradeFilter, setGradeFilter] = useState<GradeFilter>("All");
   const { nowPlaying } = usePlayer();
+
+  const reload = useCallback(async () => {
+    if (!id) return;
+    try {
+      const db = await getDb();
+      const list = await listTracksByCategory(db, id);
+      setTracks(list);
+    } catch (err) {
+      console.error("category reload failed:", err);
+    }
+  }, [id]);
+
+  const handleRemove = useCallback(
+    async (track: Track) => {
+      try {
+        const db = await getDb();
+        await setCategory(db, track.id, "removed", null);
+        setTracks((prev) => prev.filter((t) => t.id !== track.id));
+      } catch (err) {
+        console.error("remove failed:", err);
+      }
+    },
+    [],
+  );
+
+  const handleRestore = useCallback(
+    async (track: Track) => {
+      // Re-run the auto-categorizer over the track's title + pack so
+      // it lands in its best-guess category, the same way a fresh
+      // folder scan would. The pre-removal category isn't stored
+      // anywhere — this matches desktop Library.handleRestoreTrack().
+      try {
+        const db = await getDb();
+        const result = categorize(track.title, track.pack);
+        await setCategory(
+          db,
+          track.id,
+          result.category,
+          result.subcategory ?? null,
+        );
+        setTracks((prev) => prev.filter((t) => t.id !== track.id));
+      } catch (err) {
+        console.error("restore failed:", err);
+      }
+    },
+    [],
+  );
 
   // Per-grade counts drive the chip row — chips with a 0 count are
   // hidden so the row doesn't show every letter for every category
@@ -73,23 +129,13 @@ export default function CategoryDetailScreen() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (!id) return;
-      try {
-        const db = await getDb();
-        const list = await listTracksByCategory(db, id);
-        if (!cancelled) {
-          setTracks(list);
-          setLoading(false);
-        }
-      } catch (err) {
-        console.error("category load failed:", err);
-        if (!cancelled) setLoading(false);
-      }
+      await reload();
+      if (!cancelled) setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [reload]);
 
   if (!meta) {
     return (
@@ -254,6 +300,10 @@ export default function CategoryDetailScreen() {
                 // respects the active filter (same pattern as desktop).
                 void playTrack(item, filtered);
               }}
+              actionGlyph={isRemoved ? "undo" : "trash"}
+              onAction={() => {
+                void (isRemoved ? handleRestore(item) : handleRemove(item));
+              }}
             />
           )}
         />
@@ -267,11 +317,15 @@ function TrackRow({
   accent,
   active,
   onPress,
+  actionGlyph,
+  onAction,
 }: {
   track: Track;
   accent: string;
   active: boolean;
   onPress: () => void;
+  actionGlyph: "trash" | "undo";
+  onAction: () => void;
 }) {
   const formatDuration = (ms: number | null | undefined): string => {
     if (!ms || ms <= 0) return "";
@@ -284,57 +338,80 @@ function TrackRow({
   const duration = formatDuration(track.durationMs);
 
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => ({
+    <View
+      style={{
         flexDirection: "row",
         alignItems: "center",
-        gap: 12,
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        backgroundColor: active
-          ? `${accent}14`
-          : pressed
-            ? T.bgCard
-            : "transparent",
+        backgroundColor: active ? `${accent}14` : "transparent",
         borderLeftColor: active ? accent : "transparent",
         borderLeftWidth: 3,
-      })}
+      }}
     >
-      <View
-        style={{
-          width: 28,
-          height: 28,
-          borderRadius: 6,
-          backgroundColor: `${accent}22`,
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => ({
+          flex: 1,
+          minWidth: 0,
+          flexDirection: "row",
           alignItems: "center",
-          justifyContent: "center",
-        }}
+          gap: 12,
+          paddingLeft: 20,
+          paddingRight: 8,
+          paddingVertical: 12,
+          backgroundColor: !active && pressed ? T.bgCard : "transparent",
+        })}
       >
-        <Glyph name={active ? "play" : "next"} size={14} color={accent} />
-      </View>
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text
-          numberOfLines={1}
+        <View
           style={{
-            color: active ? accent : T.ink,
-            fontSize: 14,
-            fontWeight: active ? "600" : "500",
+            width: 28,
+            height: 28,
+            borderRadius: 6,
+            backgroundColor: `${accent}22`,
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
-          {track.title}
-        </Text>
-        <Text
-          numberOfLines={1}
-          style={{ color: T.ink3, fontSize: 11, marginTop: 2 }}
-        >
-          {track.pack || "—"}
-          {track.subcategory ? ` · ${track.subcategory}` : ""}
-          {track.grade ? ` · ${track.grade}` : ""}
-          {duration ? ` · ${duration}` : ""}
-        </Text>
-      </View>
-    </Pressable>
+          <Glyph name={active ? "play" : "next"} size={14} color={accent} />
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text
+            numberOfLines={1}
+            style={{
+              color: active ? accent : T.ink,
+              fontSize: 14,
+              fontWeight: active ? "600" : "500",
+            }}
+          >
+            {track.title}
+          </Text>
+          <Text
+            numberOfLines={1}
+            style={{ color: T.ink3, fontSize: 11, marginTop: 2 }}
+          >
+            {track.pack || "—"}
+            {track.subcategory ? ` · ${track.subcategory}` : ""}
+            {track.grade ? ` · ${track.grade}` : ""}
+            {duration ? ` · ${duration}` : ""}
+          </Text>
+        </View>
+      </Pressable>
+      <Pressable
+        onPress={onAction}
+        hitSlop={8}
+        style={({ pressed }) => ({
+          width: 40,
+          height: 40,
+          marginRight: 12,
+          borderRadius: 8,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: pressed ? T.bgChip : "transparent",
+          opacity: pressed ? 1 : 0.55,
+        })}
+      >
+        <Glyph name={actionGlyph} size={16} color={T.ink2} />
+      </Pressable>
+    </View>
   );
 }
 
