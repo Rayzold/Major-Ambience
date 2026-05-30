@@ -1702,7 +1702,6 @@ export function Library() {
             }
             onRemoveTrack={(t) => void handleRemoveTrack(t)}
             onRestoreTrack={(t) => void handleRestoreTrack(t)}
-            isPseudoView={activeView !== "category"}
             dmMode={dmMode}
           />
         ) : tab === "scenes" ? (

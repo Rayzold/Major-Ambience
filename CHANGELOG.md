@@ -12,9 +12,9 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile background
 
 ---
 
-## [0.0.28] — 2026‑05‑24 — UI polish (Batches A + B + C + D): track table · header · sidebar · player bar · right rail · soundboard · scenes · DM toolkit
+## [0.0.28] — 2026‑05‑24 — UI polish (Batches A + B + C + D + E): full design-review sweep
 
-Four focused polish batches against the design-review punch list, shipped together.
+Five focused polish batches against the design-review punch list, shipped as a single release.
 
 > Numbering: assumes PR #29 (player-view, 0.0.27) lands first. Renumber to 0.0.27 on rebase if not.
 
@@ -74,6 +74,19 @@ Four focused polish batches against the design-review punch list, shipped togeth
 - **Sub-tab style matches the main-header tabs**: transparent background when inactive, gold `${color}33` fill + gold inset bottom underline + 600-weight font when active. Reads as native dark-theme nav instead of the previous outlined-chip look.
 - **Initiative add row is a single grouped input.** Name + Init + add `+` button live inside one bordered shell with thin vertical dividers — no longer three disconnected widgets with their own borders.
 
+### Changed — Category header (Batch E)
+
+- **Track count joined the title metadata.** `298` now sits beside the category name as a chip-styled badge (`mc-mono`, gold-edged) instead of floating between the action buttons.
+- **Description contrast lifted** from `T.ink2` to `T.ink` at 0.9 opacity for clearer reading over the hero gradient — closer to WCAG AA at body text size.
+- **Disabled "Save as scene" placeholder removed.** It existed as a "coming in next phase" stub next to the primary CTA; the Scenes tab has a fully working save flow now, so the disabled button was just visual noise.
+- **`DesktopLibraryViewProps.isPseudoView` retired** as part of the cleanup — its only consumer was that disabled button.
+
+### Changed — Global design tokens (Batch E)
+
+- **Custom thin scroll affordance.** `.mc-scroll` used to fully hide scrollbars; it now reveals a 6px gold-tinted scroll thumb when the container is hovered. Calm by default, scroll-aware when the user actually engages.
+- **Keyboard focus ring.** Added a global `:focus-visible` rule (2px gold outline, 2px offset). Visible only for keyboard navigation (the `:focus-visible` heuristic) so mouse clicks don't reveal outlines but Tab users get a clear "you are here." Closes the only material a11y gap on the punch list.
+- Explicit non-changes (flagged in the original review but already in place / out of scope for this PR): three-theme system already shipped (`gold-dark` / `parchment` / `arcane`); category glyphs are already thematic and SVG; `tauri.conf.json` already enforces 960×640 minimum window size; compact mode is a Phase 3 roadmap item.
+
 ### Verification
 
 - `pnpm -r typecheck` — clean across all 5 projects.
@@ -82,6 +95,7 @@ Four focused polish batches against the design-review punch list, shipped togeth
 - Manual (Batch B): the search input reads `Search library…`. Click a header tab — clear gold underline + bold label. Open Folder is now a single icon. Sidebar: no "Letter plays · Number jumps" line. Click between categories — the active one shows a 3px left border + stronger background. Open a folder or trigger any status — a toast appears bottom-right and fades after ~5 seconds.
 - Manual (Batch C): the player bar is 12px taller; Fade / Duck / Volume each have an uppercase eyebrow tucked under their slider; the Duck slider thumb is gold (no longer teal). With nothing loaded the transport reads "Nothing playing" instead of "Open a folder to begin." The right rail empty state shows a gold orb-ring + **Standing by** card + a Quick-start card with every shortcut letter as a uniform `kbd` chip.
 - Manual (Batch D): Soundboard — hover an assigned pad → full title tooltip; volume slider is visibly taller; loop / clear buttons are 28px; an empty pad shows a dashed gold-on-hover drop zone with **Add track**; the page tabs read `Page A · 3 of 8`. Scenes (empty) — gold orb-ring + No scenes yet card + centered Save-current-scene CTA. DM Tools — no Add-on micro-label; sub-tabs use gold underlines like the main header; Initiative add row is a single bordered group.
+- Manual (Batch E): the Combat / Tavern / etc. hero shows track count as a small gold-edged chip beside the title (no longer between buttons); the disabled "Save as scene" stub is gone; the description reads slightly bolder. Hover any scroll surface (sidebar, library, DM panels) — a 6px gold-tinted scrollbar fades in; mouse out, it fades out. Tab through any view — focused buttons / inputs / rows get a 2px gold outline (no outline appears on plain mouse clicks).
 
 ---
 
