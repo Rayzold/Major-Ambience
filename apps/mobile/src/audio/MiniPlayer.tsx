@@ -5,13 +5,13 @@
 import { Pressable, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { CATEGORIES } from "@mc/ui/categories";
-import { T } from "../tokens";
+import { T, FONT_MONO } from "../tokens";
 import { Glyph } from "../Glyph";
-import { skipNext, stop, togglePlay, usePlayer } from "./store";
+import { cycleLoopMode, skipNext, stop, togglePlay, usePlayer } from "./store";
 
 export function MiniPlayer() {
   const router = useRouter();
-  const { nowPlaying, playing, positionSec, durationSec, queue } = usePlayer();
+  const { nowPlaying, playing, positionSec, durationSec, queue, loopMode } = usePlayer();
   if (!nowPlaying) return null;
 
   const meta = CATEGORIES.find((c) => c.id === nowPlaying.category);
@@ -93,6 +93,12 @@ export function MiniPlayer() {
             </Text>
           </View>
         </Pressable>
+        <LoopMini
+          mode={loopMode}
+          onPress={() => {
+            void cycleLoopMode();
+          }}
+        />
         <IconButton glyph={playing ? "pause" : "play"} onPress={togglePlay} tint={color} />
         <IconButton
           glyph="next"
@@ -105,6 +111,52 @@ export function MiniPlayer() {
         <IconButton glyph="close" onPress={stop} tint={T.ink3} />
       </View>
     </View>
+  );
+}
+
+function LoopMini({
+  mode,
+  onPress,
+}: {
+  mode: "off" | "track" | "queue";
+  onPress: () => void;
+}) {
+  const active = mode !== "off";
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        width: 32,
+        height: 36,
+        borderRadius: 8,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: pressed ? T.bgCard : "transparent",
+        position: "relative",
+      })}
+    >
+      <Glyph
+        name="loop"
+        size={17}
+        color={active ? T.gold : T.ink3}
+        stroke={active ? 1.9 : 1.5}
+      />
+      {mode === "track" && (
+        <Text
+          style={{
+            position: "absolute",
+            right: 2,
+            bottom: 2,
+            fontFamily: FONT_MONO,
+            fontSize: 8,
+            color: T.gold,
+            fontWeight: "700",
+          }}
+        >
+          1
+        </Text>
+      )}
+    </Pressable>
   );
 }
 

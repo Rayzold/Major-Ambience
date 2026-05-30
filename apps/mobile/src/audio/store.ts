@@ -23,7 +23,10 @@ import { crossfade } from "@mc/core";
 import { weightedShuffle } from "@mc/core/shuffle";
 import { ensureAudioMode, getBackend } from "./backend";
 import { getDb } from "../data/db";
+import { getConfig, setConfig } from "../data/config-repo";
 import { listTracksByCategory } from "../data/tracks-repo";
+
+export type LoopMode = "off" | "track" | "queue";
 
 export type PlayerState = {
   nowPlaying: Track | null;
@@ -31,6 +34,7 @@ export type PlayerState = {
   positionSec: number;
   durationSec: number;
   queue: Track[];
+  loopMode: LoopMode;
 };
 
 const INITIAL_STATE: PlayerState = {
@@ -39,12 +43,37 @@ const INITIAL_STATE: PlayerState = {
   positionSec: 0,
   durationSec: 0,
   queue: [],
+  loopMode: "off",
 };
+
+const LOOP_MODE_KEY = "loop_mode";
 
 let _state: PlayerState = INITIAL_STATE;
 let _activeHandle: TrackHandle | null = null;
 let _unsubProgress: (() => void) | null = null;
 let _unsubEnded: (() => void) | null = null;
+/**
+ * The original queue passed to the last `playTrack` call. Kept so
+ * "loop queue" can wrap back to the first track once the live `queue`
+ * slice is exhausted. Distinct from `_state.queue`, which is the
+ * remaining next-up slice that drains as tracks auto-advance.
+ */
+let _fullQueue: Track[] = [];
+
+// Lazy-load persisted loop mode on module init. Fire-and-forget — the
+// first frame may render with the default "off", and the next state
+// push triggers a re-render with the loaded value.
+void (async () => {
+  try {
+    const db = await getDb();
+    const raw = await getConfig(db, LOOP_MODE_KEY);
+    if (raw === "track" || raw === "queue" || raw === "off") {
+      setState({ loopMode: raw });
+    }
+  } catch (err) {
+    console.warn("loop_mode load failed:", err);
+  }
+})();
 
 const listeners = new Set<() => void>();
 
@@ -105,6 +134,12 @@ export async function playTrack(track: Track, queue: readonly Track[] = []): Pro
     void handleNaturalEnd();
   });
 
+  // Remember the full caller-supplied queue so loop=queue can wrap back to
+  // the top after the live next-up slice drains. The live `_state.queue`
+  // below is the *next-up* slice (sliceAfter), which is what the UI
+  // displays; `_fullQueue` is the source for the wraparound.
+  _fullQueue = queue.length > 0 ? queue.slice() : [track];
+
   // Filter out the now-playing track from the queue we keep for auto-advance.
   // Callers usually pass the full visible list, so we drop everything up to
   // and including the current track to find the next-up slice.
@@ -162,7 +197,25 @@ export async function skipNext(): Promise<void> {
 }
 
 async function handleNaturalEnd(): Promise<void> {
-  // Same path as a manual skip — keeps auto-advance and tap-skip semantically aligned.
+  // Loop modes intercept the natural-end path. Manual skip (skipNext)
+  // deliberately doesn't honor "track" loop — a user tap means "skip",
+  // not "restart". "queue" loop is honored in skipNext too so manual
+  // skip past the end also wraps.
+  const mode = _state.loopMode;
+  if (mode === "track" && _state.nowPlaying) {
+    // Replay the same track. playTrack handles tearing down the active
+    // handle and starting fresh — simpler than a sample-accurate
+    // self-crossfade, and matches desktop's behaviour when fadeSec is 0.
+    await playTrack(_state.nowPlaying, _fullQueue);
+    return;
+  }
+  if (_state.queue.length === 0 && mode === "queue" && _fullQueue.length > 0) {
+    const first = _fullQueue[0];
+    if (first) {
+      await playTrack(first, _fullQueue);
+      return;
+    }
+  }
   await skipNext();
 }
 
@@ -184,6 +237,27 @@ export async function playCategory(categoryId: CategoryId): Promise<void> {
     await playTrack(first, shuffled);
   } catch (err) {
     console.error("playCategory failed:", err);
+  }
+}
+
+/**
+ * Cycle loop mode: off → track → queue → off. Persists the new value
+ * to the same `loop_mode` config key the desktop uses, so a future
+ * cloud-sync round-trip carries it across surfaces.
+ */
+export async function cycleLoopMode(): Promise<void> {
+  const next: LoopMode =
+    _state.loopMode === "off"
+      ? "track"
+      : _state.loopMode === "track"
+        ? "queue"
+        : "off";
+  setState({ loopMode: next });
+  try {
+    const db = await getDb();
+    await setConfig(db, LOOP_MODE_KEY, next);
+  } catch (err) {
+    console.warn("loop_mode save failed:", err);
   }
 }
 
