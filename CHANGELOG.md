@@ -8,7 +8,48 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-Nothing yet — Phase 2 cloud sync proper + IAP continue here. The mobile DM Toolkit is at desktop parity and mobile background audio is now configured. Next mobile parity work tracked in `BACKLOG.md` (loop control, grade pills, removed-category, Favorites / Recently played, duration probe).
+Nothing yet — Phase 2 cloud sync proper + IAP continue here. The mobile DM Toolkit is at desktop parity, background audio is configured, and loop control matches desktop. Remaining mobile parity tracked in `BACKLOG.md` (grade pills, removed-category, Favorites / Recently played, duration probe — and the length filter blocked on it).
+
+---
+
+## [0.0.17] — 2026‑05‑30 — Mobile loop control (off / track / queue)
+
+Brings the desktop `O` shortcut's three-state loop to mobile. The cycle is off → track → queue → off, persisted to the same `loop_mode` config key the desktop uses so a future cloud-sync round-trip carries the value across surfaces.
+
+> Mobile-only release: bumps `apps/mobile/package.json` 0.0.16 → 0.0.17. Desktop version files untouched.
+
+### Behaviour
+
+- **`off`** — natural end of a track skips to the next queued track, or stops if the queue is empty. (Existing behaviour.)
+- **`track`** — natural end replays the same track from the beginning. No self-crossfade in this v1 — simpler than the desktop's fade-driven loop, matches desktop's behaviour when `fadeSec` is 0.
+- **`queue`** — natural end advances to the next track; when the next-up slice is exhausted, wraps back to the first track of the queue the user originally launched playback from.
+
+Manual skip (`skipNext`) deliberately doesn't honor "track" loop — a user tap means "skip", not "restart". Queue loop is honored on natural end only.
+
+### Added — `apps/mobile/src/audio/store.ts`
+
+- `LoopMode = "off" | "track" | "queue"` type + new `loopMode` field on `PlayerState`.
+- Module-level `_fullQueue: Track[]` — the original caller-supplied queue, kept so "queue" loop can wrap back to the top after the live `_state.queue` slice drains.
+- `cycleLoopMode()` — off → track → queue → off, writes the value to the `loop_mode` config key via the existing `config-repo`.
+- One-time IIFE on module init reads the persisted mode from sqlite. Fire-and-forget; first frame may render with the default "off" briefly before the loaded value pushes through.
+- `handleNaturalEnd()` now branches on `loopMode` before delegating to `skipNext()`.
+
+### Added — UI
+
+- **MiniPlayer** — a compact loop button between Skip and Close. Gold tint + bold stroke when active; tiny `1` overlay in track-loop mode.
+- **Now Playing** — full 56px loop button to the left of Stop. Gold pill background when active; `1` overlay in track-loop, `∞` in queue-loop. Matches the existing transport control sizing.
+
+### Verification
+
+- `pnpm -r typecheck` — clean (5 of 5 projects).
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual (needs a device / simulator): `pnpm --filter @mc/mobile start`.
+  - Cycle the mini-player loop button → off → 1 / gold → ∞ (Now Playing) / gold → off.
+  - Play a short track with loop=off, queue=[a, b]: ends → b plays → ends → stops.
+  - Same with loop=track: ends → same track restarts; persists across mode cycles.
+  - Same with loop=queue: ends → b plays → ends → wraps back to a.
+  - Tap Skip while loop=track: behaves as a normal skip (does NOT restart current).
+  - Restart the app: loop mode persists.
 
 ---
 

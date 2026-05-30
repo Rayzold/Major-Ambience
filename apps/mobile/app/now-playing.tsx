@@ -13,16 +13,23 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { CATEGORIES } from "@mc/ui/categories";
-import { T, FONT_DISPLAY } from "../src/tokens";
+import { T, FONT_DISPLAY, FONT_MONO } from "../src/tokens";
 import { Glyph } from "../src/Glyph";
-import { playTrack, skipNext, stop, togglePlay, usePlayer } from "../src/audio/store";
+import {
+  cycleLoopMode,
+  playTrack,
+  skipNext,
+  stop,
+  togglePlay,
+  usePlayer,
+} from "../src/audio/store";
 import type { Track } from "@mc/core";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
 export default function NowPlayingScreen() {
   const router = useRouter();
-  const { nowPlaying, playing, positionSec, durationSec, queue } = usePlayer();
+  const { nowPlaying, playing, positionSec, durationSec, queue, loopMode } = usePlayer();
 
   // If nothing is playing, auto-dismiss back to previous screen
   useEffect(() => {
@@ -253,10 +260,13 @@ export default function NowPlayingScreen() {
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "center",
-            gap: 20,
+            gap: 16,
             paddingVertical: 32,
           }}
         >
+          {/* Loop cycle */}
+          <LoopBigButton mode={loopMode} onPress={() => void cycleLoopMode()} />
+
           {/* Skip back / Stop */}
           <Pressable
             onPress={stop}
@@ -365,6 +375,73 @@ export default function NowPlayingScreen() {
         )}
       </ScrollView>
     </View>
+  );
+}
+
+function LoopBigButton({
+  mode,
+  onPress,
+}: {
+  mode: "off" | "track" | "queue";
+  onPress: () => void;
+}) {
+  const active = mode !== "off";
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: pressed
+          ? T.bgCard
+          : active
+            ? T.goldSoft
+            : T.bgRaise,
+        borderWidth: 1,
+        borderColor: active ? T.goldEdge : T.rule,
+        position: "relative",
+      })}
+    >
+      <Glyph
+        name="loop"
+        size={22}
+        color={active ? T.gold : T.ink2}
+        stroke={active ? 2 : 1.6}
+      />
+      {mode === "track" && (
+        <Text
+          style={{
+            position: "absolute",
+            right: 8,
+            bottom: 8,
+            fontFamily: FONT_MONO,
+            fontSize: 9,
+            color: T.gold,
+            fontWeight: "700",
+          }}
+        >
+          1
+        </Text>
+      )}
+      {mode === "queue" && (
+        <Text
+          style={{
+            position: "absolute",
+            right: 6,
+            bottom: 7,
+            fontFamily: FONT_MONO,
+            fontSize: 9,
+            color: T.gold,
+            fontWeight: "700",
+          }}
+        >
+          ∞
+        </Text>
+      )}
+    </Pressable>
   );
 }
 
