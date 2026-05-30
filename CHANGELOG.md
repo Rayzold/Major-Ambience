@@ -12,11 +12,9 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile background
 
 ---
 
-## [0.0.28] — 2026‑05‑24 — UI polish (Batches A + B + C + D + E): full design-review sweep
+## [0.0.27] — 2026‑05‑24 — UI polish (Batches A + B + C + D + E): full design-review sweep
 
 Five focused polish batches against the design-review punch list, shipped as a single release.
-
-> Numbering: assumes PR #29 (player-view, 0.0.27) lands first. Renumber to 0.0.27 on rebase if not.
 
 ### Changed — Track table (Batch A)
 
