@@ -12,13 +12,13 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile background
 
 ---
 
-## [0.0.28] — 2026‑05‑24 — UI polish (Batch A): track-list table
+## [0.0.28] — 2026‑05‑24 — UI polish (Batches A + B): track table · header · sidebar
 
-First of several focused polish batches against the design-review punch list. This one tightens the Library track table.
+Two focused polish batches against the design-review punch list, shipped together.
 
 > Numbering: assumes PR #29 (player-view, 0.0.27) lands first. Renumber to 0.0.27 on rebase if not.
 
-### Changed — Track table
+### Changed — Track table (Batch A)
 
 - **Empty grade column hidden.** Ungraded tracks rendered an empty `GradeChip` placeholder that read as a broken UI element across a whole column on a fresh library. The chip now renders only when `grade !== null`.
 - **Plays column drops the `×` annotation.** "26×" → "26"; the "Plays" column header already provides the context, and the multiplication sign was an unconventional convention. Zero-count rows render blank rather than "0".
@@ -27,11 +27,28 @@ First of several focused polish batches against the design-review punch list. Th
 - **Row hover state.** Default rows now lift to `T.bgChip` on hover (via local `useState`) so the "which row am I about to click" question is unambiguous. Selected and currently-playing tints still win over hover.
 - **Filter eyebrow labels stop truncating.** `Length` and `Grade` labels in the pill rows had no `flexShrink: 0`, so at narrow widths "GRADE" clipped to "GRAD" with no obvious cause. Pinned to no-shrink.
 
+### Changed — Header (Batch B)
+
+- **Search placeholder no longer truncates.** `Search 5,317 tracks…` was 23 chars into a 200px input that could only fit ~15; it rendered as `Search 5,317 trac` and looked broken. Now reads `Search library…` regardless of track count.
+- **Active tab indicator strengthened.** The four header tabs got a `boxShadow: inset 0 -2px 0 ${T.gold}` underline + 600-weight font + a slightly more opaque gold background when active, so "you are here" reads in a glance instead of relying on subtle brightness.
+- **Open Folder is now an icon-only button** that matches the visual weight of its neighbors (DM Toolkit, Player View, DM Mode, Settings) rather than sitting next to them as a fully outlined pill. Still gold-tinted to mark it as the primary library entry; tooltip preserved.
+
+### Changed — Sidebar (Batch B)
+
+- **Usage hint removed.** "Letter plays · Number jumps" sat under the Categories header as a hint masquerading as a section label. The letter is still underlined in each category name and the full cheatsheet is `?` away — the nav is no longer cluttered with instructions.
+- **Active category visual upgraded.** Left border 2px → 3px, background fill `${color}20` → `${color}33`, and the label switches to 600-weight when active. The same treatment applies to the Library section rows (Favorites / Recently played / Removed) so all active states match.
+- **Section labels breathe.** `SidebarSection` gained 14px `marginTop` and the eyebrow label gets 10px of bottom padding so each section reads as a separator instead of stacking tight to the row above.
+
+### Changed — Status pill becomes a toast (Batch B)
+
+- The "5,317 tracks loaded from index." pill no longer sits awkwardly under the search bar. It's been moved to a bottom-right toast position above the transport, restyled with a 24px-radius card + soft drop shadow, and **auto-dismisses 4.5 seconds after the last change** via a `useEffect` on `scanStatus`.
+
 ### Verification
 
 - `pnpm -r typecheck` — clean across all 5 projects.
 - `pnpm -r test` — 169/169 vitest cases still pass.
-- Manual: open the Library on a long category — scroll; column header stays at top. Hover any row → background tints; click → row plays / selects (no hover state on the active row). Ungraded tracks show no chip; played tracks show their count without the `×`. A category with a zero-count subcategory (e.g. Combat → Skirmish 0) hides that tab.
+- Manual (Batch A): open the Library on a long category — scroll; column header stays at top. Hover any row → background tints; click → row plays / selects (no hover state on the active row). Ungraded tracks show no chip; played tracks show their count without the `×`. A category with a zero-count subcategory (e.g. Combat → Skirmish 0) hides that tab.
+- Manual (Batch B): the search input reads `Search library…`. Click a header tab — clear gold underline + bold label. Open Folder is now a single icon. Sidebar: no "Letter plays · Number jumps" line. Click between categories — the active one shows a 3px left border + stronger background. Open a folder or trigger any status — a toast appears bottom-right and fades after ~5 seconds.
 
 ---
 
