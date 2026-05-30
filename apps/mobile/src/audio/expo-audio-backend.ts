@@ -29,6 +29,7 @@
 
 import {
   createAudioPlayer,
+  type AudioMetadata,
   type AudioPlayer,
   type AudioStatus,
 } from "expo-audio";
@@ -75,6 +76,12 @@ export class ExpoAudioBackend implements AudioBackend {
    * tracks + N pads, typically < 10).
    */
   private readonly handles = new Map<string, InternalHandle>();
+  /**
+   * The handle currently owning the lock-screen / remote-control session.
+   * expo-audio allows only one player to be active for lock-screen at a
+   * time, so we track who has it and clear when that handle is destroyed.
+   */
+  private lockScreenHandleId: string | null = null;
   /** Per-bus gain multipliers — applied on top of each handle's userGain. */
   private busGains: Record<Bus, number> = { music: 1, soundboard: 1 };
   /** Active per-bus ramp, if any — cancelled before scheduling the next. */
@@ -224,6 +231,14 @@ export class ExpoAudioBackend implements AudioBackend {
     } catch {
       /* swallow */
     }
+    if (this.lockScreenHandleId === h.id) {
+      try {
+        h.player.clearLockScreenControls();
+      } catch {
+        /* swallow */
+      }
+      this.lockScreenHandleId = null;
+    }
     try {
       // expo-audio AudioPlayer exposes `remove()` to release native resources.
       h.player.remove();
@@ -252,6 +267,40 @@ export class ExpoAudioBackend implements AudioBackend {
     const h = this.get(handle);
     if (!h) return;
     h.player.loop = loop;
+  }
+
+  /**
+   * Activate lock-screen / Now-Playing controls for this handle with the
+   * given metadata. Required on Android for sustained background
+   * playback: without it the OS pauses background audio after ~3 minutes
+   * (expo-audio docs). On iOS it also drives the Control Center widget
+   * and lock-screen artwork.
+   *
+   * Only one handle owns the session at a time — calling this with a new
+   * handle transparently transfers ownership and clears the previous
+   * owner's controls. Pass through every track change in the music
+   * store; do NOT call for soundboard pads or stingers (they'd
+   * supplant the music entry on the lock-screen).
+   */
+  setLockScreenMetadata(handle: TrackHandle, metadata: AudioMetadata): void {
+    const h = this.get(handle);
+    if (!h) return;
+    if (this.lockScreenHandleId && this.lockScreenHandleId !== h.id) {
+      const prev = this.handles.get(this.lockScreenHandleId);
+      if (prev) {
+        try {
+          prev.player.clearLockScreenControls();
+        } catch {
+          /* swallow — old player may already be gone */
+        }
+      }
+    }
+    try {
+      h.player.setActiveForLockScreen(true, metadata);
+      this.lockScreenHandleId = h.id;
+    } catch (err) {
+      console.warn("setActiveForLockScreen failed:", err);
+    }
   }
 
   /** Master volume (slider) — multiplied into every player's effective gain. */

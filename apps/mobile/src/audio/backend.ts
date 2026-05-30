@@ -18,15 +18,27 @@ export function getBackend(): ExpoAudioBackend {
 
 /**
  * Configure the iOS audio session / Android focus mode. Idempotent.
- * Called once before the first loadTrack(). Without this iOS will
- * route audio through the silent switch (no playback when muted).
+ * Called once before the first loadTrack(). Without this iOS routes
+ * audio through the silent switch (no playback when muted).
+ *
+ * `shouldPlayInBackground` pairs with the `expo-audio` config plugin
+ * in app.json (`enableBackgroundPlayback: true`), which adds the iOS
+ * `UIBackgroundModes: ["audio"]` entry and the Android
+ * `FOREGROUND_SERVICE_MEDIA_PLAYBACK` permission + `AudioControlsService`
+ * declaration. Without either half the OS pauses us at backgrounding.
+ *
+ * `interruptionMode: "doNotMix"` is required for `setActiveForLockScreen`
+ * (see the docs note on AudioMode). It also matches the GM-session use
+ * case: when ambient music starts, other audio apps should yield, not
+ * keep playing at lowered volume.
  */
 export function ensureAudioMode(): Promise<void> {
   if (!_audioModePromise) {
     _audioModePromise = setAudioModeAsync({
       playsInSilentMode: true,
-      shouldPlayInBackground: false, // background audio needs EAS dev-client config; follow-up PR
-      interruptionMode: "duckOthers",
+      shouldPlayInBackground: true,
+      interruptionMode: "doNotMix",
+      interruptionModeAndroid: "doNotMix",
     }).catch((err) => {
       console.warn("setAudioModeAsync failed:", err);
     });
