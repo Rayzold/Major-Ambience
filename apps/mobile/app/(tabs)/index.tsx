@@ -126,8 +126,70 @@ export default function LibraryScreen() {
         ))}
       </View>
 
+      {/* Removed-tracks row — only appears when something has been
+          soft-deleted. Matches the desktop sidebar's Removed entry
+          (PR #25). Restore from the Removed view re-runs the
+          auto-categorizer. */}
+      {(counts.removed ?? 0) > 0 && (
+        <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
+          <RemovedRow
+            count={counts.removed ?? 0}
+            onPress={() => router.push("/category/removed" as Href)}
+          />
+        </View>
+      )}
+
       <View style={{ height: 32 }} />
     </ScrollView>
+  );
+}
+
+function RemovedRow({
+  count,
+  onPress,
+}: {
+  count: number;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        borderRadius: 10,
+        backgroundColor: pressed ? T.bgCard : T.bgRaise,
+        borderWidth: 1,
+        borderColor: T.rule,
+      })}
+    >
+      <View
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: 8,
+          backgroundColor: T.bgChip,
+          borderWidth: 1,
+          borderColor: T.rule,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Glyph name="trash" size={16} color={T.ink2} />
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={{ fontSize: 14, fontWeight: "600", color: T.ink }}>
+          Removed
+        </Text>
+        <Text style={{ fontSize: 11, color: T.ink3, marginTop: 2 }}>
+          {count} track{count === 1 ? "" : "s"} hidden from the library — restore from here.
+        </Text>
+      </View>
+      <Glyph name="next" size={14} color={T.ink3} />
+    </Pressable>
   );
 }
 

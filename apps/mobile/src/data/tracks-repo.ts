@@ -87,6 +87,24 @@ export async function setGrade(db: Db, trackId: string, grade: Grade): Promise<v
   await db.runAsync("UPDATE tracks SET grade = ? WHERE id = ?", [grade, trackId]);
 }
 
+/**
+ * Move a track into a different category. Used both for the soft-delete
+ * to "removed" and the restore path that re-runs the auto-categorizer.
+ * `subcategory` is set to null when moving to "removed" (it doesn't
+ * apply); on restore the categorizer fills it back in.
+ */
+export async function setCategory(
+  db: Db,
+  trackId: string,
+  category: string,
+  subcategory: string | null,
+): Promise<void> {
+  await db.runAsync(
+    "UPDATE tracks SET category = ?, subcategory = ? WHERE id = ?",
+    [category, subcategory, trackId],
+  );
+}
+
 export async function deleteAllTracks(db: Db): Promise<number> {
   const before = await countTracks(db);
   await db.runAsync("DELETE FROM tracks");

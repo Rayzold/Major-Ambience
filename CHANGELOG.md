@@ -8,7 +8,40 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile parity at: DM Toolkit (#35), background audio (#36), loop control (#37), grade pills (this). Remaining parity tracked in `BACKLOG.md` (removed-category, Favorites / Recently played, duration probe — and the length filter blocked on it).
+Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile parity at: DM Toolkit (#35), background audio (#39), loop control (#40), grade pills (#41), removed-category (this). Remaining parity tracked in `BACKLOG.md` (Favorites / Recently played, duration probe — and the length filter blocked on it).
+
+---
+
+## [0.0.19] — 2026‑05‑30 — Mobile removed-category soft-delete + Restore view
+
+Brings desktop's soft-delete pattern (PR #25) to mobile. Tapping the trash glyph on a track row moves it into the `"removed"` pseudo-category — hidden from the Library tab's category counts, but the file on disk is untouched. A new Removed row appears on the Library tab (only when non-empty) → opens the same category screen rendered for `"removed"`. Restoring re-runs the auto-categorizer on title + pack, the same way a fresh folder scan would.
+
+> Mobile-only release: bumps `apps/mobile/package.json` 0.0.18 → 0.0.19. Desktop version files untouched.
+
+### Added — `apps/mobile/src/data/tracks-repo.ts`
+
+- `setCategory(db, trackId, category, subcategory)`. Mirrors the desktop signature. Moving to `"removed"` clears `subcategory`; restore re-fills it via the categorizer.
+
+### Changed — `apps/mobile/app/category/[id].tsx`
+
+- `meta` now uses `findCategory()` so the `"removed"` route renders the same hero chrome as a real category (grey + trash glyph from `REMOVED_CATEGORY`).
+- Each `TrackRow` gets a right-side action button: trash on real categories, undo on the Removed view. Tapping it is opt-in (separate Pressable from the play tap target) and removes the row from the live list optimistically.
+- Restore calls `categorize(title, pack)` from `@mc/core` and writes the resulting category + subcategory — same reconstruction logic as `Library.handleRestoreTrack` on desktop.
+
+### Changed — `apps/mobile/app/(tabs)/index.tsx`
+
+- A new "Removed" entry renders below the category tiles when `counts.removed > 0`. Routes to `/category/removed`. Hidden entirely when nothing is soft-deleted — the empty-library experience stays uncluttered.
+
+### Verification
+
+- `pnpm -r typecheck` — clean (5 of 5 projects).
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual (needs a device / simulator): `pnpm --filter @mc/mobile start`.
+  - Open any non-empty category → trash glyph appears on each row.
+  - Tap trash on one track → row disappears from the list; Library tab now shows a "Removed" entry below the tiles.
+  - Open Removed → same screen layout, undo glyph in place of trash on each row.
+  - Tap undo → track disappears from Removed, reappears in its categorized home.
+  - Soft-delete a playing track → playback continues uninterrupted; track just becomes invisible to the library views.
 
 ---
 
