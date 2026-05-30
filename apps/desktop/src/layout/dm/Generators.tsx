@@ -10,7 +10,7 @@ import {
   resultToText,
   rollGenerator,
   type GeneratorResult,
-} from "../../lib/dm-generators.js";
+} from "@mc/core/dm";
 
 const HISTORY_LIMIT = 20;
 

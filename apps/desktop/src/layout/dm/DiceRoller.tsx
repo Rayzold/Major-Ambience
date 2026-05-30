@@ -10,7 +10,7 @@ import {
   type Die,
   type RollResult,
   type RollSpec,
-} from "../../lib/dm-dice.js";
+} from "@mc/core/dm";
 
 export type DiceRollerProps = {
   history: RollResult[];

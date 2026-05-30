@@ -18,9 +18,12 @@
 //   queue:       remaining tracks (next-up preview, drives auto-advance)
 
 import { useSyncExternalStore } from "react";
-import type { Track, TrackHandle } from "@mc/core";
+import type { CategoryId, Track, TrackHandle } from "@mc/core";
 import { crossfade } from "@mc/core";
+import { weightedShuffle } from "@mc/core/shuffle";
 import { ensureAudioMode, getBackend } from "./backend";
+import { getDb } from "../data/db";
+import { listTracksByCategory } from "../data/tracks-repo";
 
 export type PlayerState = {
   nowPlaying: Track | null;
@@ -155,6 +158,27 @@ export async function skipNext(): Promise<void> {
 async function handleNaturalEnd(): Promise<void> {
   // Same path as a manual skip — keeps auto-advance and tap-skip semantically aligned.
   await skipNext();
+}
+
+/**
+ * Play a weighted-shuffled list from the given category. Used by encounter
+ * tables — rolling a category-bound entry should feel like "play me
+ * something from this mood" rather than a deterministic track. The first
+ * shuffled track becomes the now-playing track, the rest become the queue
+ * so auto-advance keeps the same mood going.
+ */
+export async function playCategory(categoryId: CategoryId): Promise<void> {
+  try {
+    const db = await getDb();
+    const list = await listTracksByCategory(db, categoryId);
+    if (list.length === 0) return;
+    const shuffled = weightedShuffle(list);
+    const first = shuffled[0];
+    if (!first) return;
+    await playTrack(first, shuffled);
+  } catch (err) {
+    console.error("playCategory failed:", err);
+  }
 }
 
 function sliceAfter(queue: readonly Track[], currentId: string): Track[] {

@@ -8,7 +8,187 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile background audio config (Info.plist / Android foreground service) and SFX-bus ducking on mobile are the immediate follow-ups to v0.0.20.
+Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile background audio config (Info.plist / Android foreground service) is the last immediate follow-up to v0.0.20. The mobile DM Toolkit is now at desktop parity.
+
+---
+
+## [0.0.15] — 2026‑05‑30 — Mobile DM Toolkit audio panels (Encounters + Timers)
+
+Third and final slice of the mobile DM Toolkit. Adds the two audio-coupled tools — **Encounters** (random encounter tables that fire bound tracks or categories) and **Timers** (tension countdowns that fire bound stingers at zero) — bringing the mobile DM Toolkit to parity with desktop's 8-panel set. Also introduces the mobile **TrackPickerOverlay** (the binding affordance that desktop gets via drag-and-drop), and two new audio helpers used by both panels.
+
+> Mobile-only release: bumps `apps/mobile/package.json` 0.0.14 → 0.0.15. Desktop version files untouched.
+
+### Added — `apps/mobile/src/components/TrackPickerOverlay.tsx`
+
+- Bottom-sheet `Modal` (pageSheet) with a header, search input, and FlatList of all imported tracks. Filters client-side (200 max) by title + pack, term-by-term. Mirrors the desktop popover's role: drag-and-drop doesn't translate to single-pane touch, so this IS the binding affordance.
+- Takes `visible`, `title`, `subtitle`, `onPick(track)`, `onDismiss` — composed by Encounters (entry → track) and Timers (timer → stinger).
+
+### Added — `playCategory(categoryId)` on `apps/mobile/src/audio/store.ts`
+
+- Fetches all tracks in the category from sqlite, runs them through `weightedShuffle` from `@mc/core/shuffle`, plays the first track and feeds the rest as the queue so auto-advance keeps the same mood. Used by Encounter entries bound to a category (vs. a specific track).
+
+### Added — `fireSfx(track)` on `apps/mobile/src/audio/soundboard-store.ts`
+
+- One-shot soundboard-bus playback for stingers and any other pad-shaped audio without a (page, slot) home. Synthetic key per fire so multiple stingers can overlap without colliding with the real soundboard grid. Auto-cleanup on natural end. Routes through the existing `activePads` registry so the music ducker (PR-4) reacts the same as a real pad fire.
+
+### Added — Encounters (`apps/mobile/app/dm/encounters.tsx`)
+
+- Horizontally-scrolling table picker + add-table chip. Active table gets an inline-editable name + delete button (Alert-confirmed).
+- Each entry has an inline-editable label, a horizontally-scrolling category pill row (with a "None" leftmost), and a Track chip that opens the picker. Bindings are exclusive — picking a track clears any category, picking a category clears any track, "clear" un-binds. Active binding shows underneath each entry in italic.
+- Roll picks an entry with non-empty label uniformly at random. If track-bound → `playTrack(track, [])`. If category-bound → `playCategory(categoryId)` (weighted shuffle). Rolled entry tinted gold + result banner above the list.
+- Persists under `dm_encounter_tables` (same key as desktop).
+
+### Added — Timers (`apps/mobile/app/dm/timers.tsx`)
+
+- Multiple independent named countdown timers. Big 48px display clock, large play/pause, reset (loop glyph), +30s. Preset row (1m / 3m / 5m / 10m).
+- Each timer can bind a stinger track via the picker; on zero the timer auto-pauses, the row flashes red, and `fireSfx(track)` plays the stinger on the soundboard bus — which ducks music thanks to the PR-4 backend wiring.
+- One 1Hz `setInterval` drives all running timers, mounted only while at least one timer runs. Refs the tick reads so closures stay fresh. Stingers fire AFTER the runtime tick updates so the row visibly hits 0:00 before audio kicks in (parity with desktop).
+- Configs persist under `dm_countdown_timers`. Runtime (remaining seconds, running flag) is component-local — a clock shouldn't resume mid-flight after a screen swap.
+
+### Changed — DM Tools hub + routes
+
+- Last two greyed-out cards on `apps/mobile/app/(tabs)/dm.tsx` (Encounters, Timers) now route into their stack screens. The mobile DM Toolkit now has all eight panels live.
+- `apps/mobile/app/_layout.tsx` registers `dm/encounters` and `dm/timers` with card presentation + native headers.
+
+### Verification
+
+- `pnpm -r typecheck` — clean (5 of 5 projects).
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual (needs a device / simulator): `pnpm --filter @mc/mobile start`. DM Tools hub → all 8 cards active.
+  - **Encounters**: create a table, add 3 entries (Goblin / Ogre / Dragon). Bind Goblin to the Combat category, bind Dragon to a specific track via the picker; leave Ogre unbound. Roll a few times → goblin shuffles Combat, dragon plays the bound track, ogre just highlights with no audio.
+  - **Timers**: add a timer, set preset to 1m, bind a stinger, hit play; row counts down; at 0:00 the row flashes red, the stinger fires on the soundboard bus, and the music ducks while the stinger plays. Multiple timers run independently from the single 1Hz interval.
+
+---
+
+## [0.0.14] — 2026‑05‑30 — Mobile SFX-bus ducking
+
+The mobile soundboard now ducks music while pads are alive, matching the desktop behaviour from `apps/desktop/src/lib/pad-audio.ts`. Before this, `ExpoAudioBackend.reapplyAll()` was a documented no-op (the handle store was a `WeakMap`, so `setBusGain("music", N)` couldn't propagate to live music handles) — calling it changed `busGains` in JS but never wrote to any `AudioPlayer.volume`. This PR makes the bus actually take effect.
+
+> Mobile-only release: bumps `apps/mobile/package.json` 0.0.13 → 0.0.14. Desktop version files untouched.
+
+### Changed — `apps/mobile/src/audio/expo-audio-backend.ts`
+
+- **Handle store: `WeakMap<TrackHandle, InternalHandle>` → `Map<string, InternalHandle>`** keyed by `handle.id`. `destroy()` now clears the entry, so retention stays bounded by the existing caller contract (destroy() was already required to release the native player). Steady-state size is small — 1–2 music tracks + N pads, typically < 10.
+- **`reapplyAll()` actually does something now.** Iterates the live handles and re-applies the effective gain (`userGain × busGain × masterGain`) per handle. New `reapplyBus(bus)` helper for the common case where only one bus is changing.
+- **`setBusGain(bus, g, rampSeconds?)`** — new optional ramp arg matches the desktop's `setMusicBusGain` / `setSoundboardBusGain` signature. JS-driven linear ramp at ~60Hz via setInterval; per-bus active ramp state so a new call cancels the in-flight one. Same shape for `setMasterGain(g, rampSeconds?)`.
+- **`scheduleRamp(start, target, seconds, onTick)`** internal helper extracted so the bus and master ramps share one implementation. The per-handle `setGain` ramp keeps its own copy (its cancel state lives on the handle so `destroy()` can clear it without bookkeeping a handle reference here).
+
+### Changed — `apps/mobile/src/audio/soundboard-store.ts`
+
+- New ducker module-state (`DUCK_DOWN_SEC = 0.15`, `DUCK_UP_SEC = 0.4`, `duckingPct = 0.4`) and `applyDuckForActiveCount()` helper, matching `apps/desktop/src/lib/pad-audio.ts` exactly.
+- `playPad` and `stopPad` both call `applyDuckForActiveCount()` after touching `activePads`. The natural-end callback already routes through `stopPad`, so auto-clearing non-loop pads ducks correctly without separate wiring.
+- New exports: `setDuckingPct(pct)` and `getDuckingPct()`. The setter respects live state — adjusting while pads are alive re-applies the new amount with `DUCK_DOWN_SEC`.
+
+### Verification
+
+- `pnpm -r typecheck` — clean (5 of 5 projects).
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual (needs a device / simulator): `pnpm --filter @mc/mobile start`. Start a music track from the Library; jump to Soundboard; fire a pad → music ramps down 150ms to ~60% (40% duck). Fire a second pad → no additional duck (already ducked). Stop both → music ramps back to full over 400ms. Fire a non-loop pad and let it end naturally → unducks on its own.
+
+---
+
+## [0.0.13] — 2026‑05‑30 — Mobile cleanup: kill scaffold tab, wire clipboard
+
+Two small cleanups that were called out as deferred in the previous two PRs.
+
+> Mobile-only release: bumps `apps/mobile/package.json` 0.0.12 → 0.0.13. Desktop version files untouched.
+
+### Removed — `apps/mobile/app/(tabs)/two.tsx`
+
+- Leftover Expo scaffold tab that was being hidden via `href: null` in `_layout.tsx`. The corresponding `<Tabs.Screen name="two" .../>` line went with it. The route is gone, the BACKLOG entry is gone.
+
+### Added — `expo-clipboard` + tap-to-copy on Names and Generators
+
+- New dep `expo-clipboard ~56.0.3` (added via `npx expo install`, so the SDK 56 compatible range was picked automatically).
+- **Names** (`apps/mobile/app/dm/names.tsx`) — tapping any past name copies the full name to the clipboard. The race chip on the right swaps to a gold "COPIED" label for 1.5s as feedback.
+- **Generators** (`apps/mobile/app/dm/generators.tsx`) — tapping any past generator result copies its flattened text (using the shared `resultToText()`). Same gold "COPIED" indicator in the top-right of the row for 1.5s.
+
+### Verification
+
+- `pnpm -r typecheck` — clean (5 of 5 projects).
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual (needs a device / simulator): `pnpm --filter @mc/mobile start`. Bottom bar still shows the expected 5 tabs (Library / Scenes / Soundboard / Search / DM Tools). Names → roll a name, tap it, paste into another app — full name lands. Generators → generate, tap a result, paste — flattened text lands (composite generators use `LABEL: VALUE · LABEL: VALUE` separator).
+
+---
+
+## [0.0.12] — 2026‑05‑30 — Mobile DM Toolkit state panels (Initiative + Ledger + Recap)
+
+Second slice of the mobile DM Toolkit. Adds the three local-state tools — **Initiative** (with HP/AC and turn cycling), **Ledger** (party XP + per-player split + loot list), and **Recap** (pin moments tagged with the current track) — all persisting to the same `config` key/value table the desktop uses (`dm_combatants`, `dm_xp_ledger`, `dm_recap`).
+
+> Mobile-only release: bumps `apps/mobile/package.json` 0.0.11 → 0.0.12. Desktop version files untouched. No schema changes — the `config` table was already present from the original mobile data layer.
+
+### Added — `apps/mobile/src/data/config-repo.ts`
+
+- Generic `getConfig` / `setConfig` plus typed `getJsonConfig<T>` / `setJsonConfig<T>` (safe-parse + fallback). The desktop already uses the same `config (key, value)` table for these three blobs, so the wire format matches and a future cloud-sync blob round-trip will line up.
+
+### Added — Initiative (`apps/mobile/app/dm/initiative.tsx`)
+
+- Name + Init add-row with `Enter`-to-submit, sorted descending. Per-row HP / Max HP / AC stat fields and a free-text condition input. HP ≤ 0 → red tint + strikethrough on the name.
+- Next / Prev turn cycle through sorted combatants with a gold-highlighted active row + left-edge accent bar. Current turn idx is component-local (matches desktop — combat is a session thing).
+- Clear-all is gated by a confirm `Alert`. Persists under `dm_combatants`. Turn-sound (the speaker glyph from the desktop row) is deferred to PR-3 with the track picker.
+
+### Added — Ledger (`apps/mobile/app/dm/ledger.tsx`)
+
+- Big display XP total, party-size input, live per-player split. Add XP row accepts negatives so corrections work. Reset clears just the XP, not the loot.
+- Loot list with inline-editable entries. Persists under `dm_xp_ledger`.
+
+### Added — Recap (`apps/mobile/app/dm/recap.tsx`)
+
+- Pin-a-moment input row; pinning tags the moment with whatever the mobile player store reports as `nowPlaying.title` at the time. Each row shows wall-clock time on the left, the editable text in the middle (multiline), the music tag underneath, remove glyph on the right.
+- **Share recap** uses `Share.share()` from RN (no clipboard dep) — feeds the recap straight into Messages / Notes / Discord. Oldest-first formatting reads like a story. Clear-all is `Alert`-confirmed. Persists under `dm_recap`.
+
+### Changed — DM Tools hub (`apps/mobile/app/(tabs)/dm.tsx`)
+
+- Three of the previously greyed-out hub cards (Initiative, Ledger, Recap) light up and route into their respective stack screens. The remaining two (Encounters, Timers) stay greyed until PR-3.
+
+### Internal — `apps/mobile/app/_layout.tsx`
+
+- Three new `Stack.Screen` entries (`dm/initiative`, `dm/ledger`, `dm/recap`) registered with `card` presentation + native headers.
+
+### Verification
+
+- `pnpm -r typecheck` — clean (5 of 5 projects).
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual (needs a device / simulator): `pnpm --filter @mc/mobile start`. DM Tools hub → all three new cards are active. Initiative: add a combatant, set HP to 0 (row turns red + strikethrough), Next cycles the gold accent, force-quit + reopen → list restores. Ledger: add XP (with a negative test), party size 4 → split updates, add loot, force-quit + reopen → state restores. Recap: start a track, pin a moment → it tags with the track title; Share recap opens the OS share sheet with the oldest-first text.
+
+---
+
+## [0.0.11] — 2026‑05‑30 — Mobile DM Toolkit foundation (Dice + Names + Generators)
+
+First slice of the mobile DM Toolkit. Adds a fifth bottom tab whose hub screen drills into per-tool stack routes; the three pure-logic tools land in this PR. The shared roll logic (`dm-dice`, `dm-names`, `dm-generators`) was lifted from `apps/desktop/src/lib/` into `@mc/core/dm` so both apps consume it.
+
+> Mobile-only release: bumps `apps/mobile/package.json` 0.0.10 → 0.0.11; desktop version files untouched. The desktop import sites changed (5 files) but the behaviour didn't.
+
+### Added — DM Tools tab + hub (`apps/mobile/app/(tabs)/dm.tsx`)
+
+- New fifth bottom tab using the `theatre` glyph — the same glyph the desktop header uses for DM Mode, so the entry point reads consistently across surfaces.
+- The hub is a 2-column grid of tool cards (`eyebrow / display title / blurb / gold icon orb`). Tap to push into the tool's stack route. The five tools that aren't ported yet (Initiative, XP Ledger, Recap, Encounters, Timers) render greyed-out with a "Coming soon" blurb so the eventual IA is visible.
+
+### Added — Dice (`apps/mobile/app/dm/dice.tsx`)
+
+- Polyhedral die picker (d4–d100), count + modifier stepper inputs (1–20 / signed), Straight / Advantage / Disadvantage toggle row (d20 only). Tap-and-go gold Roll button; full session-local history (cap 30) below.
+- History rows mirror the desktop's accent rules: green for `Nat 20`, red for `Nat 1`, gold for the latest non-crit. Faces show kept rolls plain and dropped rolls parenthesised, exactly as on desktop.
+
+### Added — Names (`apps/mobile/app/dm/names.tsx`)
+
+- Gender row (Any / Male / Female) above the race row (Any / Human / Elf / Dwarf / Orc / Halfling), driving `rollNameAvoiding()` with a `Set` of recent rolls so back-to-back collisions stay rare. Roll button + session history (cap 30) with per-race glyphs from the shared mapping.
+- Copy-to-clipboard intentionally deferred — `expo-clipboard` isn't installed yet and the dep add is a separate follow-up; on mobile the tappable feedback can stay minimal until then.
+
+### Added — Generators (`apps/mobile/app/dm/generators.tsx`)
+
+- Horizontally-scrolling pill picker across the 10 standalone tables (loot / NPC / tavern / settlement / weather / crit / fumble / wild magic / trap / quest hook). Active-blurb line under the pills. History is filtered to the active table so switching tables doesn't mix rolls.
+- Single-facet generators render as a single sentence; composite ones (NPC, tavern, settlement, trap, quest) render as a `LABEL  VALUE` two-column layout with the labels in mono.
+
+### Internal — `@mc/core/dm` subpath export
+
+- `apps/desktop/src/lib/dm-{dice,names,generators}.ts` → `packages/core/src/dm/{dice,names,generators}.ts`, surfaced via a new `./dm` subpath in `packages/core/package.json`. New `packages/core/src/dm/index.ts` barrel re-exports all three.
+- 5 desktop import sites updated (`Library.tsx`, `DesktopDmToolkit.tsx`, and the 3 panel components) to `@mc/core/dm`. No behaviour change on desktop.
+
+### Verification
+
+- `pnpm -r typecheck` — clean across all 5 projects (both before and after the lift; both before and after the new screens).
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual (needs a device / simulator): `pnpm --filter @mc/mobile start`. Bottom bar shows a fifth `DM Tools` tab. Open it → 2×4 grid of cards, three live + five greyed. Tap Dice → die row works, count/modifier steppers clamp 1–20, d20 advantage toggle appears and disappears as you change die, Roll appends a row at the top of history with the right accent for nat 1 / nat 20. Tap Names → gender + race pills change selection, Roll appends a row, repeated rolls stay varied. Tap Generators → horizontal pill row scrolls, blurb updates, Generate appends a result with the right shape (single sentence vs. labelled rows).
 
 ---
 

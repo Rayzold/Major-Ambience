@@ -19,9 +19,10 @@
 //     sample-accurate ramps you get from a Web Audio AudioParam.
 //   - No mix-bus graph. expo-audio players are independent — there is
 //     no shared GainNode for "all music" we can duck. We track the
-//     per-player gain (`userGain`) and the bus gain (`busGain`) in JS
-//     and multiply on write. `bus` is accepted for interface parity
-//     but ducking lands in a follow-up PR.
+//     per-player gain (`userGain`) and the per-bus gain (`busGain`) in
+//     JS and multiply on write. `setBusGain(bus, g, rampSeconds?)`
+//     drives the bus ramp from JS and re-applies to every live handle
+//     on the same bus on every tick.
 //   - `currentTime()` returns wall-clock from process start, not from
 //     an audio context. Sufficient for the only caller (crossfade
 //     scheduling).
@@ -61,12 +62,25 @@ type InternalHandle = TrackHandle & {
 let handleCounter = 0;
 const RAMP_TICK_MS = 16; // ~60 Hz JS ramp
 
+type BusRamp = { cancel: () => void };
+
 export class ExpoAudioBackend implements AudioBackend {
   private readonly started = Date.now();
-  private readonly handles = new WeakMap<TrackHandle, InternalHandle>();
+  /**
+   * Live handle store. A regular `Map` keyed by `handle.id` (not a
+   * WeakMap) so `reapplyAll()` can actually iterate. `destroy()` clears
+   * the entry, so retention is bounded by caller discipline (the same
+   * contract as before — destroy() was already required to release the
+   * native player). Map size in steady state is small (1–2 music
+   * tracks + N pads, typically < 10).
+   */
+  private readonly handles = new Map<string, InternalHandle>();
   /** Per-bus gain multipliers — applied on top of each handle's userGain. */
   private busGains: Record<Bus, number> = { music: 1, soundboard: 1 };
+  /** Active per-bus ramp, if any — cancelled before scheduling the next. */
+  private busRamps: Record<Bus, BusRamp | null> = { music: null, soundboard: null };
   private masterGain = 1;
+  private masterRamp: BusRamp | null = null;
 
   currentTime(): number {
     return (Date.now() - this.started) / 1000;
@@ -114,7 +128,7 @@ export class ExpoAudioBackend implements AudioBackend {
     // Push the initial gain through so the player respects bus + master from frame 1.
     this.applyGain(internal);
 
-    this.handles.set(publicHandle, internal);
+    this.handles.set(id, internal);
     return publicHandle;
   }
 
@@ -216,6 +230,7 @@ export class ExpoAudioBackend implements AudioBackend {
     } catch {
       /* swallow */
     }
+    this.handles.delete(handle.id);
   }
 
   onProgress(handle: TrackHandle, cb: (t: number) => void): Unsubscribe {
@@ -240,15 +255,46 @@ export class ExpoAudioBackend implements AudioBackend {
   }
 
   /** Master volume (slider) — multiplied into every player's effective gain. */
-  setMasterGain(g: number): void {
-    this.masterGain = clamp01(g);
-    this.reapplyAll();
+  setMasterGain(g: number, rampSeconds?: number): void {
+    const target = clamp01(g);
+    if (this.masterRamp) {
+      this.masterRamp.cancel();
+      this.masterRamp = null;
+    }
+    if (!rampSeconds || rampSeconds <= 0) {
+      this.masterGain = target;
+      this.reapplyAll();
+      return;
+    }
+    this.masterRamp = this.scheduleRamp(this.masterGain, target, rampSeconds, (v) => {
+      this.masterGain = v;
+      this.reapplyAll();
+    });
   }
 
-  /** Per-bus gain (music vs soundboard). Reserved for the future ducker. */
-  setBusGain(bus: Bus, g: number): void {
-    this.busGains[bus] = clamp01(g);
-    this.reapplyAll();
+  /**
+   * Per-bus gain (music vs soundboard). The mobile mixer has no native bus
+   * graph, so this animates `busGains[bus]` in JS and re-applies the
+   * effective gain (`userGain × busGain × masterGain`) to every live handle
+   * on every tick. The soundboard store calls this to duck music when a
+   * pad fires.
+   */
+  setBusGain(bus: Bus, g: number, rampSeconds?: number): void {
+    const target = clamp01(g);
+    if (this.busRamps[bus]) {
+      this.busRamps[bus]!.cancel();
+      this.busRamps[bus] = null;
+    }
+    if (!rampSeconds || rampSeconds <= 0) {
+      this.busGains[bus] = target;
+      this.reapplyBus(bus);
+      return;
+    }
+    const start = this.busGains[bus];
+    this.busRamps[bus] = this.scheduleRamp(start, target, rampSeconds, (v) => {
+      this.busGains[bus] = v;
+      this.reapplyBus(bus);
+    });
   }
 
   private applyGain(h: InternalHandle): void {
@@ -260,15 +306,55 @@ export class ExpoAudioBackend implements AudioBackend {
     }
   }
 
+  /** Re-apply effective gain to every live handle. Used by master ramps. */
   private reapplyAll(): void {
-    // WeakMap has no iterator — we'd need a parallel Set if we want a true
-    // global re-apply. For master volume changes the cheapest path is to
-    // ramp from the call site; this hook is here so the API is complete.
-    // No-op for now; v1 callers only set master gain at construction.
+    for (const h of this.handles.values()) {
+      if (!h.destroyed) this.applyGain(h);
+    }
+  }
+
+  /** Re-apply effective gain to every live handle on `bus` only. */
+  private reapplyBus(bus: Bus): void {
+    for (const h of this.handles.values()) {
+      if (!h.destroyed && h.bus === bus) this.applyGain(h);
+    }
+  }
+
+  /**
+   * Shared linear ramp scheduler — used for the bus + master gains, which
+   * don't have per-handle ramp state. The per-handle `setGain` ramp is a
+   * separate copy in scope of the handle itself so destroy() can cancel
+   * it directly without bookkeeping a handle reference here.
+   */
+  private scheduleRamp(
+    start: number,
+    target: number,
+    seconds: number,
+    onTick: (v: number) => void,
+  ): BusRamp {
+    const tStart = performance.now();
+    const tEnd = tStart + seconds * 1000;
+    let timer: ReturnType<typeof setInterval> | null = setInterval(() => {
+      const now = performance.now();
+      const frac = (now - tStart) / (tEnd - tStart);
+      if (frac >= 1) {
+        onTick(target);
+        if (timer) clearInterval(timer);
+        timer = null;
+        return;
+      }
+      onTick(start + (target - start) * frac);
+    }, RAMP_TICK_MS);
+    return {
+      cancel: () => {
+        if (timer) clearInterval(timer);
+        timer = null;
+      },
+    };
   }
 
   private get(handle: TrackHandle): InternalHandle | undefined {
-    return this.handles.get(handle);
+    return this.handles.get(handle.id);
   }
 }
 

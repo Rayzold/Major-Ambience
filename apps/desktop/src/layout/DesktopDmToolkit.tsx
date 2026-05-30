@@ -20,7 +20,7 @@ import type { EncounterTable } from "./dm/EncounterTables.js";
 import type { CountdownTimer } from "./dm/TensionCountdown.js";
 import type { XpLedgerState } from "./dm/XpLedger.js";
 import type { RecapMoment } from "./dm/RecapComposer.js";
-import type { RollResult } from "../lib/dm-dice.js";
+import type { RollResult } from "@mc/core/dm";
 
 type DmTool =
   | "initiative"

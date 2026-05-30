@@ -54,7 +54,7 @@ import {
   HANDOUT_READY_EVENT,
   type HandoutPayload,
 } from "./layout/HandoutView.js";
-import type { RollResult } from "./lib/dm-dice.js";
+import type { RollResult } from "@mc/core/dm";
 import { KeyboardHelpOverlay } from "./layout/KeyboardHelpOverlay.js";
 import { PinToSlotMenu } from "./layout/PinToSlotMenu.js";
 import { SaveSceneDialog } from "./layout/SaveSceneDialog.js";

@@ -9,7 +9,8 @@
     ".": "./src/index.ts",
     "./audio": "./src/audio/index.ts",
     "./categorize": "./src/categorize.ts",
-    "./shuffle": "./src/shuffle.ts"
+    "./shuffle": "./src/shuffle.ts",
+    "./dm": "./src/dm/index.ts"
   },
   "scripts": {
     "test": "vitest run",
