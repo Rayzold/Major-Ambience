@@ -8,7 +8,46 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile parity at: DM Toolkit (#35), background audio (#39), loop control (#40), grade pills (#41), removed-category (this). Remaining parity tracked in `BACKLOG.md` (Favorites / Recently played, duration probe — and the length filter blocked on it).
+Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile parity at: DM Toolkit (#35), background audio (#39), loop control (#40), grade pills (#41), removed-category (#42), Favorites + Recently played (this). Last remaining parity gap tracked in `BACKLOG.md`: the mobile duration probe (and the length filter blocked on it).
+
+---
+
+## [0.0.20] — 2026‑05‑30 — Mobile Favorites + Recently played pseudo-views
+
+Brings the desktop sidebar's two pseudo-views to mobile and wires up the missing `bumpPlayCount` write path that recency was silently missing without. Mobile track playback now updates `play_count` and `last_played_at` the same way desktop does, in the same units (unix seconds), so a future sync-blob round-trip carries recency ordering verbatim across surfaces.
+
+> Mobile-only release: bumps `apps/mobile/package.json` 0.0.19 → 0.0.20. Desktop version files untouched.
+
+### Added — `apps/mobile/src/data/tracks-repo.ts`
+
+- `bumpPlayCount(db, trackId, playedAt)` — mirrors the desktop signature. `playedAt` is unix seconds (matches desktop's `lastPlayedAt` units exactly).
+- `listFavorites(db)` — `WHERE grade IN ('S', 'A') AND category != 'removed'`, sorted S-first then alphabetically. Same rules as `apps/desktop/src/Library.tsx`'s favorites view.
+- `listRecentlyPlayed(db, limit = 25)` — `WHERE last_played_at IS NOT NULL AND category != 'removed'`, sorted DESC, capped at 25. Default matches desktop.
+
+### Changed — `apps/mobile/src/audio/store.ts`
+
+- `playTrack()` now fires a fire-and-forget `bumpPlayCount` after gain ramp-in. Write failures are warned, not thrown — playback shouldn't break on a sqlite hiccup.
+
+### Added — `apps/mobile/app/favorites.tsx` + `apps/mobile/app/recent.tsx`
+
+- Two new card-presentation stack routes. Same shape as a category screen: hero header + FlatList of rows that route through `playTrack(item, list)` so auto-advance respects the pseudo-view.
+- Favorites row gets a gold grade chip on the right; Recent row shows a relative timestamp ("just now", "12m ago", "3d ago") in the subtitle line.
+- Empty states explain what to do to fill them (grade a track / play a track).
+
+### Changed — `apps/mobile/app/(tabs)/index.tsx` + `apps/mobile/app/_layout.tsx`
+
+- Library tab gets two side-by-side **Favorites** + **Recent** chips above the category grid, hidden when `total === 0`.
+- `_layout.tsx` registers `favorites` and `recent` as card-presentation screens with native headers.
+
+### Verification
+
+- `pnpm -r typecheck` — clean (5 of 5 projects).
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual (needs a device / simulator): `pnpm --filter @mc/mobile start`.
+  - Play any track → tap Recent on the Library tab → it's there with "just now".
+  - Grade a track S (or A) from its category view → tap Favorites → it's there with the gold S/A chip.
+  - Soft-delete a graded + recently-played track → it disappears from both pseudo-views.
+  - Tap a row in either pseudo-view → playback starts, auto-advance walks the pseudo-view's slice.
 
 ---
 

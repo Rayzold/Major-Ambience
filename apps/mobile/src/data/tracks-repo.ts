@@ -88,6 +88,55 @@ export async function setGrade(db: Db, trackId: string, grade: Grade): Promise<v
 }
 
 /**
+ * Bump play_count + record last_played_at for a track. Called by the
+ * mobile audio store on every successful playTrack, matching the
+ * desktop Library.handlePlayTrack pattern. The timestamp is unix
+ * seconds (not ms) — same units desktop persists, so a cross-device
+ * sync round-trip carries the recency ordering verbatim.
+ */
+export async function bumpPlayCount(
+  db: Db,
+  trackId: string,
+  playedAt: number,
+): Promise<void> {
+  await db.runAsync(
+    "UPDATE tracks SET play_count = play_count + 1, last_played_at = ? WHERE id = ?",
+    [playedAt, trackId],
+  );
+}
+
+/**
+ * Favorites pseudo-view — tracks the user has graded S or A, with
+ * "removed" filtered out. Sorted S-first, then alphabetically.
+ * Mirrors apps/desktop/src/Library.tsx's `favorites` view (PR #15).
+ */
+export async function listFavorites(db: Db): Promise<Track[]> {
+  const rows = await db.getAllAsync<TrackRow>(
+    `SELECT * FROM tracks
+     WHERE grade IN ('S', 'A') AND category != 'removed'
+     ORDER BY CASE grade WHEN 'S' THEN 0 WHEN 'A' THEN 1 ELSE 2 END, title`,
+  );
+  return rows.map(rowToTrack);
+}
+
+/**
+ * Recently-played pseudo-view — tracks with `last_played_at` set,
+ * newest first, capped at `limit`. "removed" tracks excluded so the
+ * soft-delete actually hides them everywhere. Default cap matches
+ * desktop (25).
+ */
+export async function listRecentlyPlayed(db: Db, limit = 25): Promise<Track[]> {
+  const rows = await db.getAllAsync<TrackRow>(
+    `SELECT * FROM tracks
+     WHERE last_played_at IS NOT NULL AND category != 'removed'
+     ORDER BY last_played_at DESC
+     LIMIT ?`,
+    [limit],
+  );
+  return rows.map(rowToTrack);
+}
+
+/**
  * Move a track into a different category. Used both for the soft-delete
  * to "removed" and the restore path that re-runs the auto-categorizer.
  * `subcategory` is set to null when moving to "removed" (it doesn't
