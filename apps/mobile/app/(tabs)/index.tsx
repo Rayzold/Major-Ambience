@@ -18,6 +18,7 @@ import { Glyph } from "../../src/Glyph";
 import { getDb } from "../../src/data/db";
 import { countByCategory, countTracks } from "../../src/data/tracks-repo";
 import { importTracks } from "../../src/lib/import";
+import { ensureDurationsProbed } from "../../src/audio/duration-scan";
 
 export default function LibraryScreen() {
   const router = useRouter();
@@ -39,6 +40,10 @@ export default function LibraryScreen() {
       refresh().catch((err) => {
         console.error("Library refresh failed:", err);
       });
+      // Kick off the duration scanner. ensureDurationsProbed is
+      // idempotent (in-memory dedupe + a running-flag guard) so
+      // re-focusing the tab while a scan is in flight is a no-op.
+      void ensureDurationsProbed();
     }, [refresh]),
   );
 
@@ -53,6 +58,10 @@ export default function LibraryScreen() {
           "Imported",
           `${result.imported} track${result.imported === 1 ? "" : "s"} added to your library.`,
         );
+        // Probe the durations of the newly imported tracks. Fire-and-
+        // forget — the user sees rows appear with no duration immediately,
+        // and the scanner fills them in over the next few seconds.
+        void ensureDurationsProbed();
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

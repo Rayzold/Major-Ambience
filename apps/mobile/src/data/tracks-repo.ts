@@ -137,6 +137,24 @@ export async function listRecentlyPlayed(db: Db, limit = 25): Promise<Track[]> {
 }
 
 /**
+ * Persist the duration of a track in ms. Called by the background
+ * scanner (`apps/mobile/src/audio/duration-scan.ts`) once per track
+ * after probing the audio header. 0 is the "tried and failed"
+ * sentinel — matches desktop semantics so a future cross-device
+ * sync round-trip carries the same shape.
+ */
+export async function updateDuration(
+  db: Db,
+  trackId: string,
+  durationMs: number,
+): Promise<void> {
+  await db.runAsync(
+    "UPDATE tracks SET duration_ms = ? WHERE id = ?",
+    [durationMs, trackId],
+  );
+}
+
+/**
  * Move a track into a different category. Used both for the soft-delete
  * to "removed" and the restore path that re-runs the auto-categorizer.
  * `subcategory` is set to null when moving to "removed" (it doesn't
