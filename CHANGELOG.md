@@ -12,9 +12,9 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile background
 
 ---
 
-## [0.0.28] — 2026‑05‑24 — UI polish (Batches A + B): track table · header · sidebar
+## [0.0.28] — 2026‑05‑24 — UI polish (Batches A + B + C): track table · header · sidebar · player bar · right rail
 
-Two focused polish batches against the design-review punch list, shipped together.
+Three focused polish batches against the design-review punch list, shipped together.
 
 > Numbering: assumes PR #29 (player-view, 0.0.27) lands first. Renumber to 0.0.27 on rebase if not.
 
@@ -43,12 +43,26 @@ Two focused polish batches against the design-review punch list, shipped togethe
 
 - The "5,317 tracks loaded from index." pill no longer sits awkwardly under the search bar. It's been moved to a bottom-right toast position above the transport, restyled with a 24px-radius card + soft drop shadow, and **auto-dismisses 4.5 seconds after the last change** via a `useEffect` on `scanStatus`.
 
+### Changed — Player bar (Batch C)
+
+- **Height +12px** (88 → 100) for breathing room around the new labels.
+- **Fade / Duck / Volume sliders are labeled.** Each slider now has a small `Fade` / `Duck` / `Volume` eyebrow tucked under the icon-slider-value row, so what each modifier does isn't a tooltip-only guess.
+- **Duck slider colour unified to gold.** It used a one-off teal accent (`#5cc4d9`) that clashed with the gold / rust accents everywhere else. All four interactive sliders now share `accentColor: T.gold`.
+- **Empty-state copy.** "Open a folder to begin" misled once the user had actually opened a folder but not played anything yet. Reads "Nothing playing" now.
+
+### Changed — Right-rail empty state (Batch C)
+
+- The "no track loaded" state used to be a single italic paragraph mixing plain and inline-code letters for the shortcuts — easy to read as "the panel is broken."
+- Replaced with a proper standing-by panel: a **Now Playing** eyebrow, a soft gold orb-ring containing the library glyph, a **Standing by** display title in italic gold, and a separate `Quick start` sub-card. The shortcut row chips every letter (`C` `T` `E` `A` `H` `S` `R` `V` `X` `F`) and `?` in uniformly-styled `kbd`-like rectangles so the typography is consistent.
+- The populated (track-playing) state is unchanged — it already shows the category card, orb visualizer, grade row, and Up Next list.
+
 ### Verification
 
 - `pnpm -r typecheck` — clean across all 5 projects.
 - `pnpm -r test` — 169/169 vitest cases still pass.
 - Manual (Batch A): open the Library on a long category — scroll; column header stays at top. Hover any row → background tints; click → row plays / selects (no hover state on the active row). Ungraded tracks show no chip; played tracks show their count without the `×`. A category with a zero-count subcategory (e.g. Combat → Skirmish 0) hides that tab.
 - Manual (Batch B): the search input reads `Search library…`. Click a header tab — clear gold underline + bold label. Open Folder is now a single icon. Sidebar: no "Letter plays · Number jumps" line. Click between categories — the active one shows a 3px left border + stronger background. Open a folder or trigger any status — a toast appears bottom-right and fades after ~5 seconds.
+- Manual (Batch C): the player bar is 12px taller; Fade / Duck / Volume each have an uppercase eyebrow tucked under their slider; the Duck slider thumb is gold (no longer teal). With nothing loaded the transport reads "Nothing playing" instead of "Open a folder to begin." The right rail empty state shows a gold orb-ring + **Standing by** card + a Quick-start card with every shortcut letter as a uniform `kbd` chip.
 
 ---
 

@@ -75,7 +75,9 @@ export function DesktopTransport({
         position: "relative",
         zIndex: 5,
         flexShrink: 0,
-        height: 88,
+        // +12px breathing room over the original 88, room for the new
+        // labels under each modifier slider.
+        height: 100,
         borderTop: `1px solid ${T.rule}`,
         background: T.chromeBg,
         backdropFilter: "blur(20px)",
@@ -132,7 +134,7 @@ export function DesktopTransport({
                 {track?.pack ?? ""}
               </>
             ) : (
-              "Open a folder to begin"
+              "Nothing playing"
             )}
           </div>
           {track && !dmMode ? (
@@ -314,19 +316,36 @@ export function DesktopTransport({
         <div style={{ color: accent, opacity: track ? 0.85 : 0.2 }}>
           <Visualizer color={accent} bars={12} height={26} playing={playing} />
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, color: T.ink2 }}>
-          <Glyph name="speaker" size={14} />
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            value={masterVolume}
-            onChange={(e) => onSetVolume(Number(e.currentTarget.value))}
-            style={{ width: 84, accentColor: T.gold }}
-            title={`Volume ${Math.round(masterVolume * 100)}%`}
-          />
-        </div>
+        <label
+          style={{
+            display: "inline-flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 2,
+            color: T.ink2,
+            fontSize: 10,
+          }}
+          title={`Volume ${Math.round(masterVolume * 100)}%`}
+        >
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <Glyph name="speaker" size={14} />
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={masterVolume}
+              onChange={(e) => onSetVolume(Number(e.currentTarget.value))}
+              style={{ width: 84, accentColor: T.gold }}
+            />
+          </div>
+          <span
+            className="mc-eyebrow"
+            style={{ fontSize: 8, letterSpacing: 0.18, color: T.ink3 }}
+          >
+            Volume
+          </span>
+        </label>
       </div>
     </div>
   );
@@ -344,25 +363,33 @@ function DuckSlider({
       data-mc-tour="duck-slider"
       style={{
         display: "inline-flex",
+        flexDirection: "column",
         alignItems: "center",
-        gap: 6,
+        gap: 2,
         color: T.ink3,
         fontSize: 10,
       }}
       title="Music ducking — drop music level while soundboard plays"
     >
-      <Glyph name="duck" size={14} />
-      <input
-        type="range"
-        min={0}
-        max={1}
-        step={0.05}
-        value={pct}
-        onChange={(e) => onChange(Number(e.currentTarget.value))}
-        style={{ width: 64, accentColor: "#5cc4d9" }}
-      />
-      <span className="mc-mono" style={{ width: 30 }}>
-        {Math.round(pct * 100)}%
+      <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+        <Glyph name="duck" size={14} />
+        {/* Unified slider accent — was teal, clashing with the gold +
+            rust used everywhere else. */}
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.05}
+          value={pct}
+          onChange={(e) => onChange(Number(e.currentTarget.value))}
+          style={{ width: 64, accentColor: T.gold }}
+        />
+        <span className="mc-mono" style={{ width: 30 }}>
+          {Math.round(pct * 100)}%
+        </span>
+      </div>
+      <span className="mc-eyebrow" style={{ fontSize: 8, letterSpacing: 0.18 }}>
+        Duck
       </span>
     </label>
   );
@@ -380,25 +407,31 @@ function FadeSlider({
       data-mc-tour="fade-slider"
       style={{
         display: "inline-flex",
+        flexDirection: "column",
         alignItems: "center",
-        gap: 6,
+        gap: 2,
         color: T.ink3,
         fontSize: 10,
       }}
       title="Crossfade duration"
     >
-      <Glyph name="fade" size={14} />
-      <input
-        type="range"
-        min={0}
-        max={10000}
-        step={250}
-        value={fadeMs}
-        onChange={(e) => onChange(Number(e.currentTarget.value))}
-        style={{ width: 64, accentColor: T.gold }}
-      />
-      <span className="mc-mono" style={{ width: 30 }}>
-        {(fadeMs / 1000).toFixed(fadeMs % 1000 === 0 ? 0 : 1)}s
+      <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+        <Glyph name="fade" size={14} />
+        <input
+          type="range"
+          min={0}
+          max={10000}
+          step={250}
+          value={fadeMs}
+          onChange={(e) => onChange(Number(e.currentTarget.value))}
+          style={{ width: 64, accentColor: T.gold }}
+        />
+        <span className="mc-mono" style={{ width: 30 }}>
+          {(fadeMs / 1000).toFixed(fadeMs % 1000 === 0 ? 0 : 1)}s
+        </span>
+      </div>
+      <span className="mc-eyebrow" style={{ fontSize: 8, letterSpacing: 0.18 }}>
+        Fade
       </span>
     </label>
   );
