@@ -8,7 +8,55 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile background audio config (Info.plist / Android foreground service) is the last immediate follow-up to v0.0.20. The remaining 2 DM tools (Encounters, Timers) land in a third PR once the mobile TrackPickerOverlay exists — Timers now has its ducking backend ready.
+Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile background audio config (Info.plist / Android foreground service) is the last immediate follow-up to v0.0.20. The mobile DM Toolkit is now at desktop parity.
+
+---
+
+## [0.0.15] — 2026‑05‑30 — Mobile DM Toolkit audio panels (Encounters + Timers)
+
+Third and final slice of the mobile DM Toolkit. Adds the two audio-coupled tools — **Encounters** (random encounter tables that fire bound tracks or categories) and **Timers** (tension countdowns that fire bound stingers at zero) — bringing the mobile DM Toolkit to parity with desktop's 8-panel set. Also introduces the mobile **TrackPickerOverlay** (the binding affordance that desktop gets via drag-and-drop), and two new audio helpers used by both panels.
+
+> Mobile-only release: bumps `apps/mobile/package.json` 0.0.14 → 0.0.15. Desktop version files untouched.
+
+### Added — `apps/mobile/src/components/TrackPickerOverlay.tsx`
+
+- Bottom-sheet `Modal` (pageSheet) with a header, search input, and FlatList of all imported tracks. Filters client-side (200 max) by title + pack, term-by-term. Mirrors the desktop popover's role: drag-and-drop doesn't translate to single-pane touch, so this IS the binding affordance.
+- Takes `visible`, `title`, `subtitle`, `onPick(track)`, `onDismiss` — composed by Encounters (entry → track) and Timers (timer → stinger).
+
+### Added — `playCategory(categoryId)` on `apps/mobile/src/audio/store.ts`
+
+- Fetches all tracks in the category from sqlite, runs them through `weightedShuffle` from `@mc/core/shuffle`, plays the first track and feeds the rest as the queue so auto-advance keeps the same mood. Used by Encounter entries bound to a category (vs. a specific track).
+
+### Added — `fireSfx(track)` on `apps/mobile/src/audio/soundboard-store.ts`
+
+- One-shot soundboard-bus playback for stingers and any other pad-shaped audio without a (page, slot) home. Synthetic key per fire so multiple stingers can overlap without colliding with the real soundboard grid. Auto-cleanup on natural end. Routes through the existing `activePads` registry so the music ducker (PR-4) reacts the same as a real pad fire.
+
+### Added — Encounters (`apps/mobile/app/dm/encounters.tsx`)
+
+- Horizontally-scrolling table picker + add-table chip. Active table gets an inline-editable name + delete button (Alert-confirmed).
+- Each entry has an inline-editable label, a horizontally-scrolling category pill row (with a "None" leftmost), and a Track chip that opens the picker. Bindings are exclusive — picking a track clears any category, picking a category clears any track, "clear" un-binds. Active binding shows underneath each entry in italic.
+- Roll picks an entry with non-empty label uniformly at random. If track-bound → `playTrack(track, [])`. If category-bound → `playCategory(categoryId)` (weighted shuffle). Rolled entry tinted gold + result banner above the list.
+- Persists under `dm_encounter_tables` (same key as desktop).
+
+### Added — Timers (`apps/mobile/app/dm/timers.tsx`)
+
+- Multiple independent named countdown timers. Big 48px display clock, large play/pause, reset (loop glyph), +30s. Preset row (1m / 3m / 5m / 10m).
+- Each timer can bind a stinger track via the picker; on zero the timer auto-pauses, the row flashes red, and `fireSfx(track)` plays the stinger on the soundboard bus — which ducks music thanks to the PR-4 backend wiring.
+- One 1Hz `setInterval` drives all running timers, mounted only while at least one timer runs. Refs the tick reads so closures stay fresh. Stingers fire AFTER the runtime tick updates so the row visibly hits 0:00 before audio kicks in (parity with desktop).
+- Configs persist under `dm_countdown_timers`. Runtime (remaining seconds, running flag) is component-local — a clock shouldn't resume mid-flight after a screen swap.
+
+### Changed — DM Tools hub + routes
+
+- Last two greyed-out cards on `apps/mobile/app/(tabs)/dm.tsx` (Encounters, Timers) now route into their stack screens. The mobile DM Toolkit now has all eight panels live.
+- `apps/mobile/app/_layout.tsx` registers `dm/encounters` and `dm/timers` with card presentation + native headers.
+
+### Verification
+
+- `pnpm -r typecheck` — clean (5 of 5 projects).
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual (needs a device / simulator): `pnpm --filter @mc/mobile start`. DM Tools hub → all 8 cards active.
+  - **Encounters**: create a table, add 3 entries (Goblin / Ogre / Dragon). Bind Goblin to the Combat category, bind Dragon to a specific track via the picker; leave Ogre unbound. Roll a few times → goblin shuffles Combat, dragon plays the bound track, ogre just highlights with no audio.
+  - **Timers**: add a timer, set preset to 1m, bind a stinger, hit play; row counts down; at 0:00 the row flashes red, the stinger fires on the soundboard bus, and the music ducks while the stinger plays. Multiple timers run independently from the single 1Hz interval.
 
 ---
 

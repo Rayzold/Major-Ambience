@@ -65,22 +65,21 @@ const TOOLS: Tool[] = [
     glyph: "theatre",
     href: "/dm/recap" as Href,
   },
-  // Placeholders for PR-3 — track picker + ducking dependencies.
   {
     id: "encounters",
     label: "Encounters",
     eyebrow: "Random tables",
-    blurb: "Coming soon — tables bound to tracks.",
+    blurb: "Tables of entries bound to tracks or categories.",
     glyph: "compass",
-    href: null,
+    href: "/dm/encounters" as Href,
   },
   {
     id: "timers",
     label: "Timers",
     eyebrow: "Countdown",
-    blurb: "Coming soon — tension timers with stingers.",
+    blurb: "Tension countdowns with stingers at zero.",
     glyph: "clock",
-    href: null,
+    href: "/dm/timers" as Href,
   },
 ];
 
