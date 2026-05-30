@@ -157,6 +157,7 @@ export const GLYPHS: Record<string, GlyphDef> = {
   folder: [
     sp("M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"),
   ],
+  monitor: [sr(3, 4, 18, 12, 2), sp("M9 20h6 M12 16v4")],
 };
 
 export const FALLBACK_GLYPH: GlyphDef = [sc(12, 12, 6)];

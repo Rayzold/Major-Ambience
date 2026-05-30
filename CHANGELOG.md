@@ -12,6 +12,31 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile background
 
 ---
 
+## [0.0.28] — 2026‑05‑24 — Player-view window (second screen)
+
+The last `IDEAS.md` item: a player-facing window the GM drags onto a second screen or projector. Big calm now-playing display, zero GM controls.
+
+### Added — Player-view (handout) window
+
+- New header toggle (monitor glyph) opens/closes a second Tauri window. It runs the same bundle with `?view=handout`, so `main.tsx` branches to render `HandoutView` instead of the full app.
+- `apps/desktop/src/layout/HandoutView.tsx` shows a category-tinted orb (`OrbVisualizer`), the track title + pack, and a progress bar — no transport, grades, or notes. Standing-by state when nothing plays.
+- The window is created on demand (`new WebviewWindow("handout", …)`) and tracked in a ref; closing it (toggle or OS chrome) resets the toggle so it can be reopened.
+
+### Internal — cross-window state sync
+
+- The main window emits `mc:nowplaying` (title, pack, category, playing, position, duration, theme) over Tauri events whenever now-playing state moves; `HandoutView` listens and re-applies the theme so the two surfaces match.
+- A `mc:handout-ready` handshake: the handout announces itself on mount and the main window replies with current state, so the display isn't blank on open (the periodic emit only fires on change — important when paused).
+- Capabilities: `default.json` now covers the `handout` window and grants `core:webview:allow-create-webview-window`, `core:window:allow-close`, `core:window:allow-set-focus`. New `monitor` glyph in `@mc/ui`.
+- Desktop version 0.0.27 → 0.0.28.
+
+### Verification
+
+- `pnpm -r typecheck` — clean across all 5 projects.
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual: header → click the monitor icon. A second "Player View" window opens showing the current track on a big display; drag it to a second screen. Play / pause / skip in the main window — the player view mirrors it (orb animates only while playing). Close it from the icon or its own title bar; the icon de-highlights and reopening works.
+
+---
+
 ## [0.0.27] — 2026‑05‑24 — UI polish (Batches A + B + C + D + E): full design-review sweep
 
 Five focused polish batches against the design-review punch list, shipped as a single release.
