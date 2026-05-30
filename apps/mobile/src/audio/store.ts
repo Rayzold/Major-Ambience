@@ -81,6 +81,12 @@ export async function playTrack(track: Track, queue: readonly Track[] = []): Pro
   backend.setGain(newHandle, 0); // start silent for fade-in
   backend.play(newHandle, 0);
   backend.setGain(newHandle, 1, 0.6);
+  // Take ownership of the lock-screen / Control Center entry. Required on
+  // Android to keep background playback alive past the ~3 min idle cap.
+  backend.setLockScreenMetadata(newHandle, {
+    title: track.title,
+    artist: track.pack || undefined,
+  });
 
   // Crossfade out + destroy the previous handle (if any).
   const prev = _activeHandle;
