@@ -1,9 +1,44 @@
 // Soundboard audio store — manages multiple simultaneous pad sounds.
 // Each pad can play independently with its own volume, loop, and state.
+//
+// Auto-ducks the music bus while any pad is alive — desktop parity
+// from apps/desktop/src/lib/pad-audio.ts (BUILD_GUIDE.md § 4.2).
+//   "When any SFX plays, ramp the music bus down to (1 - duckingAmount)
+//   over 150ms, hold while at least one SFX is alive, then ramp back
+//   over 400ms."
 
 import React from "react";
 import type { SoundboardSlot, Track, TrackHandle } from "@mc/core";
 import { getBackend } from "./backend";
+
+const DUCK_DOWN_SEC = 0.15;
+const DUCK_UP_SEC = 0.4;
+let duckingPct = 0.4;
+
+/** Set the duck amount (0..1). If pads are alive, re-applies on the fly. */
+export function setDuckingPct(pct: number): void {
+  duckingPct = Math.max(0, Math.min(1, pct));
+  if (activePads.size > 0) {
+    getBackend().setBusGain("music", 1 - duckingPct, DUCK_DOWN_SEC);
+  }
+}
+
+export function getDuckingPct(): number {
+  return duckingPct;
+}
+
+/**
+ * Apply the current duck state based on how many pads are alive.
+ * Called after every set / delete on `activePads`.
+ */
+function applyDuckForActiveCount(): void {
+  const backend = getBackend();
+  if (activePads.size > 0) {
+    backend.setBusGain("music", 1 - duckingPct, DUCK_DOWN_SEC);
+  } else {
+    backend.setBusGain("music", 1, DUCK_UP_SEC);
+  }
+}
 
 type PadHandle = {
   slot: SoundboardSlot;
@@ -84,6 +119,7 @@ export async function playPad(
       unsubEnded,
     });
 
+    applyDuckForActiveCount();
     notifyListeners();
   } catch (err) {
     console.error("Failed to play pad:", err);
@@ -109,6 +145,7 @@ export async function stopPad(page: string, slot: number): Promise<void> {
     console.error("Failed to stop pad:", err);
   } finally {
     activePads.delete(key);
+    applyDuckForActiveCount();
     notifyListeners();
   }
 }

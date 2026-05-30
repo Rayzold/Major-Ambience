@@ -8,7 +8,34 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile background audio config (Info.plist / Android foreground service) and SFX-bus ducking on mobile are the immediate follow-ups to v0.0.20. The remaining 2 DM tools (Encounters, Timers) land in a third PR once the mobile TrackPickerOverlay exists.
+Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile background audio config (Info.plist / Android foreground service) is the last immediate follow-up to v0.0.20. The remaining 2 DM tools (Encounters, Timers) land in a third PR once the mobile TrackPickerOverlay exists — Timers now has its ducking backend ready.
+
+---
+
+## [0.0.14] — 2026‑05‑30 — Mobile SFX-bus ducking
+
+The mobile soundboard now ducks music while pads are alive, matching the desktop behaviour from `apps/desktop/src/lib/pad-audio.ts`. Before this, `ExpoAudioBackend.reapplyAll()` was a documented no-op (the handle store was a `WeakMap`, so `setBusGain("music", N)` couldn't propagate to live music handles) — calling it changed `busGains` in JS but never wrote to any `AudioPlayer.volume`. This PR makes the bus actually take effect.
+
+> Mobile-only release: bumps `apps/mobile/package.json` 0.0.13 → 0.0.14. Desktop version files untouched.
+
+### Changed — `apps/mobile/src/audio/expo-audio-backend.ts`
+
+- **Handle store: `WeakMap<TrackHandle, InternalHandle>` → `Map<string, InternalHandle>`** keyed by `handle.id`. `destroy()` now clears the entry, so retention stays bounded by the existing caller contract (destroy() was already required to release the native player). Steady-state size is small — 1–2 music tracks + N pads, typically < 10.
+- **`reapplyAll()` actually does something now.** Iterates the live handles and re-applies the effective gain (`userGain × busGain × masterGain`) per handle. New `reapplyBus(bus)` helper for the common case where only one bus is changing.
+- **`setBusGain(bus, g, rampSeconds?)`** — new optional ramp arg matches the desktop's `setMusicBusGain` / `setSoundboardBusGain` signature. JS-driven linear ramp at ~60Hz via setInterval; per-bus active ramp state so a new call cancels the in-flight one. Same shape for `setMasterGain(g, rampSeconds?)`.
+- **`scheduleRamp(start, target, seconds, onTick)`** internal helper extracted so the bus and master ramps share one implementation. The per-handle `setGain` ramp keeps its own copy (its cancel state lives on the handle so `destroy()` can clear it without bookkeeping a handle reference here).
+
+### Changed — `apps/mobile/src/audio/soundboard-store.ts`
+
+- New ducker module-state (`DUCK_DOWN_SEC = 0.15`, `DUCK_UP_SEC = 0.4`, `duckingPct = 0.4`) and `applyDuckForActiveCount()` helper, matching `apps/desktop/src/lib/pad-audio.ts` exactly.
+- `playPad` and `stopPad` both call `applyDuckForActiveCount()` after touching `activePads`. The natural-end callback already routes through `stopPad`, so auto-clearing non-loop pads ducks correctly without separate wiring.
+- New exports: `setDuckingPct(pct)` and `getDuckingPct()`. The setter respects live state — adjusting while pads are alive re-applies the new amount with `DUCK_DOWN_SEC`.
+
+### Verification
+
+- `pnpm -r typecheck` — clean (5 of 5 projects).
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual (needs a device / simulator): `pnpm --filter @mc/mobile start`. Start a music track from the Library; jump to Soundboard; fire a pad → music ramps down 150ms to ~60% (40% duck). Fire a second pad → no additional duck (already ducked). Stop both → music ramps back to full over 400ms. Fire a non-loop pad and let it end naturally → unducks on its own.
 
 ---
 
