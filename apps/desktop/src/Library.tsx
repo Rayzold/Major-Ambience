@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { emit, listen } from "@tauri-apps/api/event";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { CategoryId, Grade, Scene, SoundboardSlot, Track, TrackHandle } from "@mc/core";
 import { categorize, crossfade, weightedShuffle } from "@mc/core";
 import {
@@ -47,6 +49,11 @@ import type { EncounterTable } from "./layout/dm/EncounterTables.js";
 import type { CountdownTimer } from "./layout/dm/TensionCountdown.js";
 import { EMPTY_LEDGER, type XpLedgerState } from "./layout/dm/XpLedger.js";
 import type { RecapMoment } from "./layout/dm/RecapComposer.js";
+import {
+  HANDOUT_EVENT,
+  HANDOUT_READY_EVENT,
+  type HandoutPayload,
+} from "./layout/HandoutView.js";
 import type { RollResult } from "./lib/dm-dice.js";
 import { KeyboardHelpOverlay } from "./layout/KeyboardHelpOverlay.js";
 import { PinToSlotMenu } from "./layout/PinToSlotMenu.js";
@@ -202,6 +209,70 @@ export function Library() {
     () => tracks.find((t) => t.id === playback?.trackId),
     [tracks, playback],
   );
+
+  // ── Player-view (handout) window ─────────────────────────────────────────
+  const [playerViewOpen, setPlayerViewOpen] = useState(false);
+  const handoutWinRef = useRef<WebviewWindow | null>(null);
+  // Latest now-playing payload, mirrored to a ref so the (once-registered)
+  // handout-ready listener can reply with current state on open.
+  const handoutPayloadRef = useRef<HandoutPayload>(null);
+
+  // Mirror now-playing state to the handout window whenever it moves.
+  useEffect(() => {
+    const payload: HandoutPayload = currentTrack
+      ? {
+          title: currentTrack.title,
+          pack: currentTrack.pack,
+          categoryId: currentTrack.category,
+          playing: isPlaying,
+          currentSec: currentTime,
+          durationSec: trackDurationSec,
+          theme,
+        }
+      : null;
+    handoutPayloadRef.current = payload;
+    void emit(HANDOUT_EVENT, payload);
+  }, [currentTrack, isPlaying, currentTime, trackDurationSec, theme]);
+
+  // A freshly-opened handout announces itself; reply with current state so
+  // it isn't blank until the next change (e.g. when paused).
+  useEffect(() => {
+    const unlisten = listen(HANDOUT_READY_EVENT, () => {
+      void emit(HANDOUT_EVENT, handoutPayloadRef.current);
+    });
+    return () => {
+      void unlisten.then((fn) => fn());
+    };
+  }, []);
+
+  function handleTogglePlayerView() {
+    const existing = handoutWinRef.current;
+    if (existing) {
+      void existing.close();
+      handoutWinRef.current = null;
+      setPlayerViewOpen(false);
+      return;
+    }
+    const win = new WebviewWindow("handout", {
+      url: "index.html?view=handout",
+      title: "Major Ambience — Player View",
+      width: 1280,
+      height: 720,
+      minWidth: 640,
+      minHeight: 360,
+    });
+    handoutWinRef.current = win;
+    setPlayerViewOpen(true);
+    void win.once("tauri://destroyed", () => {
+      handoutWinRef.current = null;
+      setPlayerViewOpen(false);
+    });
+    void win.once("tauri://error", (err) => {
+      console.error("[handout] window error:", err);
+      handoutWinRef.current = null;
+      setPlayerViewOpen(false);
+    });
+  }
 
   const tracksByCategory = useMemo(() => {
     const map = new Map<CategoryId, Track[]>();
@@ -1641,6 +1712,8 @@ export function Library() {
         onOpenTutorials={(anchor) => setTutorialsMenu(anchor)}
         dmMode={dmMode}
         onToggleDmMode={() => void handleToggleDmMode()}
+        playerViewOpen={playerViewOpen}
+        onTogglePlayerView={handleTogglePlayerView}
       />
 
       <div

@@ -20,6 +20,10 @@ export type DesktopHeaderProps = {
   onOpenTutorials: (anchor: { x: number; y: number }) => void;
   dmMode: boolean;
   onToggleDmMode: () => void;
+  /** Whether the player-facing handout window is currently open. */
+  playerViewOpen: boolean;
+  /** Open / close the player-facing handout window (second screen). */
+  onTogglePlayerView: () => void;
 };
 
 const DM_RED = "#d96666";
@@ -55,6 +59,8 @@ export function DesktopHeader({
   onOpenTutorials,
   dmMode,
   onToggleDmMode,
+  playerViewOpen,
+  onTogglePlayerView,
 }: DesktopHeaderProps) {
   return (
     <div
@@ -248,6 +254,22 @@ export function DesktopHeader({
             <Glyph name="dice" size={16} />
           </button>
         )}
+        <button
+          onClick={onTogglePlayerView}
+          title={
+            playerViewOpen
+              ? "Close player view"
+              : "Open player view — a second window for the table / projector"
+          }
+          style={{
+            ...iconBtn,
+            color: playerViewOpen ? T.gold : T.ink2,
+            background: playerViewOpen ? T.goldSoft : "transparent",
+            border: playerViewOpen ? `1px solid ${T.goldEdge}` : "1px solid transparent",
+          }}
+        >
+          <Glyph name="monitor" size={16} stroke={playerViewOpen ? 1.9 : 1.5} />
+        </button>
         <button
           onClick={onToggleDmMode}
           title={dmMode ? "Exit DM Mode" : "Enter DM Mode — hide editing controls"}
