@@ -81,12 +81,6 @@ export type DesktopLibraryViewProps = {
    * Removed view; rows there get an undo icon in place of the trash.
    */
   onRestoreTrack: (track: Track) => void;
-  /**
-   * True when this view is a pseudo-view (favorites / recent). Hides the
-   * subcategory tabs (they have no meaning) and the Save-as-scene
-   * placeholder button.
-   */
-  isPseudoView?: boolean;
   dmMode: boolean;
 };
 
@@ -101,7 +95,6 @@ export function DesktopLibraryView({
   onTrackContextMenu,
   onRemoveTrack,
   onRestoreTrack,
-  isPseudoView,
   dmMode,
 }: DesktopLibraryViewProps) {
   const cat = (meta as CategoryMeta) ?? CATEGORIES[0]!;
@@ -169,25 +162,48 @@ export function DesktopLibraryView({
             <div className="mc-eyebrow" style={{ color: cat.color }}>
               Category
             </div>
-            <h1
-              className="mc-display"
-              style={{
-                margin: "4px 0 4px",
-                fontSize: 46,
-                lineHeight: 1,
-                fontWeight: 600,
-                color: T.ink,
-              }}
-            >
-              {cat.name}
-            </h1>
-            <div style={{ fontSize: 13, color: T.ink2, maxWidth: 540 }}>{cat.desc}</div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+              <h1
+                className="mc-display"
+                style={{
+                  margin: "4px 0 4px",
+                  fontSize: 46,
+                  lineHeight: 1,
+                  fontWeight: 600,
+                  color: T.ink,
+                }}
+              >
+                {cat.name}
+              </h1>
+              {/* Track count joins the title as a piece of metadata
+                  instead of sitting awkwardly between the action buttons. */}
+              <span
+                className="mc-mono"
+                style={{
+                  fontSize: 12,
+                  color: T.ink2,
+                  background: T.bgChip,
+                  border: `1px solid ${T.rule}`,
+                  padding: "3px 8px",
+                  borderRadius: 999,
+                }}
+                title={`${categoryTracks.length.toLocaleString()} tracks in this view`}
+              >
+                {categoryTracks.length.toLocaleString()}
+              </span>
+            </div>
+            {/* Description: bumped from `ink2` to `ink` for a clearer
+                read at body sizes (closer to WCAG AA over the hero
+                gradient). */}
+            <div style={{ fontSize: 13, color: T.ink, opacity: 0.9, maxWidth: 540 }}>
+              {cat.desc}
+            </div>
             <div
               style={{
                 marginTop: 14,
                 display: "flex",
                 alignItems: "center",
-                gap: 18,
+                gap: 12,
               }}
             >
               <button
@@ -211,28 +227,10 @@ export function DesktopLibraryView({
               >
                 <Glyph name="shuffle" size={14} /> Shuffle weighted
               </button>
-              {dmMode || isPseudoView ? null : (
-                <button
-                  disabled
-                  title="Save current as a scene — coming in next phase"
-                  style={{
-                    padding: "10px 14px",
-                    borderRadius: 999,
-                    background: T.bgChip,
-                    color: T.ink3,
-                    fontSize: 13,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 8,
-                    cursor: "not-allowed",
-                  }}
-                >
-                  <Glyph name="plus" size={14} /> Save as scene
-                </button>
-              )}
-              <div className="mc-mono" style={{ fontSize: 11, color: T.ink3 }}>
-                {categoryTracks.length.toLocaleString()} tracks
-              </div>
+              {/* "Save as scene" used to live here as a disabled
+                  placeholder ("coming in next phase"). Scene saving is
+                  fully shipped on the Scenes tab now; this disabled stub
+                  was just noise next to the primary CTA. */}
             </div>
           </div>
         </div>
@@ -258,6 +256,10 @@ export function DesktopLibraryView({
                 : categoryTracks.filter(
                     (t) => (t.subcategory ?? "").toLowerCase() === s.toLowerCase(),
                   ).length;
+            // Hide empty subcategory tabs ("Skirmish 0") — they take up
+            // space and create a false affordance. "All" always renders so
+            // there's at least one tab to anchor the strip.
+            if (s !== "All" && count === 0) return null;
             return (
               <button
                 key={s}
@@ -281,7 +283,7 @@ export function DesktopLibraryView({
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span className="mc-eyebrow" style={{ marginRight: 4 }}>
+            <span className="mc-eyebrow" style={{ marginRight: 4, flexShrink: 0 }}>
               Length
             </span>
             {DURATION_BUCKETS.map((b) => {
@@ -321,7 +323,7 @@ export function DesktopLibraryView({
             })}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span className="mc-eyebrow" style={{ marginRight: 4 }}>
+            <span className="mc-eyebrow" style={{ marginRight: 4, flexShrink: 0 }}>
               Grade
             </span>
             {GRADES_INCLUDING_ALL.map((g) => {
@@ -360,17 +362,25 @@ export function DesktopLibraryView({
         </div>
       </div>
 
-      {/* Column header */}
+      {/* Column header — sticks to the top of the scroll container so it
+          stays readable when the user scrolls into a long category. Opaque
+          chrome background so rows scrolling underneath don't show
+          through. */}
       <div
         style={{
           display: "grid",
           gridTemplateColumns: "32px 1fr 240px 70px 60px 60px 36px",
           padding: "8px 32px",
           fontSize: 10,
-          color: T.ink3,
+          fontWeight: 600,
+          color: T.ink2,
           textTransform: "uppercase",
-          letterSpacing: 0.12,
+          letterSpacing: 0.16,
           borderBottom: `1px solid ${T.rule}`,
+          position: "sticky",
+          top: 0,
+          zIndex: 1,
+          background: T.bg,
         }}
       >
         <div>#</div>
@@ -452,18 +462,25 @@ function DesktopTrackRow({
   const c = findCategory(track.category);
   if (!c) return null;
   const isRemoved = track.category === "removed";
+  const [hovered, setHovered] = useState(false);
   // Selected rows get a gold-tinted background that wins over the
   // currently-playing tint. Playing-and-selected falls back to a blend
   // of both — gold accents, the playing gradient stays underneath.
+  // Hover only kicks in for default rows so it doesn't fight the
+  // selected/playing tints.
   const bg = isSelected
     ? T.goldSoft
     : isPlaying
       ? `linear-gradient(90deg, ${c.color}14, transparent 40%)`
-      : "transparent";
+      : hovered
+        ? T.bgChip
+        : "transparent";
   return (
     <button
       className="mc-row-tap"
       onClick={onTap}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       onContextMenu={dmMode ? undefined : (e) => {
         e.preventDefault();
         onContextMenu(e.clientX, e.clientY);
@@ -586,9 +603,12 @@ function DesktopTrackRow({
         {track.pack}
       </div>
       <div className="mc-mono" style={{ fontSize: 11, color: T.ink3 }}>
-        {dmMode ? "" : `${track.playCount}×`}
+        {dmMode || track.playCount === 0 ? "" : track.playCount}
       </div>
-      {dmMode ? (
+      {/* Hide the empty box for ungraded tracks — only render the chip
+          when a grade actually exists, so a fresh library doesn't read
+          as a column of broken UI. */}
+      {dmMode || track.grade === null ? (
         <div />
       ) : (
         <GradeChip grade={track.grade} size={22} />

@@ -147,9 +147,10 @@ export function DesktopSidebar({
       </SidebarSection>
 
       <SidebarSection title="Categories">
-        <div className="mc-eyebrow" style={{ padding: "0 12px 6px", fontSize: 9, color: T.ink3 }}>
-          Letter plays · Number jumps
-        </div>
+        {/* The "Letter plays · Number jumps" hint used to live here, but
+            it's a usage instruction — not nav. The letters are still
+            underlined in each category name, and the full cheatsheet is a
+            keystroke away (?). The nav stays clean. */}
         <div data-mc-tour="sidebar-categories">
         {CATEGORIES.map((c) => {
           // A category is "active" only when we're showing its view —
@@ -168,13 +169,14 @@ export function DesktopSidebar({
                 alignItems: "center",
                 gap: 10,
                 padding: "8px 12px",
+                paddingLeft: 11, // 12 minus the extra 1px of border so text stays aligned
                 borderRadius: 9,
-                background: active ? c.color + "20" : "transparent",
+                background: active ? c.color + "33" : "transparent",
                 color: active ? c.color : T.ink2,
                 fontSize: 13,
-                fontWeight: 500,
+                fontWeight: active ? 600 : 500,
                 marginBottom: 2,
-                borderLeft: `2px solid ${active ? c.color : "transparent"}`,
+                borderLeft: `3px solid ${active ? c.color : "transparent"}`,
               }}
             >
               <Glyph name={c.glyph} size={15} stroke={active ? 1.9 : 1.5} />
@@ -256,8 +258,10 @@ function CategoryNameWithShortcut({
 
 function SidebarSection({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div style={{ marginBottom: 18 }}>
-      <div className="mc-eyebrow" style={{ padding: "4px 12px 8px" }}>
+    // Generous breathing room above each section so the eyebrow labels
+    // read as separators, not visual noise stacked tight to the rows above.
+    <div style={{ marginTop: 14, marginBottom: 18 }}>
+      <div className="mc-eyebrow" style={{ padding: "0 12px 10px" }}>
         {title}
       </div>
       {children}
@@ -292,13 +296,14 @@ function SidebarRow({
         alignItems: "center",
         gap: 10,
         padding: "8px 12px",
+        paddingLeft: 11,
         borderRadius: 9,
-        background: active ? accent + "20" : "transparent",
+        background: active ? accent + "33" : "transparent",
         color: active ? accent : T.ink2,
         fontSize: 13,
-        fontWeight: 500,
+        fontWeight: active ? 600 : 500,
         cursor: "pointer",
-        borderLeft: `2px solid ${active ? accent : "transparent"}`,
+        borderLeft: `3px solid ${active ? accent : "transparent"}`,
         marginBottom: 2,
       }}
     >

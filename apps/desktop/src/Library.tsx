@@ -369,6 +369,15 @@ export function Library() {
     queueRef.current = queue;
   }, [queue]);
 
+  // Toast-style auto-dismiss for the scan / status pill. Each new message
+  // resets the timer; clearing the message immediately on unmount keeps
+  // the React tree consistent.
+  useEffect(() => {
+    if (!scanStatus) return undefined;
+    const id = window.setTimeout(() => setScanStatus(""), 4500);
+    return () => window.clearTimeout(id);
+  }, [scanStatus]);
+
   /** Live counts for the Favorites + Recently played + Removed sidebar rows.
    *  Favorites and Recent exclude "removed" tracks so the user's soft-delete
    *  doesn't keep haunting those library shortcuts. The Removed count
@@ -1766,7 +1775,6 @@ export function Library() {
             }
             onRemoveTrack={(t) => void handleRemoveTrack(t)}
             onRestoreTrack={(t) => void handleRestoreTrack(t)}
-            isPseudoView={activeView !== "category"}
             dmMode={dmMode}
           />
         ) : tab === "scenes" ? (
@@ -1857,22 +1865,25 @@ export function Library() {
       {scanStatus ? (
         <div
           style={{
+            // Toast-like — bottom-right, above the transport, so status
+            // messages don't sit awkwardly under the search and category hero.
             position: "absolute",
-            top: 70,
-            right: 380,
+            bottom: 110,
+            right: 24,
             zIndex: 6,
-            padding: "6px 12px",
-            borderRadius: 999,
+            padding: "8px 14px",
+            borderRadius: 10,
             background: "var(--mc-chromeBg)",
             backdropFilter: "blur(8px)",
             border: "1px solid var(--mc-goldEdge)",
             color: "var(--mc-gold)",
-            fontSize: 11,
+            fontSize: 12,
             maxWidth: 580,
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
             pointerEvents: "none",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
           }}
         >
           {scanStatus}

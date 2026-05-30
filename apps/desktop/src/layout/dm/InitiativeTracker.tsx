@@ -146,55 +146,87 @@ export function InitiativeTracker({
         </div>
       }
     >
+      {/* Add-combatant input group — three inputs read as ONE control,
+          wrapped in a single bordered shell with thin vertical dividers,
+          so the name / init / add affordances stop looking like three
+          disconnected widgets. */}
       <div
         style={{
           padding: "10px 14px",
           borderBottom: `1px solid ${T.rule}`,
-          display: "grid",
-          gridTemplateColumns: "1fr 64px auto",
-          gap: 6,
-          alignItems: "center",
         }}
       >
-        <input
-          value={name}
-          onChange={(e) => setName(e.currentTarget.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") add();
-          }}
-          placeholder="Combatant name"
-          style={inputStyle}
-        />
-        <input
-          value={initiative}
-          onChange={(e) => setInitiative(e.currentTarget.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") add();
-          }}
-          placeholder="Init"
-          inputMode="numeric"
-          style={{ ...inputStyle, fontFamily: "Geist Mono, monospace", textAlign: "center" }}
-        />
-        <button
-          onClick={add}
-          disabled={name.trim().length === 0 || initiative === ""}
-          style={{
-            padding: "8px 12px",
-            borderRadius: 8,
-            background:
-              name.trim().length === 0 || initiative === "" ? T.bgChip : T.goldSoft,
-            color: name.trim().length === 0 || initiative === "" ? T.ink3 : T.gold,
-            border: `1px solid ${
-              name.trim().length === 0 || initiative === "" ? T.rule : T.goldEdge
-            }`,
-            fontSize: 12,
-            fontWeight: 500,
-            cursor:
-              name.trim().length === 0 || initiative === "" ? "not-allowed" : "pointer",
-          }}
-        >
-          <Glyph name="plus" size={12} />
-        </button>
+        {(() => {
+          const disabled = name.trim().length === 0 || initiative === "";
+          const groupedInput: React.CSSProperties = {
+            background: "transparent",
+            border: 0,
+            outline: "none",
+            color: T.ink,
+            fontSize: 13,
+            padding: "8px 10px",
+            minWidth: 0,
+          };
+          return (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1px 64px 1px auto",
+                alignItems: "stretch",
+                background: T.bgChip,
+                border: `1px solid ${T.rule}`,
+                borderRadius: 8,
+                overflow: "hidden",
+              }}
+            >
+              <input
+                value={name}
+                onChange={(e) => setName(e.currentTarget.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") add();
+                }}
+                placeholder="Combatant name"
+                style={groupedInput}
+              />
+              <div style={{ background: T.rule }} />
+              <input
+                value={initiative}
+                onChange={(e) => setInitiative(e.currentTarget.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") add();
+                }}
+                placeholder="Init"
+                inputMode="numeric"
+                style={{
+                  ...groupedInput,
+                  fontFamily: "Geist Mono, monospace",
+                  textAlign: "center",
+                }}
+              />
+              <div style={{ background: T.rule }} />
+              <button
+                onClick={add}
+                disabled={disabled}
+                title="Add combatant (Enter)"
+                style={{
+                  padding: "0 14px",
+                  background: disabled ? T.bgChip : T.goldSoft,
+                  color: disabled ? T.ink3 : T.gold,
+                  border: 0,
+                  borderLeft: `1px solid ${T.rule}`,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: disabled ? "not-allowed" : "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Glyph name="plus" size={13} />
+              </button>
+            </div>
+          );
+        })()}
       </div>
 
       {sorted.length === 0 ? (
@@ -424,17 +456,6 @@ function randomId(): string {
   }
   return `c_${Date.now().toString(36)}_${Math.floor(Math.random() * 1e9).toString(36)}`;
 }
-
-const inputStyle: React.CSSProperties = {
-  padding: "8px 10px",
-  borderRadius: 8,
-  background: T.bgChip,
-  border: `1px solid ${T.rule}`,
-  color: T.ink,
-  fontSize: 13,
-  outline: "none",
-  minWidth: 0,
-};
 
 /** Compact numeric stat input (HP / AC cells). */
 function statInput(color: string): React.CSSProperties {

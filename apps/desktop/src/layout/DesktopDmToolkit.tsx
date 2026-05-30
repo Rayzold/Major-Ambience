@@ -119,11 +119,13 @@ export function DesktopDmToolkit({
       }}
     >
       <div style={{ padding: "20px 24px 4px" }}>
-        <div className="mc-eyebrow">Add-on</div>
+        {/* The "Add-on" eyebrow above the title read like a debug label.
+            Removed — the tabs and content below make the section's role
+            obvious on their own. */}
         <h1
           className="mc-display"
           style={{
-            margin: "4px 0 4px",
+            margin: "0 0 4px",
             fontSize: 30,
             lineHeight: 1.05,
             fontWeight: 600,
@@ -160,11 +162,16 @@ export function DesktopDmToolkit({
                 gap: 8,
                 padding: "8px 14px",
                 borderRadius: 9,
-                background: active ? T.gold + "26" : T.bgChip,
+                // Match the main-header tab pattern: transparent inactive,
+                // gold-tint + inset bottom underline + 600-weight active.
+                // Reads more native to the dark theme than the previous
+                // outlined-chip style.
+                background: active ? T.gold + "33" : "transparent",
                 color: active ? T.gold : T.ink2,
                 fontSize: 13,
-                fontWeight: 500,
-                border: `1px solid ${active ? T.goldEdge : "transparent"}`,
+                fontWeight: active ? 600 : 500,
+                border: "1px solid transparent",
+                boxShadow: active ? `inset 0 -2px 0 ${T.gold}` : "none",
               }}
             >
               <Glyph name={t.glyph} size={14} stroke={active ? 1.9 : 1.5} />
@@ -176,7 +183,7 @@ export function DesktopDmToolkit({
                     fontSize: 10,
                     padding: "1px 6px",
                     borderRadius: 999,
-                    background: active ? T.gold + "40" : T.bgCard,
+                    background: active ? T.gold + "40" : T.bgChip,
                     color: active ? T.gold : T.ink3,
                   }}
                 >

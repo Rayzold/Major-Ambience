@@ -149,10 +149,14 @@ export function DesktopHeader({
                 gap: 7,
                 padding: "7px 14px",
                 borderRadius: 9,
-                background: active ? T.gold + "26" : "transparent",
+                background: active ? T.gold + "33" : "transparent",
                 color: active ? T.gold : T.ink2,
                 fontSize: 13,
-                fontWeight: 500,
+                fontWeight: active ? 600 : 500,
+                // Inset bottom underline for the active tab — gives a
+                // clear "you are here" without breaking the chip strip's
+                // rounded shape.
+                boxShadow: active ? `inset 0 -2px 0 ${T.gold}` : "none",
               }}
             >
               <Glyph name={t.icon} size={15} stroke={active ? 1.9 : 1.5} />
@@ -191,9 +195,7 @@ export function DesktopHeader({
             value={searchQuery}
             onChange={(e) => onSearchChange(e.currentTarget.value)}
             onFocus={onSearchFocus}
-            placeholder={
-              trackCount > 0 ? `Search ${trackCount.toLocaleString()} tracks…` : "Search…"
-            }
+            placeholder={trackCount > 0 ? "Search library…" : "Search…"}
             disabled={trackCount === 0}
             style={{
               flex: 1,
@@ -226,20 +228,13 @@ export function DesktopHeader({
             title="Open folder"
             data-mc-tour="open-folder"
             style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "8px 12px",
-              borderRadius: 9,
+              ...iconBtn,
               background: T.goldSoft,
               border: `1px solid ${T.goldEdge}`,
               color: T.gold,
-              fontSize: 12,
-              fontWeight: 500,
             }}
           >
-            <Glyph name="folder" size={14} />
-            Open Folder
+            <Glyph name="folder" size={16} />
           </button>
         )}
         {dmMode ? null : (

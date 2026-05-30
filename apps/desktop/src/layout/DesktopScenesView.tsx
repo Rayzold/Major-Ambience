@@ -96,18 +96,82 @@ export function DesktopScenesView({
         <div
           style={{
             position: "relative",
-            padding: "60px 32px",
-            color: T.ink3,
-            fontStyle: "italic",
-            fontSize: 14,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
             textAlign: "center",
-            maxWidth: 480,
-            margin: "20px auto 0",
-            lineHeight: 1.5,
+            margin: "36px auto 0",
+            maxWidth: 520,
+            padding: "44px 32px 36px",
+            borderRadius: 18,
+            background: T.bgCard,
+            border: `1px solid ${T.rule}`,
           }}
         >
-          No scenes yet. Pick a category, set a fade and volume you like, then
-          hit <span style={{ color: T.gold, fontStyle: "normal" }}>Save current scene</span>.
+          {/* Gold orb-ring + scenes glyph — matches the right-rail
+              standing-by treatment so empty surfaces feel consistent
+              instead of one-off. */}
+          <div
+            style={{
+              width: 96,
+              height: 96,
+              borderRadius: "50%",
+              background: `radial-gradient(circle at 35% 30%, ${T.gold}33, transparent 70%)`,
+              border: `1px solid ${T.gold}44`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: 18,
+            }}
+          >
+            <Glyph name="scenes" size={36} style={{ color: T.gold }} />
+          </div>
+          <div
+            className="mc-display"
+            style={{
+              fontSize: 26,
+              fontStyle: "italic",
+              fontWeight: 600,
+              color: T.gold,
+              lineHeight: 1.1,
+            }}
+          >
+            No scenes yet
+          </div>
+          <div
+            style={{
+              marginTop: 8,
+              fontSize: 13,
+              color: T.ink2,
+              lineHeight: 1.5,
+              maxWidth: 380,
+            }}
+          >
+            Pick a category, set the fade and volume you like, then snapshot
+            it as a scene — one tap restores everything.
+          </div>
+          {dmMode ? null : (
+            <button
+              onClick={onOpenSave}
+              disabled={!canSave}
+              title={canSave ? "Save the current view as a scene" : "Open a folder first"}
+              style={{
+                marginTop: 22,
+                padding: "10px 18px",
+                borderRadius: 999,
+                background: canSave ? T.gold : T.bgChip,
+                color: canSave ? "#1a1108" : T.ink3,
+                fontWeight: 600,
+                fontSize: 13,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                cursor: canSave ? "pointer" : "not-allowed",
+              }}
+            >
+              <Glyph name="plus" size={14} /> Save current scene
+            </button>
+          )}
         </div>
       ) : (
         <div

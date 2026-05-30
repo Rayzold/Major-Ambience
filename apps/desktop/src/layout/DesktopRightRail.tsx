@@ -27,6 +27,22 @@ export function DesktopRightRail({
   dmMode,
 }: DesktopRightRailProps) {
   if (!track) {
+    const LETTERS = ["C", "T", "E", "A", "H", "S", "R", "V", "X", "F"];
+    const kbdStyle: React.CSSProperties = {
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      minWidth: 18,
+      height: 18,
+      padding: "0 4px",
+      borderRadius: 4,
+      background: T.bgChip,
+      border: `1px solid ${T.rule}`,
+      color: T.gold,
+      fontFamily: "Geist Mono, monospace",
+      fontSize: 10,
+      fontWeight: 600,
+    };
     return (
       <div
         className="mc-scroll"
@@ -34,20 +50,87 @@ export function DesktopRightRail({
           flexShrink: 0,
           width: 360,
           borderLeft: `1px solid ${T.rule}`,
-          padding: 18,
+          padding: 22,
           position: "relative",
-          color: T.ink3,
-          fontSize: 13,
-          fontStyle: "italic",
+          display: "flex",
+          flexDirection: "column",
         }}
       >
-        <div className="mc-eyebrow" style={{ marginBottom: 8 }}>
+        <div className="mc-eyebrow" style={{ marginBottom: 16 }}>
           Now Playing
         </div>
-        Click any track row, press a category letter
-        (<span style={{ fontStyle: "normal", color: T.gold }}>C T E A H S R V X F</span>),
-        or press <span style={{ fontStyle: "normal", color: T.gold }}>?</span> for
-        the full cheatsheet.
+
+        {/* Standing-by panel — calmer than a bare paragraph. The gold orb
+            ring + display type read as identity, not absence. */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            textAlign: "center",
+            padding: "28px 0 22px",
+            borderRadius: 16,
+            background: T.bgCard,
+            border: `1px solid ${T.rule}`,
+          }}
+        >
+          <div
+            style={{
+              width: 88,
+              height: 88,
+              borderRadius: "50%",
+              background: `radial-gradient(circle at 35% 30%, ${T.gold}33, transparent 70%)`,
+              border: `1px solid ${T.gold}44`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: 14,
+            }}
+          >
+            <Glyph name="library" size={28} style={{ color: T.gold }} />
+          </div>
+          <div
+            className="mc-display"
+            style={{
+              fontSize: 22,
+              fontStyle: "italic",
+              fontWeight: 600,
+              color: T.gold,
+              lineHeight: 1.1,
+            }}
+          >
+            Standing by
+          </div>
+          <div style={{ marginTop: 6, fontSize: 12, color: T.ink3 }}>
+            Pick a track to begin.
+          </div>
+        </div>
+
+        {/* Quick start — uniformly chip-styled keys so the shortcut row
+            reads consistently instead of mixing plain + code spans. */}
+        <div
+          style={{
+            marginTop: 18,
+            padding: "14px 14px 16px",
+            borderRadius: 12,
+            background: T.bgChip,
+          }}
+        >
+          <div className="mc-eyebrow" style={{ fontSize: 9, marginBottom: 8 }}>
+            Quick start
+          </div>
+          <div style={{ fontSize: 12, color: T.ink2, lineHeight: 1.55 }}>
+            Click any track row, hit a category letter
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, margin: "6px 0" }}>
+              {LETTERS.map((l) => (
+                <span key={l} style={kbdStyle}>
+                  {l}
+                </span>
+              ))}
+            </div>
+            or press <span style={kbdStyle}>?</span> for the full cheatsheet.
+          </div>
+        </div>
       </div>
     );
   }
