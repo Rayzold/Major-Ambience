@@ -8,7 +8,32 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-Nothing yet — Phase 2 cloud sync proper + IAP continue here. The mobile DM Toolkit is at desktop parity, background audio is configured, and loop control matches desktop. Remaining mobile parity tracked in `BACKLOG.md` (grade pills, removed-category, Favorites / Recently played, duration probe — and the length filter blocked on it).
+Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile parity at: DM Toolkit (#35), background audio (#36), loop control (#37), grade pills (this). Remaining parity tracked in `BACKLOG.md` (removed-category, Favorites / Recently played, duration probe — and the length filter blocked on it).
+
+---
+
+## [0.0.18] — 2026‑05‑30 — Mobile grade-pill filter on category screen
+
+Brings desktop's S/A/B/C/D/F filter row to mobile. The `Track.grade` field has existed on the mobile data model since the first scan; this PR just exposes it as a UI filter. Tapping a pill restricts the visible list to that grade; tapping "All" clears the filter.
+
+> Mobile-only release: bumps `apps/mobile/package.json` 0.0.17 → 0.0.18. Desktop version files untouched.
+
+### Added — `apps/mobile/app/category/[id].tsx`
+
+- New horizontally-scrolling pill row above the FlatList. Row starts with "All" + a per-grade count, followed by every grade that has at least one track in this category. Zero-count chips are hidden — a Combat category with no F-rated tracks won't show an F chip (matches the desktop polish from #30).
+- `gradeFilter` state restricts the FlatList. Active pill picks up the category's accent color (gold for default, varies per category). Empty-state copy when the filter zeroes the list.
+- Self-healing: if the selected grade's track count drops to zero (e.g. all tracks of that grade get removed elsewhere), the filter snaps back to "All" so the list isn't mysteriously empty.
+- Auto-advance honors the filter: `playTrack(item, filtered)` hands the filtered slice as the queue so the next track stays on-grade. Matches the desktop pattern.
+
+### Verification
+
+- `pnpm -r typecheck` — clean (5 of 5 projects).
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual (needs a device / simulator): `pnpm --filter @mc/mobile start`.
+  - Open a category that has graded tracks → pill row appears with non-zero grades.
+  - Tap an S pill → list shrinks to S tracks only; play one → next track auto-advance also S.
+  - Open a category with NO graded tracks → pill row hidden entirely.
+  - Tap "All" → full list returns.
 
 ---
 
