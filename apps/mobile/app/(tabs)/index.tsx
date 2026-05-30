@@ -101,6 +101,34 @@ export default function LibraryScreen() {
         </Text>
       </View>
 
+      {/* Pseudo-view shortcuts — Favorites + Recently played sit above
+          the category grid for fast access. Mirror the desktop sidebar's
+          dedicated entries; hidden when total === 0 so the empty-library
+          experience stays uncluttered. */}
+      {total > 0 && (
+        <View
+          style={{
+            flexDirection: "row",
+            gap: 10,
+            paddingHorizontal: 20,
+            paddingBottom: 16,
+          }}
+        >
+          <PseudoViewChip
+            glyph="spark"
+            label="Favorites"
+            accent={T.gold}
+            onPress={() => router.push("/favorites" as Href)}
+          />
+          <PseudoViewChip
+            glyph="clock"
+            label="Recent"
+            accent={T.ink2}
+            onPress={() => router.push("/recent" as Href)}
+          />
+        </View>
+      )}
+
       <View
         style={{
           paddingHorizontal: 16,
@@ -141,6 +169,54 @@ export default function LibraryScreen() {
 
       <View style={{ height: 32 }} />
     </ScrollView>
+  );
+}
+
+function PseudoViewChip({
+  glyph,
+  label,
+  accent,
+  onPress,
+}: {
+  glyph: string;
+  label: string;
+  accent: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flex: 1,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderRadius: 10,
+        backgroundColor: pressed ? T.bgCard : T.bgRaise,
+        borderWidth: 1,
+        borderColor: T.rule,
+      })}
+    >
+      <View
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: 7,
+          backgroundColor: `${accent}22`,
+          borderWidth: 1,
+          borderColor: `${accent}55`,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Glyph name={glyph} size={14} color={accent} />
+      </View>
+      <Text style={{ fontSize: 13, fontWeight: "600", color: T.ink }}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 

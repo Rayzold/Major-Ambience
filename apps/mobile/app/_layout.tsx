@@ -42,6 +42,8 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen name="modal" options={{ presentation: "modal", title: "About" }} />
+            <Stack.Screen name="favorites" options={{ title: "Favorites", presentation: "card" }} />
+            <Stack.Screen name="recent" options={{ title: "Recently played", presentation: "card" }} />
             <Stack.Screen name="dm/dice" options={{ title: "Dice", presentation: "card" }} />
             <Stack.Screen name="dm/names" options={{ title: "Names", presentation: "card" }} />
             <Stack.Screen name="dm/generators" options={{ title: "Generators", presentation: "card" }} />

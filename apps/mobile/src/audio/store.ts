@@ -24,7 +24,7 @@ import { weightedShuffle } from "@mc/core/shuffle";
 import { ensureAudioMode, getBackend } from "./backend";
 import { getDb } from "../data/db";
 import { getConfig, setConfig } from "../data/config-repo";
-import { listTracksByCategory } from "../data/tracks-repo";
+import { bumpPlayCount, listTracksByCategory } from "../data/tracks-repo";
 
 export type LoopMode = "off" | "track" | "queue";
 
@@ -152,6 +152,19 @@ export async function playTrack(track: Track, queue: readonly Track[] = []): Pro
     durationSec: (track.durationMs ?? 0) / 1000,
     queue: nextQueue,
   });
+
+  // Persist play_count + last_played_at so the Recently-played and
+  // Favorites pseudo-views have current data. Unix seconds (not ms)
+  // so the sync-blob format stays interoperable with desktop. Fire-
+  // and-forget — a write failure shouldn't break playback.
+  void (async () => {
+    try {
+      const db = await getDb();
+      await bumpPlayCount(db, track.id, Math.floor(Date.now() / 1000));
+    } catch (err) {
+      console.warn("bumpPlayCount failed:", err);
+    }
+  })();
 }
 
 export function togglePlay(): void {
