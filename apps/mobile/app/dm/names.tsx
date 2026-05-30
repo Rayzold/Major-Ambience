@@ -3,6 +3,7 @@
 
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import {
   rollNameAvoiding,
   RACE_OPTIONS,
@@ -35,6 +36,7 @@ export default function NamesScreen() {
   const [race, setRace] = useState<Race>("any");
   const [gender, setGender] = useState<Gender>("any");
   const [history, setHistory] = useState<RolledName[]>([]);
+  const [copied, setCopied] = useState<string | null>(null);
 
   const recentSet = useMemo(
     () =>
@@ -48,6 +50,14 @@ export default function NamesScreen() {
     const next = rollNameAvoiding(race, gender, recentSet);
     const rolled: RolledName = { ...next, rolledAt: Date.now() };
     setHistory((prev) => [rolled, ...prev].slice(0, HISTORY_LIMIT));
+  }
+
+  function handleCopy(full: string) {
+    void Clipboard.setStringAsync(full);
+    setCopied(full);
+    setTimeout(() => {
+      setCopied((cur) => (cur === full ? null : cur));
+    }, 1500);
   }
 
   return (
@@ -119,7 +129,7 @@ export default function NamesScreen() {
                 lineHeight: 19,
               }}
             >
-              Roll a name to begin.
+              Roll a name to begin. Tap any past roll to copy.
             </Text>
           </View>
         ) : (
@@ -127,22 +137,28 @@ export default function NamesScreen() {
             const full = `${n.first}${n.last ? ` ${n.last}` : ""}`;
             const glyph = RACE_GLYPH[n.race];
             const isLatest = i === 0;
+            const isCopied = copied === full;
             return (
-              <View
+              <Pressable
                 key={`${n.rolledAt}-${i}`}
-                style={{
+                onPress={() => handleCopy(full)}
+                style={({ pressed }) => ({
                   marginHorizontal: 16,
                   marginBottom: 8,
                   paddingHorizontal: 14,
                   paddingVertical: 12,
                   borderRadius: 10,
-                  backgroundColor: isLatest ? T.goldSoft : T.bgRaise,
+                  backgroundColor: isLatest
+                    ? T.goldSoft
+                    : pressed
+                      ? T.bgCard
+                      : T.bgRaise,
                   borderWidth: 1,
                   borderColor: isLatest ? T.goldEdge : T.rule,
                   flexDirection: "row",
                   alignItems: "center",
                   gap: 12,
-                }}
+                })}
               >
                 <Glyph
                   name={glyph}
@@ -166,14 +182,14 @@ export default function NamesScreen() {
                   style={{
                     fontFamily: FONT_MONO,
                     fontSize: 10,
-                    color: T.ink3,
+                    color: isCopied ? T.gold : T.ink3,
                     letterSpacing: 0.5,
                     textTransform: "uppercase",
                   }}
                 >
-                  {n.race}
+                  {isCopied ? "Copied" : n.race}
                 </Text>
-              </View>
+              </Pressable>
             );
           })
         )}

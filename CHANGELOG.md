@@ -12,6 +12,30 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile background
 
 ---
 
+## [0.0.13] — 2026‑05‑30 — Mobile cleanup: kill scaffold tab, wire clipboard
+
+Two small cleanups that were called out as deferred in the previous two PRs.
+
+> Mobile-only release: bumps `apps/mobile/package.json` 0.0.12 → 0.0.13. Desktop version files untouched.
+
+### Removed — `apps/mobile/app/(tabs)/two.tsx`
+
+- Leftover Expo scaffold tab that was being hidden via `href: null` in `_layout.tsx`. The corresponding `<Tabs.Screen name="two" .../>` line went with it. The route is gone, the BACKLOG entry is gone.
+
+### Added — `expo-clipboard` + tap-to-copy on Names and Generators
+
+- New dep `expo-clipboard ~56.0.3` (added via `npx expo install`, so the SDK 56 compatible range was picked automatically).
+- **Names** (`apps/mobile/app/dm/names.tsx`) — tapping any past name copies the full name to the clipboard. The race chip on the right swaps to a gold "COPIED" label for 1.5s as feedback.
+- **Generators** (`apps/mobile/app/dm/generators.tsx`) — tapping any past generator result copies its flattened text (using the shared `resultToText()`). Same gold "COPIED" indicator in the top-right of the row for 1.5s.
+
+### Verification
+
+- `pnpm -r typecheck` — clean (5 of 5 projects).
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual (needs a device / simulator): `pnpm --filter @mc/mobile start`. Bottom bar still shows the expected 5 tabs (Library / Scenes / Soundboard / Search / DM Tools). Names → roll a name, tap it, paste into another app — full name lands. Generators → generate, tap a result, paste — flattened text lands (composite generators use `LABEL: VALUE · LABEL: VALUE` separator).
+
+---
+
 ## [0.0.12] — 2026‑05‑30 — Mobile DM Toolkit state panels (Initiative + Ledger + Recap)
 
 Second slice of the mobile DM Toolkit. Adds the three local-state tools — **Initiative** (with HP/AC and turn cycling), **Ledger** (party XP + per-player split + loot list), and **Recap** (pin moments tagged with the current track) — all persisting to the same `config` key/value table the desktop uses (`dm_combatants`, `dm_xp_ledger`, `dm_recap`).

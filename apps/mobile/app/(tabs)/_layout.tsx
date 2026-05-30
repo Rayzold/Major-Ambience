@@ -1,4 +1,4 @@
-// Bottom tab bar — Library / Scenes / Soundboard / Search.
+// Bottom tab bar — Library / Scenes / Soundboard / Search / DM Tools.
 
 import { Tabs } from "expo-router";
 import { View, type ColorValue } from "react-native";
@@ -61,7 +61,6 @@ export default function TabLayout() {
         name="dm"
         options={{ title: "DM Tools", tabBarIcon: tabIcon("theatre") }}
       />
-      <Tabs.Screen name="two" options={{ href: null }} />
     </Tabs>
   );
 }

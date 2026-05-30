@@ -24,7 +24,7 @@ The mobile app currently does: library browsing, playback + mini-player + Now Pl
 
 ## Cleanup / loose ends
 
-- [ ] **Delete `apps/mobile/app/(tabs)/two.tsx`** — leftover Expo scaffold tab, kept as a `null`-returning placeholder hidden via `href: null`. Its own comment says "safe to delete once the scaffold gen-files are pruned."
+_None currently outstanding._
 
 ---
 
