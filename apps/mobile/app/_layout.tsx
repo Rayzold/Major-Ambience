@@ -45,6 +45,9 @@ export default function RootLayout() {
             <Stack.Screen name="dm/dice" options={{ title: "Dice", presentation: "card" }} />
             <Stack.Screen name="dm/names" options={{ title: "Names", presentation: "card" }} />
             <Stack.Screen name="dm/generators" options={{ title: "Generators", presentation: "card" }} />
+            <Stack.Screen name="dm/initiative" options={{ title: "Initiative", presentation: "card" }} />
+            <Stack.Screen name="dm/ledger" options={{ title: "Ledger", presentation: "card" }} />
+            <Stack.Screen name="dm/recap" options={{ title: "Recap", presentation: "card" }} />
           </Stack>
         </View>
         <SafeAreaView edges={["bottom"]} style={{ backgroundColor: T.bgRaise }}>

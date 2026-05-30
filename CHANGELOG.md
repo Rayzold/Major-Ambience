@@ -8,7 +8,49 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile background audio config (Info.plist / Android foreground service) and SFX-bus ducking on mobile are the immediate follow-ups to v0.0.20. The remaining 5 DM tools (Initiative, XP Ledger, Recap, Encounters, Timers) follow up the mobile DM Toolkit foundation that just landed.
+Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile background audio config (Info.plist / Android foreground service) and SFX-bus ducking on mobile are the immediate follow-ups to v0.0.20. The remaining 2 DM tools (Encounters, Timers) land in a third PR once the mobile TrackPickerOverlay exists.
+
+---
+
+## [0.0.12] — 2026‑05‑30 — Mobile DM Toolkit state panels (Initiative + Ledger + Recap)
+
+Second slice of the mobile DM Toolkit. Adds the three local-state tools — **Initiative** (with HP/AC and turn cycling), **Ledger** (party XP + per-player split + loot list), and **Recap** (pin moments tagged with the current track) — all persisting to the same `config` key/value table the desktop uses (`dm_combatants`, `dm_xp_ledger`, `dm_recap`).
+
+> Mobile-only release: bumps `apps/mobile/package.json` 0.0.11 → 0.0.12. Desktop version files untouched. No schema changes — the `config` table was already present from the original mobile data layer.
+
+### Added — `apps/mobile/src/data/config-repo.ts`
+
+- Generic `getConfig` / `setConfig` plus typed `getJsonConfig<T>` / `setJsonConfig<T>` (safe-parse + fallback). The desktop already uses the same `config (key, value)` table for these three blobs, so the wire format matches and a future cloud-sync blob round-trip will line up.
+
+### Added — Initiative (`apps/mobile/app/dm/initiative.tsx`)
+
+- Name + Init add-row with `Enter`-to-submit, sorted descending. Per-row HP / Max HP / AC stat fields and a free-text condition input. HP ≤ 0 → red tint + strikethrough on the name.
+- Next / Prev turn cycle through sorted combatants with a gold-highlighted active row + left-edge accent bar. Current turn idx is component-local (matches desktop — combat is a session thing).
+- Clear-all is gated by a confirm `Alert`. Persists under `dm_combatants`. Turn-sound (the speaker glyph from the desktop row) is deferred to PR-3 with the track picker.
+
+### Added — Ledger (`apps/mobile/app/dm/ledger.tsx`)
+
+- Big display XP total, party-size input, live per-player split. Add XP row accepts negatives so corrections work. Reset clears just the XP, not the loot.
+- Loot list with inline-editable entries. Persists under `dm_xp_ledger`.
+
+### Added — Recap (`apps/mobile/app/dm/recap.tsx`)
+
+- Pin-a-moment input row; pinning tags the moment with whatever the mobile player store reports as `nowPlaying.title` at the time. Each row shows wall-clock time on the left, the editable text in the middle (multiline), the music tag underneath, remove glyph on the right.
+- **Share recap** uses `Share.share()` from RN (no clipboard dep) — feeds the recap straight into Messages / Notes / Discord. Oldest-first formatting reads like a story. Clear-all is `Alert`-confirmed. Persists under `dm_recap`.
+
+### Changed — DM Tools hub (`apps/mobile/app/(tabs)/dm.tsx`)
+
+- Three of the previously greyed-out hub cards (Initiative, Ledger, Recap) light up and route into their respective stack screens. The remaining two (Encounters, Timers) stay greyed until PR-3.
+
+### Internal — `apps/mobile/app/_layout.tsx`
+
+- Three new `Stack.Screen` entries (`dm/initiative`, `dm/ledger`, `dm/recap`) registered with `card` presentation + native headers.
+
+### Verification
+
+- `pnpm -r typecheck` — clean (5 of 5 projects).
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual (needs a device / simulator): `pnpm --filter @mc/mobile start`. DM Tools hub → all three new cards are active. Initiative: add a combatant, set HP to 0 (row turns red + strikethrough), Next cycles the gold accent, force-quit + reopen → list restores. Ledger: add XP (with a negative test), party size 4 → split updates, add loot, force-quit + reopen → state restores. Recap: start a track, pin a moment → it tags with the track title; Share recap opens the OS share sheet with the oldest-first text.
 
 ---
 

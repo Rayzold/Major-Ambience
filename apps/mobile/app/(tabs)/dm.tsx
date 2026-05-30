@@ -41,32 +41,31 @@ const TOOLS: Tool[] = [
     glyph: "note",
     href: "/dm/generators" as Href,
   },
-  // Placeholders for the next two PRs. Rendered greyed-out for now so
-  // the IA is visible and the user knows what's coming.
   {
     id: "initiative",
     label: "Initiative",
     eyebrow: "Tracker",
-    blurb: "Coming soon — HP, AC, turn order.",
+    blurb: "HP, AC, turn order, conditions.",
     glyph: "swords",
-    href: null,
+    href: "/dm/initiative" as Href,
   },
   {
     id: "ledger",
     label: "Ledger",
     eyebrow: "XP & loot",
-    blurb: "Coming soon — party split + loot list.",
+    blurb: "Party XP + per-player split + loot list.",
     glyph: "star",
-    href: null,
+    href: "/dm/ledger" as Href,
   },
   {
     id: "recap",
     label: "Recap",
     eyebrow: "Session log",
-    blurb: "Coming soon — pin moments tagged with the track.",
+    blurb: "Pin moments tagged with the playing track.",
     glyph: "theatre",
-    href: null,
+    href: "/dm/recap" as Href,
   },
+  // Placeholders for PR-3 — track picker + ducking dependencies.
   {
     id: "encounters",
     label: "Encounters",
