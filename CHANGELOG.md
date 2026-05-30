@@ -12,6 +12,91 @@ Nothing yet — Phase 2 cloud sync proper + IAP continue here. Mobile background
 
 ---
 
+## [0.0.27] — 2026‑05‑24 — UI polish (Batches A + B + C + D + E): full design-review sweep
+
+Five focused polish batches against the design-review punch list, shipped as a single release.
+
+### Changed — Track table (Batch A)
+
+- **Empty grade column hidden.** Ungraded tracks rendered an empty `GradeChip` placeholder that read as a broken UI element across a whole column on a fresh library. The chip now renders only when `grade !== null`.
+- **Plays column drops the `×` annotation.** "26×" → "26"; the "Plays" column header already provides the context, and the multiplication sign was an unconventional convention. Zero-count rows render blank rather than "0".
+- **Subcategory tabs with no tracks are hidden.** A "Skirmish 0" tab takes space and creates a false affordance; only the All tab is forced to render. Tabs reappear automatically once a matching track is added.
+- **Column header is sticky + opaque + a touch louder.** As you scroll a long category, the `#  TITLE  PACK  PLAYS  GRADE  TIME` header stays pinned at the top of the scroll container with a solid background so rows don't bleed through. Weight 600, slightly tighter color (`T.ink2`), wider letter-spacing.
+- **Row hover state.** Default rows now lift to `T.bgChip` on hover (via local `useState`) so the "which row am I about to click" question is unambiguous. Selected and currently-playing tints still win over hover.
+- **Filter eyebrow labels stop truncating.** `Length` and `Grade` labels in the pill rows had no `flexShrink: 0`, so at narrow widths "GRADE" clipped to "GRAD" with no obvious cause. Pinned to no-shrink.
+
+### Changed — Header (Batch B)
+
+- **Search placeholder no longer truncates.** `Search 5,317 tracks…` was 23 chars into a 200px input that could only fit ~15; it rendered as `Search 5,317 trac` and looked broken. Now reads `Search library…` regardless of track count.
+- **Active tab indicator strengthened.** The four header tabs got a `boxShadow: inset 0 -2px 0 ${T.gold}` underline + 600-weight font + a slightly more opaque gold background when active, so "you are here" reads in a glance instead of relying on subtle brightness.
+- **Open Folder is now an icon-only button** that matches the visual weight of its neighbors (DM Toolkit, Player View, DM Mode, Settings) rather than sitting next to them as a fully outlined pill. Still gold-tinted to mark it as the primary library entry; tooltip preserved.
+
+### Changed — Sidebar (Batch B)
+
+- **Usage hint removed.** "Letter plays · Number jumps" sat under the Categories header as a hint masquerading as a section label. The letter is still underlined in each category name and the full cheatsheet is `?` away — the nav is no longer cluttered with instructions.
+- **Active category visual upgraded.** Left border 2px → 3px, background fill `${color}20` → `${color}33`, and the label switches to 600-weight when active. The same treatment applies to the Library section rows (Favorites / Recently played / Removed) so all active states match.
+- **Section labels breathe.** `SidebarSection` gained 14px `marginTop` and the eyebrow label gets 10px of bottom padding so each section reads as a separator instead of stacking tight to the row above.
+
+### Changed — Status pill becomes a toast (Batch B)
+
+- The "5,317 tracks loaded from index." pill no longer sits awkwardly under the search bar. It's been moved to a bottom-right toast position above the transport, restyled with a 24px-radius card + soft drop shadow, and **auto-dismisses 4.5 seconds after the last change** via a `useEffect` on `scanStatus`.
+
+### Changed — Player bar (Batch C)
+
+- **Height +12px** (88 → 100) for breathing room around the new labels.
+- **Fade / Duck / Volume sliders are labeled.** Each slider now has a small `Fade` / `Duck` / `Volume` eyebrow tucked under the icon-slider-value row, so what each modifier does isn't a tooltip-only guess.
+- **Duck slider colour unified to gold.** It used a one-off teal accent (`#5cc4d9`) that clashed with the gold / rust accents everywhere else. All four interactive sliders now share `accentColor: T.gold`.
+- **Empty-state copy.** "Open a folder to begin" misled once the user had actually opened a folder but not played anything yet. Reads "Nothing playing" now.
+
+### Changed — Right-rail empty state (Batch C)
+
+- The "no track loaded" state used to be a single italic paragraph mixing plain and inline-code letters for the shortcuts — easy to read as "the panel is broken."
+- Replaced with a proper standing-by panel: a **Now Playing** eyebrow, a soft gold orb-ring containing the library glyph, a **Standing by** display title in italic gold, and a separate `Quick start` sub-card. The shortcut row chips every letter (`C` `T` `E` `A` `H` `S` `R` `V` `X` `F`) and `?` in uniformly-styled `kbd`-like rectangles so the typography is consistent.
+- The populated (track-playing) state is unchanged — it already shows the category card, orb visualizer, grade row, and Up Next list.
+
+### Changed — Soundboard (Batch D)
+
+- **Pad track names show full text on hover.** Long titles (`01-Archive-of-S…`, `06-Positioning-…`) truncated with no way to see the rest; pad rows now carry a `title` attribute with the full track title.
+- **Pad volume slider is taller (22px hit target)** so it's not a hair-thin line you have to aim at; tooltip clarifies the percent.
+- **Loop / clear buttons enlarged from 24px → 28px** with sharper tooltips ("Loop on — click to turn off" / "Clear this pad — unassign the track").
+- **Empty pads are visibly clickable now** — a dashed-border drop zone with a larger `+` glyph, an **Add track** label, and a hover state that lights the border + bg to gold.
+- **Page count notation**: `Page A 3/8` → `Page A · 3 of 8`, with a matching tooltip for screen readers.
+
+### Changed — Scenes empty state (Batch D)
+
+- "No scenes yet. Pick a category…" was an italic one-liner floating in space. Replaced with a centered card mirroring the right-rail empty-state shape — gold orb-ring + `scenes` glyph, italic **No scenes yet** display title, a one-line explainer, and a centered **Save current scene** primary CTA so a first-time user has the action right under the explanation (the top-right button stays for return visits).
+
+### Changed — DM Toolkit (Batch D)
+
+- **Dropped the "Add-on" eyebrow** above the *DM Toolkit* title — it read like a debug label; the tabs and content below carry the section's role.
+- **Sub-tab style matches the main-header tabs**: transparent background when inactive, gold `${color}33` fill + gold inset bottom underline + 600-weight font when active. Reads as native dark-theme nav instead of the previous outlined-chip look.
+- **Initiative add row is a single grouped input.** Name + Init + add `+` button live inside one bordered shell with thin vertical dividers — no longer three disconnected widgets with their own borders.
+
+### Changed — Category header (Batch E)
+
+- **Track count joined the title metadata.** `298` now sits beside the category name as a chip-styled badge (`mc-mono`, gold-edged) instead of floating between the action buttons.
+- **Description contrast lifted** from `T.ink2` to `T.ink` at 0.9 opacity for clearer reading over the hero gradient — closer to WCAG AA at body text size.
+- **Disabled "Save as scene" placeholder removed.** It existed as a "coming in next phase" stub next to the primary CTA; the Scenes tab has a fully working save flow now, so the disabled button was just visual noise.
+- **`DesktopLibraryViewProps.isPseudoView` retired** as part of the cleanup — its only consumer was that disabled button.
+
+### Changed — Global design tokens (Batch E)
+
+- **Custom thin scroll affordance.** `.mc-scroll` used to fully hide scrollbars; it now reveals a 6px gold-tinted scroll thumb when the container is hovered. Calm by default, scroll-aware when the user actually engages.
+- **Keyboard focus ring.** Added a global `:focus-visible` rule (2px gold outline, 2px offset). Visible only for keyboard navigation (the `:focus-visible` heuristic) so mouse clicks don't reveal outlines but Tab users get a clear "you are here." Closes the only material a11y gap on the punch list.
+- Explicit non-changes (flagged in the original review but already in place / out of scope for this PR): three-theme system already shipped (`gold-dark` / `parchment` / `arcane`); category glyphs are already thematic and SVG; `tauri.conf.json` already enforces 960×640 minimum window size; compact mode is a Phase 3 roadmap item.
+
+### Verification
+
+- `pnpm -r typecheck` — clean across all 5 projects.
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual (Batch A): open the Library on a long category — scroll; column header stays at top. Hover any row → background tints; click → row plays / selects (no hover state on the active row). Ungraded tracks show no chip; played tracks show their count without the `×`. A category with a zero-count subcategory (e.g. Combat → Skirmish 0) hides that tab.
+- Manual (Batch B): the search input reads `Search library…`. Click a header tab — clear gold underline + bold label. Open Folder is now a single icon. Sidebar: no "Letter plays · Number jumps" line. Click between categories — the active one shows a 3px left border + stronger background. Open a folder or trigger any status — a toast appears bottom-right and fades after ~5 seconds.
+- Manual (Batch C): the player bar is 12px taller; Fade / Duck / Volume each have an uppercase eyebrow tucked under their slider; the Duck slider thumb is gold (no longer teal). With nothing loaded the transport reads "Nothing playing" instead of "Open a folder to begin." The right rail empty state shows a gold orb-ring + **Standing by** card + a Quick-start card with every shortcut letter as a uniform `kbd` chip.
+- Manual (Batch D): Soundboard — hover an assigned pad → full title tooltip; volume slider is visibly taller; loop / clear buttons are 28px; an empty pad shows a dashed gold-on-hover drop zone with **Add track**; the page tabs read `Page A · 3 of 8`. Scenes (empty) — gold orb-ring + No scenes yet card + centered Save-current-scene CTA. DM Tools — no Add-on micro-label; sub-tabs use gold underlines like the main header; Initiative add row is a single bordered group.
+- Manual (Batch E): the Combat / Tavern / etc. hero shows track count as a small gold-edged chip beside the title (no longer between buttons); the disabled "Save as scene" stub is gone; the description reads slightly bolder. Hover any scroll surface (sidebar, library, DM panels) — a 6px gold-tinted scrollbar fades in; mouse out, it fades out. Tab through any view — focused buttons / inputs / rows get a 2px gold outline (no outline appears on plain mouse clicks).
+
+---
+
 ## [0.0.26] — 2026‑05‑24 — DM Toolkit expansion: encounters · timers · generators · utilities
 
 GM-tool additions from `IDEAS.md`, shipped together. **Encounters** — roll tables where each row can be wired to a track or a category, so rolling an encounter drops the right music. **Timers** — tension countdowns that fire a stinger (and duck the music) at zero. **Generators** — the standalone roll tables (loot, NPC, tavern, settlement, weather, crit/fumble, wild magic, trap, quest) under one tab. Plus utilities — a combat-tracker HP/AC upgrade, an XP/loot **Ledger**, and a **Recap** composer.

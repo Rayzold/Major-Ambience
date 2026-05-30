@@ -122,6 +122,9 @@ export function SoundPad({
               <Glyph name={cat.glyph} size={92} stroke={1.1} />
             </div>
             <div
+              // Full title on hover — names truncate quickly in the
+              // 4-column pad grid and there was no way to see them.
+              title={track.title}
               style={{
                 fontSize: 13,
                 fontWeight: 500,
@@ -182,12 +185,12 @@ export function SoundPad({
                 e.stopPropagation();
                 onSetLoop(!assigned.loop);
               }}
-              title={assigned.loop ? "Looping" : "Loop off"}
+              title={assigned.loop ? "Loop on — click to turn off" : "Loop off — click to loop"}
               style={{
                 pointerEvents: "auto",
-                width: 24,
-                height: 24,
-                borderRadius: 6,
+                width: 28,
+                height: 28,
+                borderRadius: 7,
                 background: assigned.loop ? cat.color + "33" : T.bgChip,
                 color: assigned.loop ? cat.color : T.ink3,
                 border: `1px solid ${assigned.loop ? cat.color + "66" : T.rule}`,
@@ -197,7 +200,7 @@ export function SoundPad({
                 cursor: "pointer",
               }}
             >
-              <Glyph name="loop" size={12} />
+              <Glyph name="loop" size={13} />
             </button>
             <input
               type="range"
@@ -210,12 +213,14 @@ export function SoundPad({
                 e.stopPropagation();
                 onSetVolume(Number(e.currentTarget.value));
               }}
-              title={`${Math.round(assigned.volume * 100)}%`}
+              title={`Volume ${Math.round(assigned.volume * 100)}%`}
               style={{
                 pointerEvents: "auto",
                 flex: 1,
                 accentColor: cat.color,
                 minWidth: 0,
+                // Taller hit target so the slider isn't a hair-thin line.
+                height: 22,
               }}
             />
             <button
@@ -223,12 +228,12 @@ export function SoundPad({
                 e.stopPropagation();
                 onClear();
               }}
-              title="Clear pad"
+              title="Clear this pad — unassign the track"
               style={{
                 pointerEvents: "auto",
-                width: 24,
-                height: 24,
-                borderRadius: 6,
+                width: 28,
+                height: 28,
+                borderRadius: 7,
                 background: T.bgChip,
                 color: T.ink3,
                 border: `1px solid ${T.rule}`,
@@ -238,38 +243,65 @@ export function SoundPad({
                 cursor: "pointer",
               }}
             >
-              <Glyph name="close" size={11} />
+              <Glyph name="close" size={12} />
             </button>
           </div>
           )}
         </>
       ) : (
-        <button
-          onClick={(e) => {
-            if (dmMode) return;
-            onPickRequest(e.clientX, e.clientY);
-          }}
-          disabled={dmMode}
-          style={{
-            position: "absolute",
-            inset: 0,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 6,
-            background: "transparent",
-            color: dragHover ? T.gold : T.ink3,
-            fontSize: 11,
-            fontStyle: "italic",
-            cursor: dmMode ? "not-allowed" : "pointer",
-            border: 0,
-          }}
-        >
-          <Glyph name="plus" size={20} stroke={1.4} />
-          <div>{dragHover ? "Drop to assign" : "Click to pick a track"}</div>
-        </button>
+        <EmptyPadButton
+          dmMode={dmMode}
+          dragHover={dragHover}
+          onPick={(x, y) => onPickRequest(x, y)}
+        />
       )}
     </div>
+  );
+}
+
+/** Empty-pad CTA — dashed border, clear "Add track" affordance, and a
+ *  hover state that visibly invites the click. Local hover state keeps
+ *  the affordance independent of the parent's drop-target hover. */
+function EmptyPadButton({
+  dmMode,
+  dragHover,
+  onPick,
+}: {
+  dmMode: boolean;
+  dragHover: boolean;
+  onPick: (x: number, y: number) => void;
+}) {
+  const [hover, setHover] = useState(false);
+  const lit = !dmMode && (dragHover || hover);
+  return (
+    <button
+      onClick={(e) => {
+        if (dmMode) return;
+        onPick(e.clientX, e.clientY);
+      }}
+      disabled={dmMode}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        position: "absolute",
+        inset: 6,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+        background: lit ? T.bgChip : "transparent",
+        color: lit ? T.gold : T.ink3,
+        borderRadius: 10,
+        border: `1px dashed ${lit ? T.goldEdge : T.rule}`,
+        fontSize: 11,
+        fontWeight: 500,
+        cursor: dmMode ? "not-allowed" : "pointer",
+        transition: "background 0.12s, color 0.12s, border-color 0.12s",
+      }}
+    >
+      <Glyph name="plus" size={24} stroke={1.6} />
+      <div>{dragHover ? "Drop to assign" : "Add track"}</div>
+    </button>
   );
 }

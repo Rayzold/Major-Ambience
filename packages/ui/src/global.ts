@@ -88,12 +88,32 @@ function buildCss(): string {
       mix-blend-mode: multiply;
       background-image: radial-gradient(rgba(0,0,0,0.05) 1px, transparent 1px);
     }
+    /* Hidden scrollbars by default — they reveal a thin gold-tinted bar
+       when the scroll container is hovered. Keeps the canvas calm but
+       gives a scroll affordance when the user actually engages. */
     .mc-scroll {
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
+      scrollbar-width: thin;
+      scrollbar-color: transparent transparent;
+      transition: scrollbar-color 0.2s;
     }
-    .mc-scroll::-webkit-scrollbar { display: none; }
+    .mc-scroll:hover { scrollbar-color: var(--mc-rule) transparent; }
+    .mc-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+    .mc-scroll::-webkit-scrollbar-track { background: transparent; }
+    .mc-scroll::-webkit-scrollbar-thumb { background: transparent; border-radius: 3px; transition: background 0.2s; }
+    .mc-scroll:hover::-webkit-scrollbar-thumb { background: var(--mc-rule); }
+    .mc-scroll:hover::-webkit-scrollbar-thumb:hover { background: var(--mc-ink3); }
+
+    /* Keyboard focus ring — visible only for keyboard navigation (the
+       :focus-visible heuristic), so mouse users don't see outlines on
+       click but Tab users get a clear "you are here". */
+    :focus { outline: none; }
+    :focus-visible {
+      outline: 2px solid var(--mc-gold);
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
     .mc-row-tap { transition: background 0.12s; }
     .mc-row-tap:active { background: var(--mc-bgChip); }
     .mc-row-action { opacity: 0; transition: opacity 0.12s, color 0.12s, background 0.12s; }

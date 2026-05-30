@@ -106,8 +106,9 @@ export function DesktopSoundboardView({
                 <span
                   className="mc-mono"
                   style={{ marginLeft: 6, color: T.ink3, fontSize: 10 }}
+                  title={`${count} of 8 slots used`}
                 >
-                  {count}/8
+                  {count} of 8
                 </span>
               </button>
             );
