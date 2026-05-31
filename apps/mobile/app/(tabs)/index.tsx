@@ -99,7 +99,10 @@ export default function LibraryScreen() {
             Library
           </Text>
         </View>
-        <ImportButton onPress={handleImport} loading={importing} />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <SettingsButton onPress={() => router.push("/settings" as Href)} />
+          <ImportButton onPress={handleImport} loading={importing} />
+        </View>
       </View>
 
       <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
@@ -310,6 +313,27 @@ function ImportButton({
       <Text style={{ color: T.gold, fontSize: 13, fontWeight: "600" }}>
         {loading ? "Importing…" : "Import"}
       </Text>
+    </Pressable>
+  );
+}
+
+function SettingsButton({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityLabel="Cloud sync settings"
+      style={({ pressed }) => ({
+        width: 38,
+        height: 38,
+        borderRadius: 10,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: pressed ? T.bgCard : T.bgRaise,
+        borderColor: T.rule,
+        borderWidth: 1,
+      })}
+    >
+      <Glyph name="settings" size={18} color={T.ink2} />
     </Pressable>
   );
 }
