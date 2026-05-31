@@ -24,6 +24,34 @@ import { playTrack, usePlayer } from "../../src/audio/store";
 type GradeFilter = "All" | NonNullable<Grade>;
 const GRADE_PILLS: GradeFilter[] = ["All", "S", "A", "B", "C", "D", "F"];
 
+// Mirrors apps/desktop/src/layout/DesktopLibraryView.tsx — same bucket
+// labels, same thresholds, so a sync round-trip of UI prefs is trivial
+// if we ever persist the active filter.
+type DurationBucket = "Any" | "<1m" | "1–3m" | "3–5m" | "5m+";
+const DURATION_BUCKETS: readonly DurationBucket[] = [
+  "Any",
+  "<1m",
+  "1–3m",
+  "3–5m",
+  "5m+",
+];
+
+function bucketContains(bucket: DurationBucket, durationMs: number): boolean {
+  if (bucket === "Any") return true;
+  if (!Number.isFinite(durationMs) || durationMs <= 0) return false;
+  const sec = durationMs / 1000;
+  switch (bucket) {
+    case "<1m":
+      return sec < 60;
+    case "1–3m":
+      return sec >= 60 && sec < 180;
+    case "3–5m":
+      return sec >= 180 && sec < 300;
+    case "5m+":
+      return sec >= 300;
+  }
+}
+
 export default function CategoryDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const navigation = useNavigation();
@@ -40,6 +68,7 @@ export default function CategoryDetailScreen() {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
   const [gradeFilter, setGradeFilter] = useState<GradeFilter>("All");
+  const [durationFilter, setDurationFilter] = useState<DurationBucket>("Any");
   const { nowPlaying } = usePlayer();
 
   const reload = useCallback(async () => {
@@ -108,11 +137,46 @@ export default function CategoryDetailScreen() {
 
   const filtered = useMemo(
     () =>
-      gradeFilter === "All"
-        ? tracks
-        : tracks.filter((t) => t.grade === gradeFilter),
-    [tracks, gradeFilter],
+      tracks.filter((t) => {
+        if (gradeFilter !== "All" && t.grade !== gradeFilter) return false;
+        if (!bucketContains(durationFilter, t.durationMs)) return false;
+        return true;
+      }),
+    [tracks, gradeFilter, durationFilter],
   );
+
+  // Per-bucket counts so the row hides buckets that are empty for this
+  // category — matches the grade-pill behavior. "Any" is always shown.
+  const durationCounts = useMemo(() => {
+    const m: Record<DurationBucket, number> = {
+      "Any": tracks.length,
+      "<1m": 0,
+      "1–3m": 0,
+      "3–5m": 0,
+      "5m+": 0,
+    };
+    for (const t of tracks) {
+      for (const b of DURATION_BUCKETS) {
+        if (b === "Any") continue;
+        if (bucketContains(b, t.durationMs)) m[b] += 1;
+      }
+    }
+    return m;
+  }, [tracks]);
+
+  const visibleDurationBuckets = useMemo(
+    () => DURATION_BUCKETS.filter((b) => b === "Any" || durationCounts[b] > 0),
+    [durationCounts],
+  );
+
+  // Same self-healing as the grade filter — if everything that matched
+  // the active bucket disappears (track removed, duration probe
+  // re-classifies one), snap back to Any so the list isn't empty for
+  // no obvious reason.
+  useEffect(() => {
+    if (durationFilter === "Any") return;
+    if (durationCounts[durationFilter] === 0) setDurationFilter("Any");
+  }, [durationFilter, durationCounts]);
 
   // If the active grade filter no longer has any tracks (e.g. the user
   // landed on it then deleted/restored rows), snap back to All so the
@@ -273,6 +337,74 @@ export default function CategoryDetailScreen() {
         </View>
       )}
 
+      {/* Length filter pills — same shape as grade pills, but bucketed
+          by track duration. Hidden when nothing in the category has a
+          probed duration (otherwise only "Any" would render). */}
+      {visibleDurationBuckets.length > 1 && (
+        <View style={{ paddingHorizontal: 20, paddingBottom: 10 }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 6, alignItems: "center" }}
+          >
+            <Text
+              style={{
+                fontSize: 10,
+                color: T.ink3,
+                letterSpacing: 1.2,
+                textTransform: "uppercase",
+                marginRight: 4,
+              }}
+            >
+              Length
+            </Text>
+            {visibleDurationBuckets.map((b) => {
+              const active = durationFilter === b;
+              const count = durationCounts[b];
+              return (
+                <Pressable
+                  key={b}
+                  onPress={() => setDurationFilter(b)}
+                  style={({ pressed }) => ({
+                    minHeight: 26,
+                    paddingHorizontal: 10,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 5,
+                    borderRadius: 6,
+                    backgroundColor: active ? `${meta.color}33` : T.bgChip,
+                    borderWidth: 1,
+                    borderColor: active ? `${meta.color}77` : T.rule,
+                    opacity: pressed ? 0.7 : 1,
+                  })}
+                >
+                  <Text
+                    style={{
+                      fontFamily: FONT_MONO,
+                      fontSize: 11,
+                      fontWeight: "600",
+                      color: active ? meta.color : T.ink2,
+                    }}
+                  >
+                    {b}
+                  </Text>
+                  <Text
+                    style={{
+                      fontFamily: FONT_MONO,
+                      fontSize: 9,
+                      color: active ? meta.color : T.ink3,
+                      opacity: 0.75,
+                    }}
+                  >
+                    {count}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+
       {tracks.length === 0 ? (
         <View style={{ padding: 20 }}>
           <Text style={{ color: T.ink3, fontStyle: "italic" }}>
@@ -282,7 +414,7 @@ export default function CategoryDetailScreen() {
       ) : filtered.length === 0 ? (
         <View style={{ padding: 20 }}>
           <Text style={{ color: T.ink3, fontStyle: "italic" }}>
-            No {gradeFilter}-grade tracks in this category.
+            {emptyFilterCopy(gradeFilter, durationFilter)}
           </Text>
         </View>
       ) : (
@@ -310,6 +442,17 @@ export default function CategoryDetailScreen() {
       )}
     </View>
   );
+}
+
+function emptyFilterCopy(
+  grade: GradeFilter,
+  duration: DurationBucket,
+): string {
+  const parts: string[] = [];
+  if (grade !== "All") parts.push(`grade ${grade}`);
+  if (duration !== "Any") parts.push(`length ${duration}`);
+  if (parts.length === 0) return "Nothing here.";
+  return `No tracks matching ${parts.join(" + ")} in this category.`;
 }
 
 function TrackRow({
