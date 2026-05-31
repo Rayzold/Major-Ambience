@@ -33,7 +33,7 @@ The first shippable build. Run your music library, score scenes, fire SFX, never
   - **Turn sounds** — assign audio cues to combatants
 - 📱 **Mobile public beta** (TestFlight + Play Internal Testing)
 - 🌗 **Themes** — Parchment (light) and Arcane (deep violet)
-- ☁️ **Cloud sync** — your grades, scenes, and notes across devices
+- ☁️ **Cloud sync** — your grades, scenes, and notes across devices (implementation plan: [`docs/CLOUD_SYNC.md`](docs/CLOUD_SYNC.md))
 - 👁️ **DM Mode** — share‑safe view for streaming and screen‑sharing
 
 ---
