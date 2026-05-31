@@ -8,7 +8,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-Nothing yet — Phase 2 cloud sync proper + IAP continue here. **Mobile is now at full desktop parity** for the v0.x feature set: DM Toolkit (#35), background audio (#39), loop control (#40), grade pills (#41), removed-category (#42), Favorites + Recently played (#43), duration probe (#44), and length filter (this). `BACKLOG.md` is empty for the mobile-parity track.
+**Phase 2 cloud sync — backend + desktop now wired.**
+
+- **Sync backend** — new Cloudflare Worker in [`cloud/worker`](cloud/worker) implementing the wire contract `@mc/sync`'s `SyncClient` speaks: magic-link auth (single-use KV nonces → HS256 session JWTs) and dumb per-user blob storage. Covers PR-2 + PR-3 of [`docs/CLOUD_SYNC.md`](docs/CLOUD_SYNC.md). 19 contract tests, runnable without the Workers runtime.
+- **Desktop sync** (PR-5) — `SyncSettings` modal (magic-link sign-in, device name, "Sync now", last-synced), the `apps/desktop/src/lib/cloud-sync.ts` glue (pull → `mergeSyncBlobs` → apply → push), and a debounced (4s) background push triggered by edits to grades / notes / scenes / soundboard / synced config. Session token is stored in the local SQLite `config` table behind the `SessionStore` seam (Stronghold deferred — see CLOUD_SYNC.md PR-5). Opened from the settings menu.
+- **Mobile sync** (PR-6) — `apps/mobile/src/data/sync-repo.ts` (build/apply on the expo-sqlite driver), the matching `cloud-sync.ts` glue, and a Cloud Sync settings screen reached from a gear button in the Library header. Manual "Sync now" + sync-on-verify; edit-triggered background sync is a follow-up. Session token in SQLite (SecureStore deferred).
+- Remaining for cloud sync: IAP (PR-8), then deploy the Worker and point clients at it.
+
+Earlier: **mobile reached full desktop parity** for the v0.x feature set — DM Toolkit (#35), background audio (#39), loop control (#40), grade pills (#41), removed-category (#42), Favorites + Recently played (#43), duration probe (#44), and length filter (#45). `BACKLOG.md` is empty for the mobile-parity track.
 
 ---
 
