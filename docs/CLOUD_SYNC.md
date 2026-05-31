@@ -155,9 +155,15 @@ Add a `usePro()` hook that reads from a single source of truth (defaults `true` 
 
 **Risk:** minimal. Sets up the cut-line we flip in PR-8.
 
-### PR-8 — IAP (deferred — separate plan) — multi-week
+### PR-8 — IAP (separate plan) — multi-week — ⚠️ foundation landed
 
-StoreKit (iOS), Play Billing (Android), Stripe Checkout or Paddle (desktop web → email license key → desktop verifies on next launch). Separate doc when we get there; depends on App Store Connect / Play Console / Stripe account setup that lives outside the codebase.
+Full plan + status now lives in [`docs/IAP.md`](IAP.md). Landed: the entitlement
+resolver seam in `@mc/core` (`setTierResolver`), offline license-key verification
+(`license.ts`, RS256 via WebCrypto, 14 tests), and the desktop license path
+(`apps/desktop/src/lib/entitlement.ts` + `LicenseDialog`). Still external/blocked:
+the Stripe issuer, the real public key, and StoreKit / Play Billing — they need
+store/Stripe accounts and native modules. The launch cutover is a one-line
+`BETA_TIER` flip.
 
 ---
 
