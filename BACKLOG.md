@@ -12,15 +12,16 @@ This file is only for the stuff that falls through those cracks.
 
 ## Mobile feature parity (desktop has it, mobile doesn't)
 
-The mobile app currently does: library browsing, playback + mini-player + Now Playing, search, category detail, and — once PR #26 lands — scenes + soundboard. The following desktop features have no mobile equivalent yet:
+**All shipped.** Closed out in the v0.0.10 → v0.0.22 mobile sprint. Surviving roadmap items belong in [`ROADMAP.md`](ROADMAP.md), not here:
 
-- [ ] **Loop control** — desktop has off / track-loop (self-crossfade) / queue-loop, cycled with `O`. Mobile playback has no loop mode.
-- [ ] **Grade pills** — desktop filters the track table by S/A/B/C/D/F. Mobile has no grading UI at all (the `grade` field exists on the track model).
-- [ ] **Length filter** — desktop's `Any · <1m · 1–3m · 3–5m · 5m+` pill row. Needs a mobile duration source first (mobile has no background duration scanner — see note below).
-- [ ] **Removed category** — desktop's soft-delete trash + Removed view (PR #25). No mobile equivalent.
-- [ ] **Favorites / Recently played views** — desktop sidebar pseudo-views. Mobile has neither.
-- [ ] **DM Toolkit** — names / dice / initiative / turn sounds are desktop-only. Largest single parity gap.
-- [ ] **Mobile duration probe** — desktop probes durations in the background (`duration-scan.ts`); mobile leaves `durationMs` at 0 until a track is played. Several items above (length filter, accurate Now-Playing scrubber) depend on this.
+- [x] **DM Toolkit** — full parity in #35 (dice / names / generators / initiative / ledger / recap / encounters / timers).
+- [x] **Mobile background audio + lock-screen** — #39.
+- [x] **Loop control** (off / track / queue) — #40.
+- [x] **Grade pills** (S/A/B/C/D/F filter) — #41.
+- [x] **Removed category** (soft-delete + Restore view) — #42.
+- [x] **Favorites / Recently played** pseudo-views — #43.
+- [x] **Mobile duration probe** — #44.
+- [x] **Length filter** (`Any · <1m · 1–3m · 3–5m · 5m+`) — #45.
 
 ## Cleanup / loose ends
 
