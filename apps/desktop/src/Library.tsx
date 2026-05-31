@@ -66,7 +66,7 @@ import { TrackPickerOverlay } from "./layout/TrackPickerOverlay.js";
 import { Tutorial } from "./layout/Tutorial.js";
 import { TutorialsMenu } from "./layout/TutorialsMenu.js";
 import { TUTORIALS } from "./layout/tutorials.js";
-import type { SyncBlob } from "@mc/core";
+import type { AnySyncBlob } from "@mc/core";
 import { applyLoadedBlob, exportSyncBlob, pickAndLoadSyncBlob } from "./lib/sync.js";
 import { useKeyboardShortcuts } from "./lib/keyboard.js";
 import {
@@ -172,7 +172,7 @@ export function Library() {
   const [activeTutorialId, setActiveTutorialId] = useState<string | null>(null);
   const [seenTutorials, setSeenTutorials] = useState<Set<string>>(new Set());
   const [pendingImport, setPendingImport] = useState<
-    { blob: SyncBlob; path: string } | null
+    { blob: AnySyncBlob; path: string } | null
   >(null);
   /**
    * Track-picker overlay state. The discriminator on `target` controls

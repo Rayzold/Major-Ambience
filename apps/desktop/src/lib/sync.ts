@@ -2,7 +2,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
-import type { SyncBlob } from "@mc/core";
+import type { AnySyncBlob } from "@mc/core";
 import { applySyncBlob, buildSyncBlob, type ApplyResult } from "@mc/data";
 import { getDb } from "@mc/data";
 
@@ -53,7 +53,7 @@ export async function exportSyncBlob(): Promise<{ path: string; bytes: number } 
  * cancel; throws if the file is malformed.
  */
 export async function pickAndLoadSyncBlob(): Promise<
-  { path: string; blob: SyncBlob } | null
+  { path: string; blob: AnySyncBlob } | null
 > {
   const picked = await openDialog({
     title: "Import sync blob",
@@ -63,14 +63,22 @@ export async function pickAndLoadSyncBlob(): Promise<
   if (!picked || typeof picked !== "string") return null;
 
   const contents = await invoke<string>("read_text_file", { path: picked });
-  const blob = JSON.parse(contents) as SyncBlob;
-  if (typeof blob !== "object" || blob === null || blob.version !== 1) {
-    throw new Error("Not a valid Major Ambience sync blob (version 1 expected).");
+  const blob = JSON.parse(contents) as AnySyncBlob;
+  // Accept both supported versions — v1 blobs from previously-shipped
+  // exports are migrated on apply via ensureV2 in @mc/data.
+  if (
+    typeof blob !== "object" ||
+    blob === null ||
+    (blob.version !== 1 && blob.version !== 2)
+  ) {
+    throw new Error(
+      "Not a valid Major Ambience sync blob (version 1 or 2 expected).",
+    );
   }
   return { path: picked, blob };
 }
 
-export async function applyLoadedBlob(blob: SyncBlob): Promise<ApplyResult> {
+export async function applyLoadedBlob(blob: AnySyncBlob): Promise<ApplyResult> {
   const db = await getDb();
   return applySyncBlob(db, blob);
 }
