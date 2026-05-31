@@ -3,11 +3,11 @@
 // survive.
 
 import { useEffect } from "react";
-import type { SyncBlob } from "@mc/core";
+import type { AnySyncBlob } from "@mc/core";
 import { Glyph, T } from "@mc/ui";
 
 export type SyncImportConfirmProps = {
-  blob: SyncBlob;
+  blob: AnySyncBlob;
   path: string;
   onConfirm: () => void;
   onCancel: () => void;
