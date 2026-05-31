@@ -18,6 +18,7 @@ export type TutorialsMenuProps = {
   currentTheme: ThemeId;
   onPickTheme: (id: ThemeId) => void;
   onPickTutorial: (id: string) => void;
+  onOpenLicense: () => void;
   onOpenCloudSync: () => void;
   onExportSync: () => void;
   onImportSync: () => void;
@@ -33,6 +34,7 @@ export function TutorialsMenu({
   currentTheme,
   onPickTheme,
   onPickTutorial,
+  onOpenLicense,
   onOpenCloudSync,
   onExportSync,
   onImportSync,
@@ -152,6 +154,31 @@ export function TutorialsMenu({
             </button>
           );
         })}
+
+        <div style={{ height: 6 }} />
+        <SectionHeader title="Plan" />
+        <div style={{ padding: "0 6px 8px" }}>
+          <button
+            onClick={onOpenLicense}
+            style={{
+              width: "100%",
+              padding: "9px 12px",
+              borderRadius: 8,
+              background: T.bgChip,
+              border: `1px solid ${T.rule}`,
+              color: T.ink,
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+            }}
+          >
+            <Glyph name="star" size={13} /> Plan &amp; license…
+          </button>
+        </div>
 
         <div style={{ height: 6 }} />
         <SectionHeader title="Sync" />
