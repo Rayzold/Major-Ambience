@@ -8,7 +8,33 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-Nothing yet — Phase 2 cloud sync proper + IAP continue here. **Mobile is now at full desktop parity** for the v0.x feature set: DM Toolkit (#35), background audio (#39), loop control (#40), grade pills (#41), removed-category (#42), Favorites + Recently played (#43), and the duration probe (this). The remaining mobile-only gap from `BACKLOG.md` is the length filter (the data dependency for which now exists — straight-forward UI follow-up).
+Nothing yet — Phase 2 cloud sync proper + IAP continue here. **Mobile is now at full desktop parity** for the v0.x feature set: DM Toolkit (#35), background audio (#39), loop control (#40), grade pills (#41), removed-category (#42), Favorites + Recently played (#43), duration probe (#44), and length filter (this). `BACKLOG.md` is empty for the mobile-parity track.
+
+---
+
+## [0.0.22] — 2026‑05‑30 — Mobile length filter pills
+
+Closes the mobile-parity backlog. Adds the desktop `Any · <1m · 1–3m · 3–5m · 5m+` filter row to the mobile category screen, backed by the duration data #44 started populating. Filter pills stack with the grade filter from #41 — both apply together.
+
+> Mobile-only release: bumps `apps/mobile/package.json` 0.0.21 → 0.0.22. Desktop version files untouched.
+
+### Added — `apps/mobile/app/category/[id].tsx`
+
+- `DurationBucket` type + `bucketContains` helper — identical thresholds + labels to `apps/desktop/src/layout/DesktopLibraryView.tsx` so a future cross-surface UI-prefs sync is verbatim.
+- Second pill row below the grade pills. Same layout treatment (mono numerals, accent on active, per-bucket count). Buckets with a zero count are hidden — a category whose tracks are all `<1m` won't render the `5m+` chip.
+- `filtered` memo now applies both filters in series; auto-advance honors the filtered slice (same pattern as the grade-filter PR).
+- Self-healing: if the active bucket's count drops to zero (track removed, duration probe lands and re-classifies), snaps back to `Any`. Mirrors the grade-pill behaviour.
+- Empty-state copy now describes the active filter combination — "No tracks matching grade S + length 5m+ in this category" — instead of just naming the grade.
+
+### Verification
+
+- `pnpm -r typecheck` — clean (5 of 5 projects).
+- `pnpm -r test` — 169/169 vitest cases still pass.
+- Manual (needs a device / simulator): `pnpm --filter @mc/mobile start`.
+  - Open a category with durations probed (let the scanner from #44 finish) → length pills appear, each with a count.
+  - Tap `1–3m` → list shrinks to mid-length tracks; play one → auto-advance stays inside that bucket.
+  - Stack with grade: filter to `S` + `5m+` → list narrows further; empty-state copy reflects the combo.
+  - Open a freshly imported category before durations probe → length row hidden (only "Any" would render).
 
 ---
 
