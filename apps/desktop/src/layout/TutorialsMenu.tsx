@@ -18,6 +18,7 @@ export type TutorialsMenuProps = {
   currentTheme: ThemeId;
   onPickTheme: (id: ThemeId) => void;
   onPickTutorial: (id: string) => void;
+  onOpenCloudSync: () => void;
   onExportSync: () => void;
   onImportSync: () => void;
   onDismiss: () => void;
@@ -32,6 +33,7 @@ export function TutorialsMenu({
   currentTheme,
   onPickTheme,
   onPickTutorial,
+  onOpenCloudSync,
   onExportSync,
   onImportSync,
   onDismiss,
@@ -153,6 +155,28 @@ export function TutorialsMenu({
 
         <div style={{ height: 6 }} />
         <SectionHeader title="Sync" />
+        <div style={{ padding: "0 6px 8px" }}>
+          <button
+            onClick={onOpenCloudSync}
+            style={{
+              width: "100%",
+              padding: "9px 12px",
+              borderRadius: 8,
+              background: T.goldSoft,
+              border: `1px solid ${T.goldEdge}`,
+              color: T.gold,
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+            }}
+          >
+            <Glyph name="spark" size={13} /> Cloud sync…
+          </button>
+        </div>
         <div
           style={{
             padding: "0 6px 4px",
@@ -161,8 +185,7 @@ export function TutorialsMenu({
             lineHeight: 1.4,
           }}
         >
-          Save grades + scenes + soundboard to a JSON file you can carry
-          between devices. Cloud sync ships later.
+          Or carry grades + scenes + soundboard between devices as a JSON file.
         </div>
         <div style={{ display: "flex", gap: 6, padding: "4px 6px 8px" }}>
           <button
