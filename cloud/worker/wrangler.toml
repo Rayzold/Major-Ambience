@@ -17,7 +17,10 @@ compatibility_date = "2025-01-01"
 # environment. For a *.workers.dev deploy this is https://<name>.<acct>.workers.dev
 [vars]
 PUBLIC_BASE_URL = "https://major-ambience-sync.markos-stefanou.workers.dev"
-MAIL_FROM = "Major Ambience <login@majorambience.app>"
+# Resend free tier: until a sender domain is verified at resend.com/domains,
+# the only working `from` is onboarding@resend.dev. Swap to a verified
+# `login@majorambience.app` (or similar) once DNS is set up.
+MAIL_FROM = "Major Ambience <onboarding@resend.dev>"
 
 # Per-user sync blobs.
 [[kv_namespaces]]
