@@ -8,15 +8,70 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-**Phase 2 cloud sync — backend + desktop now wired.**
-
-- **Sync backend** — new Cloudflare Worker in [`cloud/worker`](cloud/worker) implementing the wire contract `@mc/sync`'s `SyncClient` speaks: magic-link auth (single-use KV nonces → HS256 session JWTs) and dumb per-user blob storage. Covers PR-2 + PR-3 of [`docs/CLOUD_SYNC.md`](docs/CLOUD_SYNC.md). 19 contract tests, runnable without the Workers runtime.
-- **Desktop sync** (PR-5) — `SyncSettings` modal (magic-link sign-in, device name, "Sync now", last-synced), the `apps/desktop/src/lib/cloud-sync.ts` glue (pull → `mergeSyncBlobs` → apply → push), and a debounced (4s) background push triggered by edits to grades / notes / scenes / soundboard / synced config. Session token is stored in the local SQLite `config` table behind the `SessionStore` seam (Stronghold deferred — see CLOUD_SYNC.md PR-5). Opened from the settings menu.
-- **Mobile sync** (PR-6) — `apps/mobile/src/data/sync-repo.ts` (build/apply on the expo-sqlite driver), the matching `cloud-sync.ts` glue, and a Cloud Sync settings screen reached from a gear button in the Library header. Manual "Sync now" + sync-on-verify; edit-triggered background sync is a follow-up. Session token in SQLite (SecureStore deferred).
-- **IAP foundation** (PR-8) — `@mc/core` gains the entitlement resolver seam (`setTierResolver`, so `currentTier()` reads a real source) plus offline license-key verification (`license.ts`, RS256 via WebCrypto). Desktop wires it: a tier resolver at boot and a "Plan & license…" dialog that verifies + persists a pasted key. Everything stays unlocked during the beta (`maxTier(BETA_TIER, purchased)`); launch is a one-line `BETA_TIER` flip. Stripe issuer, real public key, and StoreKit/Play Billing remain external — full plan in [`docs/IAP.md`](docs/IAP.md).
-- Remaining: deploy the Worker + the IAP external setup (see docs/IAP.md), then point clients at the live server.
-
 Earlier: **mobile reached full desktop parity** for the v0.x feature set — DM Toolkit (#35), background audio (#39), loop control (#40), grade pills (#41), removed-category (#42), Favorites + Recently played (#43), duration probe (#44), and length filter (#45). `BACKLOG.md` is empty for the mobile-parity track.
+
+---
+
+## [0.0.29] — 2026‑06‑03 — Cloud sync (PR-2 → PR-6) + IAP foundation (PR-8)
+
+The Phase-2 cloud-sync sequence from [`docs/CLOUD_SYNC.md`](docs/CLOUD_SYNC.md) lands end to end (server + both clients + CI), plus the codeable foundation of PR-8 (the IAP seam + desktop license-key path). Server is not yet deployed; everything is still beta-unlocked.
+
+> Cross-surface release: bumps `apps/desktop/package.json` / `tauri.conf.json` / `Cargo.toml` 0.0.28 → 0.0.29 and `apps/mobile/package.json` 0.0.22 → 0.0.23 in lockstep — both apps gained sync UI in the same commits.
+
+### Added — `cloud/worker/` (PR-2 + PR-3)
+
+- New Cloudflare Worker, **outside the pnpm workspace** (its own `npm` toolchain — see `cloud/worker/README.md`). Implements the wire contract `@mc/sync`'s `SyncClient` already speaks:
+  - `POST /v1/auth/request` — single-use 15-min KV nonce (256-bit hex), mailed via Resend with a dev fallback that logs the code when `RESEND_API_KEY` is unset. 204 unconditionally so account existence isn't leaked.
+  - `GET /v1/auth/callback?token=…` — delete-on-read redemption → HS256 session JWT (90-day TTL).
+  - `GET /v1/blob` / `PUT /v1/blob` — dumb per-user blob keyed by JWT `sub`. All conflict resolution stays client-side in `@mc/core`'s `mergeSyncBlobs`; the server's only authority is the receive-time `updatedAt` stamp.
+  - `handle()` is pure (req + env + deps) so the 19 contract tests run without the Workers runtime. Top-level catch maps unhandled errors to a generic 500.
+- HS256 JWT is hand-rolled on Web Crypto (no third-party dep). Constant-time signature compare; verify returns `null` for every failure mode without revealing why.
+
+### Added — Desktop sync (PR-5)
+
+- **[`apps/desktop/src/lib/cloud-sync.ts`](apps/desktop/src/lib/cloud-sync.ts)** — `SessionStore` backed by the SQLite `config` table, a memoised `SyncClient` factory that rebuilds when the base URL changes, and `runSync()` (pull → `mergeSyncBlobs` → apply → push). Throws the typed `@mc/sync` errors so the caller can drop to signed-out on `SyncAuthError`.
+- **[`apps/desktop/src/layout/SyncSettings.tsx`](apps/desktop/src/layout/SyncSettings.tsx)** — magic-link sign-in (email → "link sent" stage → paste-code), device name field, manual "Sync now", last-synced relative label, and an Advanced row for the base URL override. Opened from the settings (☰) menu.
+- **[`apps/desktop/src/Library.tsx`](apps/desktop/src/Library.tsx)** — boot reads the auth + device label state; a debounced 4s background push fires off a `syncSignature` that deliberately excludes playback-only churn (`playCount`, `lastPlayedAt`, `durationMs`) so just hitting Next doesn't sync. First post-sign-in tick is the baseline (no spurious push), since sign-in already triggers an explicit sync.
+- **Session-token storage deviates from plan.** The token is a bearer JWT for a single-user TTRPG tool; the SQLite `config` row avoids the Tauri Stronghold password/salt ceremony + Rust recompile. The `SessionStore` interface stays the seam — swapping in Stronghold later touches only `cloud-sync.ts`.
+
+### Added — Mobile sync (PR-6)
+
+- **[`apps/mobile/src/data/sync-repo.ts`](apps/mobile/src/data/sync-repo.ts)** — mobile parallel to `packages/data`'s sync-repo: `buildSyncBlob` + `applySyncBlob` on the expo-sqlite driver. Same SyncBlob v2 wire format. `setNote` added to the mobile tracks-repo so notes round-trip.
+- **[`apps/mobile/src/lib/cloud-sync.ts`](apps/mobile/src/lib/cloud-sync.ts)** — the desktop glue ported verbatim: SessionStore, client factory, auth helpers, `runSync()`.
+- **[`apps/mobile/app/settings.tsx`](apps/mobile/app/settings.tsx)** — a **stack route** off the Library tab (not a new bottom-tab — that risk was called out in CLOUD_SYNC.md). Reached via a gear button in the Library header. Manual "Sync now" + sync-on-verify; debounced edit-triggered sync is a follow-up (mobile has no central mutation chokepoint to hang the signature off).
+
+### Added — `.github/workflows/ci.yml`
+
+- Two jobs: workspace `pnpm -r typecheck` + `pnpm -r test`, and a separate worker job (`npm install` + `npm run typecheck` + `npm test` inside `cloud/worker/`). Concurrency cancellation on superseded pushes per-ref.
+
+### Added — IAP foundation (PR-8, see [`docs/IAP.md`](docs/IAP.md))
+
+- **`@mc/core` — the entitlement seam:**
+  - [`setTierResolver()`](packages/core/src/entitlements.ts) so `currentTier()` reads a real source. Precedence: test override → registered resolver → `BETA_TIER`. Plus `tierRank` / `maxTier` for the resolver to combine the beta grant with the purchased tier.
+  - [`license.ts`](packages/core/src/license.ts) — offline RS256 license-key verification via WebCrypto (`verifyLicenseKey`) + the issuer-side mint (`issueLicenseKey`). Asymmetric so a leaked client can't mint keys. Verify never throws and never reveals *why* it failed.
+  - 14 new tests in `license.test.ts`: tamper, wrong-issuer, expiry, bad tier, garbage, resolver precedence, tier ordering.
+- **Desktop — the license path:**
+  - [`apps/desktop/src/lib/entitlement.ts`](apps/desktop/src/lib/entitlement.ts) — boot resolver returns `maxTier(BETA_TIER, _purchasedTier)`, plus `applyLicenseKey` / `clearLicense` persisting through the SQLite `config` table.
+  - [`apps/desktop/src/layout/LicenseDialog.tsx`](apps/desktop/src/layout/LicenseDialog.tsx) — paste-a-key UI, reached from the settings menu → "Plan & license…". `loadEntitlement()` runs in `App.tsx`.
+  - `ISSUER_PUBLIC_JWK` is a documented placeholder (`REPLACE_WITH_ISSUER_PUBLIC_KEY_MODULUS`) — every key fails verification today, which is correct: none can be legitimately issued yet either.
+- **Beta stays free.** Since `BETA_TIER = "major"`, nothing is gated yet (CLOUD_SYNC.md D3). Launch is a one-line `BETA_TIER` → `"demo"` flip in `entitlements.ts`; the resolvers already return the purchased tier.
+
+### Verification
+
+- `pnpm -r typecheck` — clean (6 of 6 projects).
+- `pnpm -r test` — **242 pass** (220 `@mc/core` incl. 14 new license + 22 `@mc/sync`).
+- `cd cloud/worker && npm test` — 19 worker contract tests pass (runs without the Workers runtime).
+- `pnpm --filter @mc/desktop build` — Vite bundle builds.
+- CI green on both #51 and #53.
+- **Not runtime-verified** (no environment for it here): the desktop UI (needs the Tauri dev shell), the mobile UI (needs an Expo device/simulator), and any live server round-trip (needs the Worker deployed — see `cloud/worker/README.md`).
+
+### Documented deferrals (intentional)
+
+- **Session-token storage** is the SQLite `config` table on both apps behind the `SessionStore` seam — Stronghold / SecureStore is the drop-in hardening upgrade.
+- **No sync tombstones** — deletes don't propagate yet (a record only on device A survives a merge from B). Per-record edit timestamps + tombstones are a pre-rollout follow-up.
+- **Merge fidelity** — `buildSyncBlob` stamps every record with build time (SQLite tracks no per-record edit time), so on a conflicting key the freshly-built local value wins. Records only on the remote still merge in. Full per-record LWW arrives with a sidecar timestamp column.
+- **Mobile edit-triggered sync** — manual + sync-on-verify only; the debounce that desktop hangs off `Library.tsx`'s mutation signature needs a port to the mobile mutation paths.
+- **IAP externals** — Stripe issuer + real public JWK + StoreKit + Play Billing. See `docs/IAP.md` checklist.
 
 ---
 
