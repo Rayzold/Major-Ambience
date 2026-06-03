@@ -57,7 +57,6 @@ export async function importTracks(): Promise<ImportSummary> {
 
 function assetToTrack(asset: DocumentPicker.DocumentPickerAsset): Track {
   const fileName = asset.name ?? "Unknown.mp3";
-  const title = stripExtension(fileName);
 
   // Mobile picker doesn't give us a real parent folder path — the file is
   // copied into cache and we get back a flat URI. We approximate the
@@ -69,6 +68,13 @@ function assetToTrack(asset: DocumentPicker.DocumentPickerAsset): Track {
   const inferredPack = inferPackFromFileName(fileName);
   const parentHint = inferredPack;
   const { category, subcategory } = categorize(fileName, parentHint);
+
+  // Title-from-filename mirrors the desktop scan path (pack = parent folder,
+  // title = filename minus extension). On mobile the same filename has the
+  // pack embedded as a prefix, so strip it back off — without this, the
+  // sync trackKey(title, pack) wouldn't match a desktop-imported copy of
+  // the same file and grades wouldn't cross devices.
+  const title = stripPackPrefix(stripExtension(fileName), inferredPack);
 
   // Content-addressed id so re-importing the same audio (same title + pack
   // + byte size) idempotently replaces the existing row instead of duping.
@@ -90,6 +96,22 @@ function assetToTrack(asset: DocumentPicker.DocumentPickerAsset): Track {
 function stripExtension(name: string): string {
   const dot = name.lastIndexOf(".");
   return dot > 0 ? name.slice(0, dot) : name;
+}
+
+/**
+ * Remove a leading `<pack> - ` / `<pack>_` prefix from a filename-derived
+ * title so it lines up with the desktop convention (title = file stem,
+ * pack = parent folder). Without this, the same audio file imported on
+ * desktop and mobile produces two different `trackKey`s and cloud sync
+ * can't carry grades between them.
+ */
+function stripPackPrefix(titleNoExt: string, pack: string): string {
+  if (!pack) return titleNoExt;
+  const dashPrefix = `${pack} - `;
+  if (titleNoExt.startsWith(dashPrefix)) return titleNoExt.slice(dashPrefix.length);
+  const underPrefix = `${pack}_`;
+  if (titleNoExt.startsWith(underPrefix)) return titleNoExt.slice(underPrefix.length);
+  return titleNoExt;
 }
 
 function inferPackFromFileName(name: string): string {
