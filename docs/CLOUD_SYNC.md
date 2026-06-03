@@ -13,11 +13,12 @@ Roughly 30% of the wire-format and apply path is already shipped:
 | **`SyncBlob` v1 schema** | ✅ | [`packages/core/src/sync-blob.ts`](../packages/core/src/sync-blob.ts) — version, deviceId, grades / notes / scenes / soundboard / npcHistory / config. Content-addressed `trackKey(title, pack)` so grades follow content. |
 | **`buildSyncBlob` + `applySyncBlob`** (desktop) | ✅ | [`packages/data/src/sync-repo.ts`](../packages/data/src/sync-repo.ts). Apply is **replace**-style today, not merge. |
 | **Manual file export/import** (desktop only) | ✅ | [`apps/desktop/src/lib/sync.ts`](../apps/desktop/src/lib/sync.ts) + `SyncImportConfirm.tsx`. Tauri dialogs → JSON files. |
-| **Mobile build/apply** | ❌ | `apps/mobile/src/data/schema.ts` references the shape in a comment; no implementation. |
-| **Cloud transport** | ❌ | No backend, no HTTP client. |
-| **Auth** | ❌ | No accounts, no magic-link, no session token storage. |
-| **Merge semantics** | ⚠️ | `applySyncBlob` replaces; cloud needs per-key LWW so two devices' edits don't clobber. |
-| **Pro-tier gate** | ❌ | App has no entitlement check yet — everything is free. |
+| **Mobile build/apply** | ✅ | [`apps/mobile/src/data/sync-repo.ts`](../apps/mobile/src/data/sync-repo.ts) — build + apply on the expo-sqlite driver (PR-6). |
+| **Cloud transport — client** | ✅ | [`packages/sync`](../packages/sync) — `SyncClient` HTTP transport, PR-4 (#49). |
+| **Cloud transport — backend** | ✅ | [`cloud/worker`](../cloud/worker) — Worker + KV blob storage, PR-2. |
+| **Auth** | ✅ | Magic-link backend done (PR-3); desktop (PR-5) + mobile (PR-6) sign-in UI + session-token storage done. (SecureStore/Stronghold hardening deferred — see PR-5/PR-6.) |
+| **Merge semantics** | ✅ | `mergeSyncBlobs` per-record LWW in `@mc/core`, PR-1 (#48). `applySyncBlob` replace path superseded for the cloud route. |
+| **Pro-tier gate** | ⚠️ | Entitlement registry wired (PR-7, #50); still free during beta (`currentTier()` → `major`). |
 | **IAP** | ❌ | No StoreKit / Play Billing / Stripe wiring. |
 
 ---
@@ -64,7 +65,9 @@ The cloud-sync feature itself is **Pro-tier only** per DESIGN §6.2. We don't ha
 
 Eight shippable PRs, ordered by dependency. Each is self-contained and reviewable in isolation.
 
-### PR-1 — `@mc/core` sync merge primitives (no backend) — ~1 day
+> **Progress:** PR-1 (#48), PR-4 (#49), and PR-7 (#50) shipped first — the pure-TypeScript, no-infra ends. PR-2 + PR-3 (the Worker backend) are in [`cloud/worker`](../cloud/worker), and PR-5 + PR-6 (desktop + mobile wiring) have landed. Remaining: PR-8 (IAP), then deploy the Worker and point clients at it.
+
+### PR-1 — `@mc/core` sync merge primitives (no backend) — ~1 day ✅ (#48)
 
 Add per-record LWW merge (per D1) to `packages/core`. New `mergeSyncBlobs(local, remote): SyncBlob` function with vitest coverage.
 
@@ -76,7 +79,9 @@ Add per-record LWW merge (per D1) to `packages/core`. New `mergeSyncBlobs(local,
 
 **Risk:** none. Pure logic + tests, no network.
 
-### PR-2 — Cloudflare Worker scaffolding + KV namespace — ~1 day
+### PR-2 — Cloudflare Worker scaffolding + KV namespace — ~1 day ✅
+
+> Shipped in [`cloud/worker`](../cloud/worker) — combined with PR-3. Two KV bindings (`BLOBS`, `AUTH`); `GET`/`PUT /v1/blob`; contract tests run without the Workers runtime.
 
 Stand up the Worker at `cloud/worker/` (new top-level dir, outside the pnpm workspace — different toolchain). Routes: `GET /v1/blob` and `PUT /v1/blob`. KV binding `BLOBS`. No auth yet — gated behind a hardcoded shared secret for early dev.
 
@@ -87,7 +92,9 @@ Stand up the Worker at `cloud/worker/` (new top-level dir, outside the pnpm work
 
 **Risk:** infra setup — needs a Cloudflare account + a domain decision (subdomain like `sync.majorambience.app` vs free `*.workers.dev` for v1).
 
-### PR-3 — Magic-link auth (Worker + Resend) — ~2 days
+### PR-3 — Magic-link auth (Worker + Resend) — ~2 days ✅
+
+> Shipped in [`cloud/worker`](../cloud/worker). Single-use 15-min nonces in KV; HS256 session JWTs (90-day) signed with a Worker secret; Resend delivery with a console-log dev fallback when no API key is set.
 
 `POST /v1/auth/request` (email → mail magic link), `GET /v1/auth/callback?token=...` (verify, mint JWT, set HttpOnly cookie for web / return token for native). KV stores pending-token nonces with TTL.
 
@@ -98,7 +105,7 @@ Stand up the Worker at `cloud/worker/` (new top-level dir, outside the pnpm work
 
 **Risk:** Resend account + domain DNS (SPF/DKIM) for sender deliverability.
 
-### PR-4 — `@mc/sync` client package — ~1 day
+### PR-4 — `@mc/sync` client package — ~1 day ✅ (#49)
 
 New workspace package wrapping HTTP transport. Pure TypeScript so desktop + mobile share it.
 
@@ -109,29 +116,35 @@ New workspace package wrapping HTTP transport. Pure TypeScript so desktop + mobi
 
 **Risk:** none — testable with a fake `fetch` and fake storage.
 
-### PR-5 — Desktop sync UI + wiring — ~1 day
+### PR-5 — Desktop sync UI + wiring — ~1 day ✅
 
 Settings panel: email field → magic-link button; once signed in, show device label + "synced 2 min ago" + manual "Sync now" button. Background sync on every grade/scene/soundboard change, debounced 4s.
 
-**Files:**
-- `apps/desktop/src/layout/SyncSettings.tsx` (new)
-- `apps/desktop/src/Library.tsx` — wire in the sync client; subscribe to mutations.
-- `apps/desktop/src-tauri/` — add Stronghold plugin for session-token storage.
+**Shipped:**
+- `apps/desktop/src/layout/SyncSettings.tsx` — the modal (dumb-visual: drafts only).
+- `apps/desktop/src/lib/cloud-sync.ts` — session store, client factory, and the pull→merge→apply→push `runSync` round-trip.
+- `apps/desktop/src/Library.tsx` — boot state, manual + debounced (4s) background sync via a syncable-state signature, opened from the settings menu.
 
-**Risk:** the Tauri Stronghold plugin adds a Rust dependency; bumps the dev compile time.
+**Deviation from plan — session-token storage.** Instead of the Tauri Stronghold plugin, the `SessionStore` is backed by the local SQLite `config` table. Rationale: the token is a bearer JWT for a single-user local tool; Stronghold's password/salt ceremony (and the Rust dependency + recompile) isn't warranted, and the `SessionStore` interface stays the seam if we want to harden later. Avoiding the Rust change also keeps this PR verifiable via `typecheck` + `vite build` without a full Tauri compile.
 
-### PR-6 — Mobile sync support — ~2 days
+**Not yet runtime-verified:** the live UI needs a Tauri dev shell, and a real round-trip needs the deployed Worker (`cloud/worker`). Verified here: typecheck, the full test suite, and the desktop frontend bundle build.
 
-Two things mobile is missing: `applySyncBlob` mobile-side (the writes), and the same Settings UI.
+### PR-6 — Mobile sync support — ~2 days ✅
 
-**Files:**
-- `apps/mobile/src/data/sync-repo.ts` (new) — mirror of `packages/data/src/sync-repo.ts` using the expo-sqlite driver. Same SQL, different async API.
-- `apps/mobile/app/(tabs)/settings.tsx` (new — or extend the existing About modal).
-- expo-secure-store for the session token.
+Two things mobile was missing: build/apply on the mobile driver, and the Settings UI.
 
-**Risk:** new tab on the bottom bar pushes things around; might fit better as a Settings stack route off the Library tab.
+**Shipped:**
+- [`apps/mobile/src/data/sync-repo.ts`](../apps/mobile/src/data/sync-repo.ts) — `buildSyncBlob` / `applySyncBlob` mirroring `packages/data`, on the expo-sqlite driver. Added `setNote` to the mobile tracks-repo so notes round-trip.
+- [`apps/mobile/src/lib/cloud-sync.ts`](../apps/mobile/src/lib/cloud-sync.ts) — the same glue as desktop (`runSync` pull→merge→apply→push).
+- [`apps/mobile/app/settings.tsx`](../apps/mobile/app/settings.tsx) — a Settings *stack route* off the Library tab (not a new bottom-tab — that was the risk called out below), reached via a gear button in the Library header.
 
-### PR-7 — Pro-tier feature gate (still free; flag wired) — ~1 day
+**Deviations from plan:**
+- **Session storage** — SQLite `config` table behind the `SessionStore` seam, same as desktop PR-5. `expo-secure-store` is the hardening upgrade but a native module needing Expo-version-matched install/config; deferred to keep sync off that critical path.
+- **No edit-triggered background sync yet.** Desktop debounces a push off a central mutation signature in `Library.tsx`; mobile has no single orchestrator (each screen is self-contained), so mobile does manual "Sync now" plus a sync on verify. Wiring debounced background sync into the mobile screens is a follow-up.
+
+**Not runtime-verified:** needs an Expo dev client / device. Verified here: typecheck (mobile + whole workspace) and the full test suite.
+
+### PR-7 — Pro-tier feature gate (still free; flag wired) — ~1 day ✅ (#50)
 
 Add a `usePro()` hook that reads from a single source of truth (defaults `true` during beta per D3). Surface a "Pro" pill in the sync settings indicating the gate exists. No actual blocking yet.
 

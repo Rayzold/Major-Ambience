@@ -1,0 +1,32 @@
+# Cloudflare Worker config for the Major Ambience sync backend.
+#
+# Before first deploy:
+#   1. Create the two KV namespaces and paste their ids below:
+#        npx wrangler kv namespace create BLOBS
+#        npx wrangler kv namespace create AUTH
+#   2. Set the secrets (not committed):
+#        npx wrangler secret put JWT_SECRET      # long random string
+#        npx wrangler secret put RESEND_API_KEY  # optional; omit for dev
+#   3. (Optional) point a custom domain / route at the Worker.
+
+name = "major-ambience-sync"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+# Public origin used to build the magic link in the email body. Override per
+# environment. For a *.workers.dev deploy this is https://<name>.<acct>.workers.dev
+[vars]
+PUBLIC_BASE_URL = "https://major-ambience-sync.example.workers.dev"
+MAIL_FROM = "Major Ambience <login@majorambience.app>"
+
+# Per-user sync blobs.
+[[kv_namespaces]]
+binding = "BLOBS"
+id = "REPLACE_WITH_BLOBS_NAMESPACE_ID"
+
+# Pending magic-link nonces (short TTL).
+[[kv_namespaces]]
+binding = "AUTH"
+id = "REPLACE_WITH_AUTH_NAMESPACE_ID"
+
+# JWT_SECRET and RESEND_API_KEY are set via `wrangler secret put`, never here.

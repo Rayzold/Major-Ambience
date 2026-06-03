@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@mc/core": "workspace:*",
+    "@mc/sync": "workspace:*",
     "@mc/ui": "workspace:*",
     "expo": "~56.0.3",
     "expo-audio": "~56.0.11",

@@ -42,6 +42,7 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen name="modal" options={{ presentation: "modal", title: "About" }} />
+            <Stack.Screen name="settings" options={{ title: "Cloud Sync", presentation: "card" }} />
             <Stack.Screen name="favorites" options={{ title: "Favorites", presentation: "card" }} />
             <Stack.Screen name="recent" options={{ title: "Recently played", presentation: "card" }} />
             <Stack.Screen name="dm/dice" options={{ title: "Dice", presentation: "card" }} />

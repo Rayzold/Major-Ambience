@@ -1,5 +1,7 @@
 # Major Ambience
 
+[![CI](https://github.com/Rayzold/Major-Ambience/actions/workflows/ci.yml/badge.svg)](https://github.com/Rayzold/Major-Ambience/actions/workflows/ci.yml)
+
 > Music, ambience, and sound effects for tabletop RPGs.
 
 A GM's audio companion for iOS, Android, and Windows 11 — designed to score the tavern, cue the dragon, and fade to silence on command. Built around the workflow of a sitting Dungeon Master with a 4,000+ track library and zero patience for a fiddly interface.
@@ -10,13 +12,15 @@ A GM's audio companion for iOS, Android, and Windows 11 — designed to score th
 
 ## Status
 
-**Pre‑production.** This repository currently contains:
+**In active development.** The pnpm monorepo now holds working app builds, not just a prototype:
 
-- An **interactive HTML prototype** of every primary screen across iPhone, Android, and Windows 11 (`prototype/`).
-- A **design + engineering handoff document** (`docs/BUILD_GUIDE.md`) covering tech stack, audio engine, data model, sync, monetization, and a phased roadmap.
-- The **categorization rules** that drive the auto‑sorting of imported music packs (`docs/CATEGORIZATION_GUIDE.md`).
+- **Desktop app** (`apps/desktop`) — Tauri 2 + React 19 + Vite. The most built-out surface: library, Now Playing, scenes, soundboard, SFX, search, DM Toolkit, and a handout (second-screen) window.
+- **Mobile app** (`apps/mobile`) — React Native + Expo, at feature parity with desktop for the v0.x set (see [`CHANGELOG.md`](CHANGELOG.md)).
+- **Shared packages** (`packages/*`) — `@mc/core` (categorization, weighted shuffle, DM tools, sync-merge, entitlements), `@mc/data` (SQLite repos), `@mc/ui` (design system), and `@mc/sync` (cloud-sync HTTP client).
+- **Planning + design docs** — [`docs/BUILD_GUIDE.md`](docs/BUILD_GUIDE.md) (tech stack, audio engine, data model, sync, monetization), [`docs/CATEGORIZATION_GUIDE.md`](docs/CATEGORIZATION_GUIDE.md), and [`docs/CLOUD_SYNC.md`](docs/CLOUD_SYNC.md).
+- **Interactive HTML prototype** (`prototype/`) — the original design reference, still runnable (see below).
 
-Production app builds (`apps/mobile`, `apps/desktop`) will land on this repo as Phase 1 work begins.
+`pnpm -r typecheck` and `pnpm -r test` are green (228 tests across `@mc/core` + `@mc/sync`). **Cloud sync is partially landed** — merge primitives, the HTTP client, and the entitlement gate are built and tested; the backend (Cloudflare Worker + auth) and in-app wiring are still to come. See [`docs/CLOUD_SYNC.md`](docs/CLOUD_SYNC.md) for the remaining PR sequence.
 
 ---
 
@@ -70,7 +74,24 @@ python3 -m http.server 8000
 
 Then open <http://localhost:8000/> and click around any artboard.
 
-> The prototype uses React 18 + Babel standalone for runtime JSX transpilation, so it loads in any modern browser without a build step. Production apps will be built with the stack in [`docs/BUILD_GUIDE.md`](docs/BUILD_GUIDE.md).
+> The prototype uses React 18 + Babel standalone for runtime JSX transpilation, so it loads in any modern browser without a build step. It remains the design reference; the production apps are built with the stack in [`docs/BUILD_GUIDE.md`](docs/BUILD_GUIDE.md).
+
+---
+
+## Run the apps
+
+The monorepo uses [pnpm](https://pnpm.io/) (see `engines` in `package.json` for required versions).
+
+```bash
+pnpm install          # install the whole workspace
+pnpm -r typecheck     # type-check every project
+pnpm -r test          # run the @mc/core + @mc/sync test suites
+
+pnpm desktop          # launch the desktop app (Tauri dev)
+pnpm --filter @mc/mobile start   # start the Expo dev server (needs a device/simulator)
+```
+
+The desktop app additionally needs the [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/) (Rust toolchain + platform WebView).
 
 ---
 
@@ -97,22 +118,22 @@ Files don't sync. Audio stays on device — only your grades, scenes, notes, and
 .
 ├── README.md                     ← you are here
 ├── LICENSE
+├── pnpm-workspace.yaml           ← monorepo: apps/* + packages/*
+├── apps/
+│   ├── desktop/                  ← Tauri 2 + React + Vite (Windows)
+│   └── mobile/                   ← React Native + Expo (iOS + Android)
+├── packages/
+│   ├── core/                     ← categorize, shuffle, DM tools, sync-merge, entitlements
+│   ├── data/                     ← SQLite repos (tracks, scenes, soundboard, config, sync)
+│   ├── ui/                       ← design tokens, glyphs, shared components
+│   └── sync/                     ← cloud-sync HTTP client (@mc/sync)
 ├── prototype/
 │   ├── index.html                ← interactive multi‑platform prototype
-│   └── app/
-│       ├── data.js               ← mock library, scenes, soundboard
-│       ├── icons.jsx             ← custom SVG glyph set (no emoji)
-│       ├── ui.jsx                ← tokens, primitives, mini‑player, tab bar
-│       ├── screens.jsx           ← 6 mobile screens
-│       ├── app.jsx               ← mobile shell
-│       ├── desktop.jsx           ← Windows desktop shell
-│       ├── ios-frame.jsx         ← iOS device chrome
-│       ├── android-frame.jsx     ← Android device chrome
-│       ├── windows-frame.jsx     ← Windows 11 window chrome
-│       └── design-canvas.jsx     ← canvas wrapper (zoom, pan, focus mode)
+│   └── app/                      ← mock data + per-platform device frames
 └── docs/
     ├── BUILD_GUIDE.md            ← full design + engineering handoff
     ├── CATEGORIZATION_GUIDE.md   ← music auto‑categorization rules
+    ├── CLOUD_SYNC.md             ← Phase 2 cloud-sync implementation plan
     └── screenshots/
 ```
 

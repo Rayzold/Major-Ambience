@@ -88,6 +88,19 @@ export async function setGrade(db: Db, trackId: string, grade: Grade): Promise<v
 }
 
 /**
+ * Set (or clear) a track's note. An empty/whitespace note is stored as
+ * NULL so it round-trips through a sync blob the same as "no note".
+ * Mirrors the desktop `setNote` so the cloud-sync apply path is symmetric.
+ */
+export async function setNote(db: Db, trackId: string, note: string): Promise<void> {
+  const trimmed = note.trim();
+  await db.runAsync("UPDATE tracks SET note = ? WHERE id = ?", [
+    trimmed.length > 0 ? trimmed : null,
+    trackId,
+  ]);
+}
+
+/**
  * Bump play_count + record last_played_at for a track. Called by the
  * mobile audio store on every successful playTrack, matching the
  * desktop Library.handlePlayTrack pattern. The timestamp is unix

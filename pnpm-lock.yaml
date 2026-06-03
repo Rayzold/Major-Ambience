@@ -26,6 +26,9 @@ importers:
       '@mc/data':
         specifier: workspace:*
         version: link:../../packages/data
+      '@mc/sync':
+        specifier: workspace:*
+        version: link:../../packages/sync
       '@mc/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -75,6 +78,9 @@ importers:
       '@mc/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@mc/sync':
+        specifier: workspace:*
+        version: link:../../packages/sync
       '@mc/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -5220,9 +5226,7 @@ snapshots:
       metro-runtime: 0.84.4
     transitivePeerDependencies:
       - '@babel/core'
-      - bufferutil
       - supports-color
-      - utf-8-validate
 
   '@react-native/normalize-colors@0.74.89': {}
 
