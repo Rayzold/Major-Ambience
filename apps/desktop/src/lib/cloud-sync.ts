@@ -32,12 +32,12 @@ const DEVICE_LABEL_KEY = "sync_device_label";
 const LAST_SYNCED_KEY = "sync_last_synced_at";
 
 /**
- * Default cloud endpoint. Overridable from the settings "Advanced" field
- * until a production domain is wired — the Worker in `cloud/worker` deploys
- * to a `*.workers.dev` URL or a custom domain (see its README).
+ * Default cloud endpoint — the live `*.workers.dev` deploy of `cloud/worker`.
+ * Overridable from the settings "Advanced" field; will move to a custom
+ * domain (e.g. sync.majorambience.app) once one's wired.
  */
 export const DEFAULT_SYNC_BASE_URL =
-  "https://major-ambience-sync.example.workers.dev";
+  "https://major-ambience-sync.markos-stefanou.workers.dev";
 
 class ConfigSessionStore implements SessionStore {
   async read(): Promise<string | null> {

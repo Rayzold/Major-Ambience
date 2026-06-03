@@ -16,17 +16,17 @@ compatibility_date = "2025-01-01"
 # Public origin used to build the magic link in the email body. Override per
 # environment. For a *.workers.dev deploy this is https://<name>.<acct>.workers.dev
 [vars]
-PUBLIC_BASE_URL = "https://major-ambience-sync.example.workers.dev"
+PUBLIC_BASE_URL = "https://major-ambience-sync.markos-stefanou.workers.dev"
 MAIL_FROM = "Major Ambience <login@majorambience.app>"
 
 # Per-user sync blobs.
 [[kv_namespaces]]
 binding = "BLOBS"
-id = "REPLACE_WITH_BLOBS_NAMESPACE_ID"
+id = "ffce36f6f59348b7bc134af5317863fa"
 
 # Pending magic-link nonces (short TTL).
 [[kv_namespaces]]
 binding = "AUTH"
-id = "REPLACE_WITH_AUTH_NAMESPACE_ID"
+id = "063ead9f56c647b7ba1ec88db93d513b"
 
 # JWT_SECRET and RESEND_API_KEY are set via `wrangler secret put`, never here.
