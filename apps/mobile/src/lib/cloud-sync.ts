@@ -25,7 +25,7 @@ const LAST_SYNCED_KEY = "sync_last_synced_at";
 
 /** Default endpoint — override from the settings "Advanced" field. */
 export const DEFAULT_SYNC_BASE_URL =
-  "https://major-ambience-sync.example.workers.dev";
+  "https://major-ambience-sync.markos-stefanou.workers.dev";
 
 class ConfigSessionStore implements SessionStore {
   async read(): Promise<string | null> {
