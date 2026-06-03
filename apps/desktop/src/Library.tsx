@@ -8,7 +8,7 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { emit, listen } from "@tauri-apps/api/event";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { CategoryId, Grade, Scene, SoundboardSlot, Track, TrackHandle } from "@mc/core";
-import { categorize, crossfade, weightedShuffle } from "@mc/core";
+import { categorize, crossfade, currentTier, weightedShuffle, type Tier } from "@mc/core";
 import {
   bumpPlayCount,
   clearSlot,
@@ -69,6 +69,13 @@ import { TUTORIALS } from "./layout/tutorials.js";
 import type { AnySyncBlob } from "@mc/core";
 import { applyLoadedBlob, exportSyncBlob, pickAndLoadSyncBlob } from "./lib/sync.js";
 import { SyncSettings } from "./layout/SyncSettings.js";
+import { LicenseDialog } from "./layout/LicenseDialog.js";
+import {
+  applyLicenseKey,
+  clearLicense,
+  getLicenseEmail,
+  purchasedTier as readPurchasedTier,
+} from "./lib/entitlement.js";
 import {
   getAccountEmail,
   getAuthStatus,
@@ -199,6 +206,14 @@ export function Library() {
   const [cloudSyncing, setCloudSyncing] = useState(false);
   const [cloudError, setCloudError] = useState<string | undefined>(undefined);
   const bgSyncTimer = useRef<number | null>(null);
+  // ── Plan / license (PR-8) ──
+  const [licenseOpen, setLicenseOpen] = useState(false);
+  const [licenseEffective, setLicenseEffective] = useState<Tier>("demo");
+  const [licensePurchased, setLicensePurchased] = useState<Tier>("demo");
+  const [licenseEmail, setLicenseEmail] = useState<string | undefined>(undefined);
+  const [licenseBusy, setLicenseBusy] = useState(false);
+  const [licenseError, setLicenseError] = useState<string | undefined>(undefined);
+  const [licenseStatus, setLicenseStatus] = useState<string | undefined>(undefined);
   /**
    * Track-picker overlay state. The discriminator on `target` controls
    * what the pick callback assigns:
@@ -714,6 +729,7 @@ export function Library() {
     editingScene !== null ||
     pendingImport !== null ||
     cloudSyncOpen ||
+    licenseOpen ||
     activeTutorialId !== null ||
     helpOpen ||
     pickerOverlay !== null;
@@ -729,6 +745,8 @@ export function Library() {
       setPendingImport(null);
     } else if (cloudSyncOpen) {
       setCloudSyncOpen(false);
+    } else if (licenseOpen) {
+      setLicenseOpen(false);
     } else if (saveDialogOpen) {
       setSaveDialogOpen(false);
     } else if (editingScene) {
@@ -1616,6 +1634,47 @@ export function Library() {
     setCloudDeviceLabel(label.trim() || undefined);
   }
 
+  // ── Plan / license handlers ──────────────────────────────────────────────
+  async function openLicense() {
+    setTutorialsMenu(null);
+    setLicenseError(undefined);
+    setLicenseStatus(undefined);
+    setLicenseEffective(currentTier());
+    setLicensePurchased(readPurchasedTier());
+    setLicenseEmail(await getLicenseEmail());
+    setLicenseOpen(true);
+  }
+
+  async function handleApplyLicense(key: string) {
+    setLicenseBusy(true);
+    setLicenseError(undefined);
+    setLicenseStatus(undefined);
+    try {
+      const res = await applyLicenseKey(key);
+      if (res.ok) {
+        setLicensePurchased(res.claims.tier);
+        setLicenseEffective(currentTier());
+        setLicenseEmail(await getLicenseEmail());
+        setLicenseStatus(`License applied — ${res.claims.tier} plan unlocked.`);
+        setScanStatus(`License applied — ${res.claims.tier} plan.`);
+      } else {
+        setLicenseError(res.reason);
+      }
+    } catch (err) {
+      setLicenseError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLicenseBusy(false);
+    }
+  }
+
+  async function handleClearLicense() {
+    await clearLicense();
+    setLicensePurchased("demo");
+    setLicenseEffective(currentTier());
+    setLicenseEmail(undefined);
+    setLicenseStatus("License removed from this device.");
+  }
+
   // ── Themes ─────────────────────────────────────────────────────────────
   async function handlePickTheme(id: ThemeId) {
     setTheme(id);
@@ -2106,6 +2165,7 @@ export function Library() {
           currentTheme={theme}
           onPickTheme={(id) => void handlePickTheme(id)}
           onPickTutorial={(id) => startTutorial(id)}
+          onOpenLicense={() => void openLicense()}
           onOpenCloudSync={() => {
             setTutorialsMenu(null);
             setCloudSyncOpen(true);
@@ -2141,6 +2201,20 @@ export function Library() {
           onSetBaseUrl={(url) => void handleCloudSetBaseUrl(url)}
           onSetDeviceLabel={(label) => void handleCloudSetDeviceLabel(label)}
           onClose={() => setCloudSyncOpen(false)}
+        />
+      ) : null}
+
+      {licenseOpen ? (
+        <LicenseDialog
+          effectiveTier={licenseEffective}
+          purchasedTier={licensePurchased}
+          {...(licenseEmail ? { email: licenseEmail } : {})}
+          busy={licenseBusy}
+          {...(licenseError ? { error: licenseError } : {})}
+          {...(licenseStatus ? { status: licenseStatus } : {})}
+          onApply={(key) => void handleApplyLicense(key)}
+          onClear={() => void handleClearLicense()}
+          onClose={() => setLicenseOpen(false)}
         />
       ) : null}
 

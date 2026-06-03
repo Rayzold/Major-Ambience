@@ -106,13 +106,26 @@ export const TIER_ENTITLEMENTS: Record<Tier, ReadonlySet<Entitlement>> = (() => 
  */
 export const BETA_TIER: Tier = "major";
 
+// ─── Tier ordering ─────────────────────────────────────────────────────
+
+/** Position of a tier in the cumulative ladder (demo=0 … major=2). */
+export function tierRank(tier: Tier): number {
+  return TIERS.indexOf(tier);
+}
+
+/** The higher (more-unlocked) of two tiers. */
+export function maxTier(a: Tier, b: Tier): Tier {
+  return tierRank(a) >= tierRank(b) ? a : b;
+}
+
 // ─── Runtime accessors ─────────────────────────────────────────────────
 
 let _override: Tier | null = null;
+let _resolver: (() => Tier | null) | null = null;
 
 /**
- * Force the tier reported by `currentTier()` regardless of any future
- * IAP wiring. Test-only — pass `null` to clear. Real code should never
+ * Force the tier reported by `currentTier()` regardless of any resolver
+ * or IAP wiring. Test-only — pass `null` to clear. Real code should never
  * call this in production paths.
  */
 export function setTierOverride(tier: Tier | null): void {
@@ -120,13 +133,28 @@ export function setTierOverride(tier: Tier | null): void {
 }
 
 /**
- * Current effective tier. During beta this is `BETA_TIER`. When PR-8
- * lands IAP, replace the body with a read from the platform
- * entitlement service. Consumers of `hasEntitlement` / `tierLimits`
- * don't change.
+ * Register the production source of truth for the user's tier — the IAP
+ * seam (PR-8). The app wires this at boot to read its persisted
+ * entitlement (a verified license key on desktop, StoreKit / Play Billing
+ * on mobile). Returning `null` falls back to `BETA_TIER`. Pass `null` to
+ * unregister. The test override (above) still wins over the resolver.
+ *
+ * During the beta the app's resolver returns `maxTier(BETA_TIER, purchased)`
+ * so nothing is gated yet (docs/CLOUD_SYNC.md D3); at launch `BETA_TIER`
+ * drops to "demo" and the purchased tier takes over with no change here.
+ */
+export function setTierResolver(resolver: (() => Tier | null) | null): void {
+  _resolver = resolver;
+}
+
+/**
+ * Current effective tier. Precedence: test override → registered resolver
+ * → `BETA_TIER`. Consumers of `hasEntitlement` / `tierLimits` never change
+ * as the source behind this evolves.
  */
 export function currentTier(): Tier {
-  return _override ?? BETA_TIER;
+  if (_override) return _override;
+  return _resolver?.() ?? BETA_TIER;
 }
 
 /** True iff the current tier (or its lower siblings) grants `ent`. */

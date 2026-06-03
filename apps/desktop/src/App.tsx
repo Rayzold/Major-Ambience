@@ -1,10 +1,15 @@
 import { useEffect } from "react";
 import { installGlobalStyles } from "@mc/ui";
 import { Library } from "./Library.js";
+import { loadEntitlement } from "./lib/entitlement.js";
 
 export default function App() {
   useEffect(() => {
     installGlobalStyles();
+
+    // Register the IAP tier resolver before anything reads currentTier().
+    // No-op for gating during the beta (BETA_TIER unlocks everything).
+    void loadEntitlement();
 
     // Suppress the WebView's default Back/Refresh/Inspect context menu so
     // right-click is always ours to use (pin-to-slot, etc.). Tauri's
