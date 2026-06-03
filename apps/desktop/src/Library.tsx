@@ -2004,12 +2004,20 @@ export function Library() {
           selected={activeCategory}
           activeView={activeView}
           onSelect={(id) => {
+            setTab("library");
             setActiveCategory(id);
             setActiveView("category");
           }}
-          onSelectFavorites={() => setActiveView("favorites")}
-          onSelectRecent={() => setActiveView("recent")}
+          onSelectFavorites={() => {
+            setTab("library");
+            setActiveView("favorites");
+          }}
+          onSelectRecent={() => {
+            setTab("library");
+            setActiveView("recent");
+          }}
           onSelectRemoved={() => {
+            setTab("library");
             setActiveCategory("removed");
             setActiveView("category");
           }}
