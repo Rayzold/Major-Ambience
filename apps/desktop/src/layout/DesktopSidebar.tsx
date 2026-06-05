@@ -49,16 +49,7 @@ export function DesktopSidebar({
   onRescan,
 }: DesktopSidebarProps) {
   return (
-    <div
-      className="mc-scroll"
-      style={{
-        flexShrink: 0,
-        width: 244,
-        borderRight: `1px solid ${T.rule}`,
-        padding: "14px 8px 14px 14px",
-        position: "relative",
-      }}
-    >
+    <SidebarShell>
       <div
         style={{
           display: "flex",
@@ -198,7 +189,7 @@ export function DesktopSidebar({
         })}
         </div>
       </SidebarSection>
-    </div>
+    </SidebarShell>
   );
 }
 
@@ -256,7 +247,29 @@ function CategoryNameWithShortcut({
   );
 }
 
-function SidebarSection({ title, children }: { title: string; children: ReactNode }) {
+/**
+ * The outer sidebar chrome shared by every mode (Library / Scenes /
+ * Soundboard / DM Toolkit). Same width, same border, same scroll
+ * behaviour. Mode-specific bodies render inside.
+ */
+export function SidebarShell({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className="mc-scroll"
+      style={{
+        flexShrink: 0,
+        width: 244,
+        borderRight: `1px solid ${T.rule}`,
+        padding: "14px 8px 14px 14px",
+        position: "relative",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function SidebarSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     // Generous breathing room above each section so the eyebrow labels
     // read as separators, not visual noise stacked tight to the rows above.
@@ -269,7 +282,7 @@ function SidebarSection({ title, children }: { title: string; children: ReactNod
   );
 }
 
-function SidebarRow({
+export function SidebarRow({
   icon,
   label,
   count,
@@ -279,7 +292,7 @@ function SidebarRow({
 }: {
   icon: string;
   label: string;
-  count: number;
+  count?: number | string | undefined;
   active?: boolean;
   onClick?: () => void;
   /** Accent color when this row is the active view. Defaults to gold. */
@@ -309,9 +322,11 @@ function SidebarRow({
     >
       <Glyph name={icon} size={15} stroke={active ? 1.9 : 1.5} />
       <span style={{ flex: 1 }}>{label}</span>
-      <span className="mc-mono" style={{ fontSize: 10, color: T.ink3 }}>
-        {count.toLocaleString()}
-      </span>
+      {count !== undefined ? (
+        <span className="mc-mono" style={{ fontSize: 10, color: T.ink3 }}>
+          {typeof count === "number" ? count.toLocaleString() : count}
+        </span>
+      ) : null}
     </button>
   );
 }

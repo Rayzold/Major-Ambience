@@ -38,6 +38,10 @@ import { getAudioBackend } from "./lib/audio.js";
 import { DesktopDmToolkit } from "./layout/DesktopDmToolkit.js";
 import { DesktopHeader } from "./layout/DesktopHeader.js";
 import { DesktopSidebar } from "./layout/DesktopSidebar.js";
+import { DesktopDmSidebar } from "./layout/DesktopDmSidebar.js";
+import type { DmTool } from "./layout/DesktopDmToolkit.js";
+import { DesktopScenesSidebar } from "./layout/DesktopScenesSidebar.js";
+import { DesktopSoundboardSidebar } from "./layout/DesktopSoundboardSidebar.js";
 import { DesktopLibraryView } from "./layout/DesktopLibraryView.js";
 import { DesktopRightRail } from "./layout/DesktopRightRail.js";
 import { DesktopScenesView } from "./layout/DesktopScenesView.js";
@@ -184,6 +188,9 @@ export function Library() {
   const [editingScene, setEditingScene] = useState<Scene | null>(null);
   const [soundboard, setSoundboard] = useState<SoundboardSlot[]>([]);
   const [soundboardPage, setSoundboardPage] = useState<"A" | "B" | "C">("A");
+  // DM Toolkit's active sub-tool is lifted up here so the mode-aware
+  // sidebar can read + write it from the DM Toolkit tab.
+  const [dmTool, setDmTool] = useState<DmTool>("initiative");
   const [padPlayingTick, setPadPlayingTick] = useState(0);
   const [pinMenu, setPinMenu] = useState<
     { track: Track; x: number; y: number } | null
@@ -329,6 +336,16 @@ export function Library() {
     for (const c of CATEGORIES) map.set(c.id, tracksByCategory.get(c.id)?.length ?? 0);
     return map;
   }, [tracksByCategory]);
+
+  // Filled-slot count per soundboard page — drives the Soundboard sidebar
+  // badges ("Page A · 3 of 8").
+  const soundboardSlotCounts = useMemo(() => {
+    const counts: Record<"A" | "B" | "C", number> = { A: 0, B: 0, C: 0 };
+    for (const s of soundboard) {
+      if (s.page === "A" || s.page === "B" || s.page === "C") counts[s.page] += 1;
+    }
+    return counts;
+  }, [soundboard]);
 
   /**
    * Tracks visible in the center pane. Switches on `activeView`:
@@ -2000,41 +2017,63 @@ export function Library() {
           position: "relative",
         }}
       >
-        <DesktopSidebar
-          selected={activeCategory}
-          activeView={activeView}
-          onSelect={(id) => {
-            setTab("library");
-            setActiveCategory(id);
-            setActiveView("category");
-          }}
-          onSelectFavorites={() => {
-            setTab("library");
-            setActiveView("favorites");
-          }}
-          onSelectRecent={() => {
-            setTab("library");
-            setActiveView("recent");
-          }}
-          onSelectRemoved={() => {
-            setTab("library");
-            setActiveCategory("removed");
-            setActiveView("category");
-          }}
-          favoritesCount={favoritesCount}
-          recentCount={recentCount}
-          removedCount={removedCount}
-          totalTrackCount={tracks.length}
-          countByCategory={countByCategory}
-          rootFolderName={rootFolderName}
-          lastScannedAt={lastScannedAt}
-          isScanning={isScanning}
-          onRescan={
-            rootFolderPath && !dmMode
-              ? () => void handleOpenFolder(rootFolderPath)
-              : undefined
-          }
-        />
+        {tab === "scenes" ? (
+          <DesktopScenesSidebar
+            scenes={scenes}
+            activeSceneId={activeSceneId}
+            canSave={tracks.length > 0}
+            onOpenSave={() => setSaveDialogOpen(true)}
+            onRestore={(s) => void handleRestoreScene(s)}
+          />
+        ) : tab === "soundboard" ? (
+          <DesktopSoundboardSidebar
+            page={soundboardPage}
+            onPageChange={setSoundboardPage}
+            slotCounts={soundboardSlotCounts}
+          />
+        ) : tab === "dm" ? (
+          <DesktopDmSidebar
+            tool={dmTool}
+            onToolChange={setDmTool}
+            combatantsCount={combatants.length}
+          />
+        ) : (
+          <DesktopSidebar
+            selected={activeCategory}
+            activeView={activeView}
+            onSelect={(id) => {
+              setTab("library");
+              setActiveCategory(id);
+              setActiveView("category");
+            }}
+            onSelectFavorites={() => {
+              setTab("library");
+              setActiveView("favorites");
+            }}
+            onSelectRecent={() => {
+              setTab("library");
+              setActiveView("recent");
+            }}
+            onSelectRemoved={() => {
+              setTab("library");
+              setActiveCategory("removed");
+              setActiveView("category");
+            }}
+            favoritesCount={favoritesCount}
+            recentCount={recentCount}
+            removedCount={removedCount}
+            totalTrackCount={tracks.length}
+            countByCategory={countByCategory}
+            rootFolderName={rootFolderName}
+            lastScannedAt={lastScannedAt}
+            isScanning={isScanning}
+            onRescan={
+              rootFolderPath && !dmMode
+                ? () => void handleOpenFolder(rootFolderPath)
+                : undefined
+            }
+          />
+        )}
 
         {tab === "library" ? (
           <DesktopLibraryView
@@ -2084,6 +2123,7 @@ export function Library() {
           />
         ) : (
           <DesktopDmToolkit
+            tool={dmTool}
             nameHistory={nameHistory}
             onNameHistory={(next) => void handleNameHistoryChange(next)}
             rollHistory={rollHistory}
