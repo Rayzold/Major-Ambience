@@ -12,6 +12,37 @@ Earlier: **mobile reached full desktop parity** for the v0.x feature set — DM 
 
 ---
 
+## [0.0.24] — 2026‑06‑05 — Mobile grade-set UI (long-press)
+
+Closes the last desktop-parity gap surfaced in the 2026‑06‑03 handoff: mobile had no way to *set* a track's grade, only filter by it. The Favorites pseudo-view's empty-state copy ("grade a track S or A from a category view") promised an affordance that didn't exist.
+
+> Mobile-only release: bumps `apps/mobile/package.json` 0.0.23 → 0.0.24. Desktop version files untouched.
+
+### Added — `apps/mobile/src/components/GradeSheet.tsx`
+
+- Bottom-sheet `Modal` (fade-in over a dimmed backdrop). Header shows the track title + pack; pill row below offers **None / S / A / B / C / D / F**. The track's current grade is highlighted with the category accent color, so the sheet doubles as a "current grade" indicator.
+- Backdrop tap dismisses without choosing; an inner `Pressable` swallows taps inside the sheet so reaching for a pill doesn't accidentally close it.
+- 44 × 44 hit targets across the pill row — mobile target-size guideline. "None" gets a `close` glyph alongside its label so it reads as "clear grade" rather than as a seventh letter.
+
+### Changed — `apps/mobile/app/category/[id].tsx`
+
+- `TrackRow` gained an optional `onLongPress`. `delayLongPress={350}` matches the platform default; longer than the play-tap window so the modal doesn't fight with quick taps.
+- Long-press opens `GradeSheet` for the row. Removed view doesn't expose grading (you'd grade-then-it-disappears) — `onLongPress` is undefined there.
+- `handleSetGrade` writes through `setGrade(db, …)` from `tracks-repo`. Optimistic local-state update so the row's subtitle ("Pack · grade · 3:42") re-renders instantly; rolls back if the write fails.
+- Gated through `hasEntitlement("grades")` per the documented audit pattern in `packages/core/src/entitlements.ts`. During beta `BETA_TIER = "major"` so the path is always open — but the call site is in place for when the gate flips at launch.
+
+### Verification
+
+- `pnpm -r typecheck` — clean (6 of 6 projects).
+- `pnpm -r test` — 228/228 still pass (no test deltas; UI-only PR).
+- Manual (needs a device / simulator): `pnpm --filter @mc/mobile start`.
+  - Long-press any row in a category → sheet slides up; tap **A** → row re-renders with `· A` in the subtitle; tap a different row's grade → both retained.
+  - Open **Favorites** → graded-S/A rows now appear; the empty-state copy finally matches the wired affordance.
+  - Tap a pill while offline / DB locked → row rolls back to previous grade.
+  - Removed view → long-press is a no-op (no sheet).
+
+---
+
 ## [0.0.29] — 2026‑06‑03 — Cloud sync (PR-2 → PR-6) + IAP foundation (PR-8)
 
 The Phase-2 cloud-sync sequence from [`docs/CLOUD_SYNC.md`](docs/CLOUD_SYNC.md) lands end to end (server + both clients + CI), plus the codeable foundation of PR-8 (the IAP seam + desktop license-key path). Server is not yet deployed; everything is still beta-unlocked.

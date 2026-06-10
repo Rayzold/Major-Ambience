@@ -13,13 +13,24 @@ import {
   View,
 } from "react-native";
 import { useLocalSearchParams, useNavigation } from "expo-router";
-import { categorize, type CategoryId, type Grade, type Track } from "@mc/core";
+import {
+  categorize,
+  hasEntitlement,
+  type CategoryId,
+  type Grade,
+  type Track,
+} from "@mc/core";
 import { CATEGORIES, findCategory } from "@mc/ui/categories";
 import { T, FONT_DISPLAY, FONT_MONO } from "../../src/tokens";
 import { Glyph } from "../../src/Glyph";
 import { getDb } from "../../src/data/db";
-import { listTracksByCategory, setCategory } from "../../src/data/tracks-repo";
+import {
+  listTracksByCategory,
+  setCategory,
+  setGrade,
+} from "../../src/data/tracks-repo";
 import { playTrack, usePlayer } from "../../src/audio/store";
+import { GradeSheet } from "../../src/components/GradeSheet";
 
 type GradeFilter = "All" | NonNullable<Grade>;
 const GRADE_PILLS: GradeFilter[] = ["All", "S", "A", "B", "C", "D", "F"];
@@ -69,6 +80,7 @@ export default function CategoryDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [gradeFilter, setGradeFilter] = useState<GradeFilter>("All");
   const [durationFilter, setDurationFilter] = useState<DurationBucket>("Any");
+  const [gradingTrack, setGradingTrack] = useState<Track | null>(null);
   const { nowPlaying } = usePlayer();
 
   const reload = useCallback(async () => {
@@ -93,6 +105,44 @@ export default function CategoryDetailScreen() {
       }
     },
     [],
+  );
+
+  // Long-press a row opens the grade sheet. The entitlement check
+  // is the documented audit point per packages/core/src/entitlements.ts
+  // — during beta `hasEntitlement("grades")` is always true (BETA_TIER
+  // is "major"), but the call site is in place for when the gate
+  // flips at launch.
+  const handleLongPress = useCallback((track: Track) => {
+    if (!hasEntitlement("grades")) return;
+    setGradingTrack(track);
+  }, []);
+
+  const handleSetGrade = useCallback(
+    async (grade: Grade) => {
+      const target = gradingTrack;
+      if (!target) return;
+      // Optimistic update — the FlatList row re-renders immediately
+      // with the new grade chip. setGrade writes to sqlite which then
+      // gets picked up by the next pseudo-view reload (Favorites
+      // queries WHERE grade IN ('S','A')).
+      setTracks((prev) =>
+        prev.map((t) => (t.id === target.id ? { ...t, grade } : t)),
+      );
+      setGradingTrack(null);
+      try {
+        const db = await getDb();
+        await setGrade(db, target.id, grade);
+      } catch (err) {
+        console.error("setGrade failed:", err);
+        // Roll back the optimistic patch so the row matches DB truth.
+        setTracks((prev) =>
+          prev.map((t) =>
+            t.id === target.id ? { ...t, grade: target.grade } : t,
+          ),
+        );
+      }
+    },
+    [gradingTrack],
   );
 
   const handleRestore = useCallback(
@@ -432,6 +482,8 @@ export default function CategoryDetailScreen() {
                 // respects the active filter (same pattern as desktop).
                 void playTrack(item, filtered);
               }}
+              // Removed view doesn't expose grading — restore first.
+              onLongPress={isRemoved ? undefined : () => handleLongPress(item)}
               actionGlyph={isRemoved ? "undo" : "trash"}
               onAction={() => {
                 void (isRemoved ? handleRestore(item) : handleRemove(item));
@@ -440,6 +492,13 @@ export default function CategoryDetailScreen() {
           )}
         />
       )}
+
+      <GradeSheet
+        track={gradingTrack}
+        accent={meta.color}
+        onPick={(g) => void handleSetGrade(g)}
+        onDismiss={() => setGradingTrack(null)}
+      />
     </View>
   );
 }
@@ -460,6 +519,7 @@ function TrackRow({
   accent,
   active,
   onPress,
+  onLongPress,
   actionGlyph,
   onAction,
 }: {
@@ -467,6 +527,7 @@ function TrackRow({
   accent: string;
   active: boolean;
   onPress: () => void;
+  onLongPress?: () => void;
   actionGlyph: "trash" | "undo";
   onAction: () => void;
 }) {
@@ -492,6 +553,8 @@ function TrackRow({
     >
       <Pressable
         onPress={onPress}
+        onLongPress={onLongPress}
+        delayLongPress={350}
         style={({ pressed }) => ({
           flex: 1,
           minWidth: 0,
