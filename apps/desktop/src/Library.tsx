@@ -212,6 +212,10 @@ export function Library() {
   const [cloudLastSyncedAt, setCloudLastSyncedAt] = useState<number | undefined>(undefined);
   const [cloudSyncing, setCloudSyncing] = useState(false);
   const [cloudError, setCloudError] = useState<string | undefined>(undefined);
+  // Sticky in-modal success line — set on every resolved sync, cleared
+  // when a new sync starts. Read separately from the corner toast
+  // (`scanStatus`) so the modal banner doesn't disappear after 4.5s.
+  const [cloudSyncResult, setCloudSyncResult] = useState<string | undefined>(undefined);
   const bgSyncTimer = useRef<number | null>(null);
   // ── Plan / license (PR-8) ──
   const [licenseOpen, setLicenseOpen] = useState(false);
@@ -638,12 +642,17 @@ export function Library() {
       if (cloudSyncing) return;
       setCloudSyncing(true);
       setCloudError(undefined);
+      setCloudSyncResult(undefined);
       if (manual) setScanStatus("Syncing…");
       try {
         const res = await runSync();
         setCloudLastSyncedAt(res.updatedAt);
         if (res.merged) await refreshSyncableFromDb();
-        setScanStatus(res.merged ? "Synced — merged cloud changes." : "Synced to cloud.");
+        const msg = res.merged
+          ? "Synced — merged cloud changes."
+          : "Synced to cloud.";
+        setCloudSyncResult(msg);
+        setScanStatus(msg);
       } catch (err) {
         if (err instanceof SyncAuthError) {
           setCloudSignedIn(false);
@@ -2242,13 +2251,21 @@ export function Library() {
           {...(cloudLastSyncedAt !== undefined ? { lastSyncedAt: cloudLastSyncedAt } : {})}
           syncing={cloudSyncing}
           {...(cloudError ? { error: cloudError } : {})}
+          {...(cloudSyncResult ? { syncResult: cloudSyncResult } : {})}
           onRequestLink={(email) => void handleCloudRequestLink(email)}
           onVerify={(code) => void handleCloudVerify(code)}
           onSyncNow={() => void runCloudSync(true)}
           onSignOut={() => void handleCloudSignOut()}
           onSetBaseUrl={(url) => void handleCloudSetBaseUrl(url)}
           onSetDeviceLabel={(label) => void handleCloudSetDeviceLabel(label)}
-          onClose={() => setCloudSyncOpen(false)}
+          onClose={() => {
+            setCloudSyncOpen(false);
+            // Drop the success banner so reopening the modal later
+            // doesn't show a stale "Synced to cloud." next to a
+            // "Last synced 38 mins ago" — the latter is the
+            // authoritative state.
+            setCloudSyncResult(undefined);
+          }}
         />
       ) : null}
 

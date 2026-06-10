@@ -12,6 +12,35 @@ Earlier: **mobile reached full desktop parity** for the v0.x feature set — DM 
 
 ---
 
+## [0.0.30 / mobile 0.0.25] — 2026‑06‑10 — Cloud sync feedback polish
+
+Closes the "Cloud Sync feedback is too subtle" follow-up from the 2026‑06‑03 handoff. Sub-second syncs used to land with only a button label flip and a corner toast that vanished after 4.5s; the modal you were looking at gave you nothing. Now there's a sticky success banner sitting *inside* the modal, plus a small pulse on the "Last synced" line so the time update is visible.
+
+> Cross-surface release: bumps desktop `apps/desktop/package.json` / `tauri.conf.json` / `Cargo.toml` 0.0.29 → 0.0.30 and `apps/mobile/package.json` 0.0.24 → 0.0.25 in lockstep — both surfaces gained the same polish.
+
+### Changed — `apps/desktop/src/layout/SyncSettings.tsx`
+
+- New optional `syncResult` prop. When set, the modal renders an in-place banner (gold-soft background, spark glyph, copy from the caller) immediately above the "Sync now" button — same column the user is already looking at.
+- Banner animates in with `mc-sync-banner-in` (~360ms fade + slide). Remounts via `key={lastSyncedAt}` so back-to-back syncs each animate.
+- "Last synced" line gains a 1.6s `mc-sync-pulse` highlight (gold-soft → transparent) every time the timestamp updates. Keyframes ship inline with the component via a `<style>` tag so they live and die with the consumer.
+
+### Changed — `apps/desktop/src/Library.tsx`
+
+- New `cloudSyncResult` state, set on every successful sync round-trip and threaded through to `SyncSettings`. Cleared on a fresh sync start and on modal close so reopening doesn't show stale "Synced to cloud" next to a "Last synced 38 mins ago".
+
+### Changed — `apps/mobile/app/settings.tsx`
+
+- New `syncResult` state replaces the single-line gold text for sync outcomes (auth-flow copy keeps the old `status` line — they don't fight any more).
+- New `SyncSuccessBanner` — card with a gold checkmark-style chip, "Synced" header, and "Merged changes from the cloud" / "Pushed to the cloud" subtitle. Animated in via React Native `Animated` (native driver) with the same fade+slide as desktop. Remount on `key={lastSyncedAt}`.
+
+### Verification
+
+- `pnpm -r typecheck` — clean (6 of 6 projects).
+- `pnpm -r test` — 228/228 still pass (no test deltas; presentation-only).
+- Manual: open Cloud Sync on desktop, hit **Sync now** — banner appears with animation, "Last synced" line pulses gold then settles. Same on mobile Settings.
+
+---
+
 ## [0.0.24] — 2026‑06‑05 — Mobile grade-set UI (long-press)
 
 Closes the last desktop-parity gap surfaced in the 2026‑06‑03 handoff: mobile had no way to *set* a track's grade, only filter by it. The Favorites pseudo-view's empty-state copy ("grade a track S or A from a category view") promised an affordance that didn't exist.
