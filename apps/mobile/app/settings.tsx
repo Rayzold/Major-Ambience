@@ -4,10 +4,12 @@
 // way the DM screens call the data repos), rather than threading through
 // a central orchestrator.
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
+  Easing,
   Pressable,
   ScrollView,
   Text,
@@ -57,7 +59,12 @@ export default function SettingsScreen() {
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const [syncing, setSyncing] = useState(false);
+  // `status` carries transient flow copy (link sent, signed in, signed
+  // out). `syncResult` is reserved for successful sync round-trips so
+  // the success banner doesn't fight with auth-flow copy. Both clear
+  // on a fresh sync attempt.
   const [status, setStatus] = useState<string | undefined>(undefined);
+  const [syncResult, setSyncResult] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
 
   const load = useCallback(async () => {
@@ -91,11 +98,14 @@ export default function SettingsScreen() {
     if (syncing) return;
     setSyncing(true);
     setError(undefined);
-    setStatus("Syncing…");
+    setSyncResult(undefined);
+    setStatus(undefined);
     try {
       const res = await runSync();
       setLastSyncedAt(res.updatedAt);
-      setStatus(res.merged ? "Synced — merged cloud changes." : "Synced to cloud.");
+      setSyncResult(
+        res.merged ? "Merged changes from the cloud." : "Pushed to the cloud.",
+      );
     } catch (err) {
       if (err instanceof SyncAuthError) {
         setSignedIn(false);
@@ -297,6 +307,9 @@ export default function SettingsScreen() {
           </View>
         )}
 
+        {syncResult ? (
+          <SyncSuccessBanner key={lastSyncedAt} message={syncResult} />
+        ) : null}
         {status ? (
           <Text style={{ marginTop: 14, fontSize: 12, color: T.gold }}>{status}</Text>
         ) : null}
@@ -362,6 +375,71 @@ function Field({ label, value }: { label: string; value: string }) {
       <Text style={{ fontSize: 13, color: T.ink3 }}>{label}</Text>
       <Text style={{ fontSize: 13, color: T.ink, flexShrink: 1, textAlign: "right" }}>{value}</Text>
     </View>
+  );
+}
+
+/**
+ * Card-style success banner shown after a sync resolves. Replaces a
+ * single line of gold text that was easy to miss for sub-second
+ * syncs. Animated in with the native driver so it feels distinct from
+ * the rest of the page; remount via `key={lastSyncedAt}` (parent)
+ * restarts the animation for back-to-back syncs.
+ */
+function SyncSuccessBanner({ message }: { message: string }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(anim, {
+      toValue: 1,
+      duration: 320,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [anim]);
+
+  return (
+    <Animated.View
+      style={{
+        marginTop: 14,
+        padding: 12,
+        borderRadius: 10,
+        backgroundColor: T.goldSoft,
+        borderWidth: 1,
+        borderColor: T.goldEdge,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+        opacity: anim,
+        transform: [
+          {
+            translateY: anim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [-6, 0],
+            }),
+          },
+        ],
+      }}
+    >
+      <View
+        style={{
+          width: 26,
+          height: 26,
+          borderRadius: 13,
+          backgroundColor: T.gold,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Glyph name="spark" size={14} color="#1a1108" />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 13, fontWeight: "700", color: T.gold }}>
+          Synced
+        </Text>
+        <Text style={{ fontSize: 12, color: T.gold, opacity: 0.85, marginTop: 1 }}>
+          {message}
+        </Text>
+      </View>
+    </Animated.View>
   );
 }
 

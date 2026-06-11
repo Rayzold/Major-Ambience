@@ -16,6 +16,13 @@ export type SyncSettingsProps = {
   lastSyncedAt?: number;
   syncing: boolean;
   error?: string;
+  /**
+   * Short result line shown after a sync resolves. Kept separate from
+   * `error` so the modal can render a green-success banner without
+   * eating the red-error one. Cleared by the caller when the next sync
+   * starts or the modal closes.
+   */
+  syncResult?: string;
   onRequestLink: (email: string) => void;
   onVerify: (code: string) => void;
   onSyncNow: () => void;
@@ -71,6 +78,63 @@ const ghostBtn: React.CSSProperties = {
   border: `1px solid ${T.rule}`,
 };
 
+/**
+ * In-modal banner shown after a successful sync. Used to be a 4.5s
+ * corner toast the user could easily miss while looking at the
+ * modal — this version sits where they're already looking and stays
+ * until the next sync or a modal close-and-reopen.
+ *
+ * Animated entrance keeps a sub-second sync from looking like a
+ * silent no-op. Remounting via `key={lastSyncedAt}` (parent) restarts
+ * the animation for back-to-back syncs.
+ */
+function SuccessBanner({ message }: { message: string }) {
+  return (
+    <div
+      style={{
+        marginBottom: 12,
+        padding: "10px 12px",
+        borderRadius: 9,
+        background: T.goldSoft,
+        border: `1px solid ${T.goldEdge}`,
+        color: T.gold,
+        fontSize: 12,
+        lineHeight: 1.5,
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        animation: "mc-sync-banner-in 360ms ease-out 1",
+      }}
+    >
+      <Glyph name="spark" size={13} />
+      <span style={{ flex: 1 }}>{message}</span>
+    </div>
+  );
+}
+
+/**
+ * One-time keyframe definitions for the sync feedback animations.
+ * Inlined via a `<style>` tag rather than the global stylesheet so
+ * the rules ship with the component that uses them — easy to delete
+ * if the polish ever moves elsewhere. Idempotent: identical rules
+ * with the same name from multiple mounts collapse into one.
+ */
+function SyncFeedbackKeyframes() {
+  return (
+    <style>{`
+      @keyframes mc-sync-banner-in {
+        from { opacity: 0; transform: translateY(-4px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes mc-sync-pulse {
+        0%   { background: transparent; }
+        20%  { background: var(--mc-goldSoft, ${T.goldSoft}); }
+        100% { background: transparent; }
+      }
+    `}</style>
+  );
+}
+
 export function SyncSettings({
   signedIn,
   accountEmail,
@@ -79,6 +143,7 @@ export function SyncSettings({
   lastSyncedAt,
   syncing,
   error,
+  syncResult,
   onRequestLink,
   onVerify,
   onSyncNow,
@@ -170,6 +235,7 @@ export function SyncSettings({
             accountEmail={accountEmail}
             lastSyncedAt={lastSyncedAt}
             syncing={syncing}
+            syncResult={syncResult}
             labelDraft={labelDraft}
             onLabelDraft={setLabelDraft}
             onCommitLabel={() => onSetDeviceLabel(labelDraft)}
@@ -349,6 +415,7 @@ function SignedInBody(props: {
   accountEmail: string | undefined;
   lastSyncedAt: number | undefined;
   syncing: boolean;
+  syncResult: string | undefined;
   labelDraft: string;
   onLabelDraft: (v: string) => void;
   onCommitLabel: () => void;
@@ -359,14 +426,23 @@ function SignedInBody(props: {
     accountEmail,
     lastSyncedAt,
     syncing,
+    syncResult,
     labelDraft,
     onLabelDraft,
     onCommitLabel,
     onSyncNow,
     onSignOut,
   } = props;
+
+  // Re-mount the success banner whenever a fresh sync resolves so the
+  // CSS slide-in fires again — without this, a second back-to-back
+  // sync would leave the same banner sitting there silently. The same
+  // key drives the "Last synced" pulse so both feedbacks stay in sync.
+  const successKey = syncResult && !syncing ? lastSyncedAt ?? 0 : 0;
+
   return (
     <div>
+      <SyncFeedbackKeyframes />
       <div
         style={{
           background: T.bgChip,
@@ -384,11 +460,26 @@ function SignedInBody(props: {
         </div>
         <div>
           <span style={{ color: T.ink3 }}>Last synced</span>{" "}
-          <span style={{ color: T.ink }}>
+          <span
+            key={`last-${successKey}`}
+            style={{
+              color: T.ink,
+              borderRadius: 4,
+              padding: "1px 4px",
+              margin: "0 -4px",
+              animation: successKey
+                ? "mc-sync-pulse 1.6s ease-out 1"
+                : undefined,
+            }}
+          >
             {lastSyncedAt !== undefined ? formatRelative(lastSyncedAt) : "never"}
           </span>
         </div>
       </div>
+
+      {syncResult && !syncing ? (
+        <SuccessBanner key={`banner-${successKey}`} message={syncResult} />
+      ) : null}
 
       <label style={{ fontSize: 11, color: T.ink3, display: "block", marginBottom: 4 }}>
         Device name
