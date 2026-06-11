@@ -1,8 +1,13 @@
 // Initiative tracker. Add combatants with initiative + condition + optional
 // turn-sound track. Sort descending. Cycle turns. On turn advance, the new
 // active combatant's turn sound (if any) fires via the soundboard bus.
+//
+// "Roll all" rolls d20 + each combatant's `initiativeMod` and re-sorts —
+// the second-battle workflow. Per-combatant modifier is set once (click
+// the small mod chip under the init number); future battles are one
+// click of the dice button in the footer.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Track } from "@mc/core";
 import { findCategory, Glyph, T } from "@mc/ui";
 
@@ -10,6 +15,12 @@ export type Combatant = {
   id: string;
   name: string;
   initiative: number;
+  /**
+   * d20 modifier used by "Roll all" (next-battle re-roll). Optional —
+   * older persisted combatants (pre-0.0.32) won't have it; treated as
+   * 0 when rolling.
+   */
+  initiativeMod?: number;
   condition: string;
   /** Current / max hit points + armor class. All optional — older
    *  persisted combatants (pre-0.0.25) simply won't have them. */
@@ -18,6 +29,16 @@ export type Combatant = {
   ac?: number;
   turnSoundTrackId?: string;
 };
+
+/** Roll a d20. Module-level so tests can spy / replace if needed. */
+function rollD20(): number {
+  return 1 + Math.floor(Math.random() * 20);
+}
+
+/** Format a modifier as `+5`, `-1`, `+0`. */
+function formatMod(n: number): string {
+  return n >= 0 ? `+${n}` : `${n}`;
+}
 
 export type InitiativeTrackerProps = {
   combatants: Combatant[];
@@ -104,6 +125,22 @@ export function InitiativeTracker({
 
   function clear() {
     onChange([]);
+    onTurnChange(0);
+  }
+
+  /**
+   * Re-roll initiative for every combatant: d20 + initiativeMod. Used
+   * at the start of a new battle so the GM doesn't have to retype the
+   * roster. Resets the turn cursor to the new top of the order.
+   */
+  function rollAll() {
+    if (combatants.length === 0) return;
+    onChange(
+      combatants.map((c) => ({
+        ...c,
+        initiative: rollD20() + (c.initiativeMod ?? 0),
+      })),
+    );
     onTurnChange(0);
   }
 
@@ -275,21 +312,63 @@ export function InitiativeTracker({
                   down ? "#d96666" : isActive ? T.gold : "transparent"
                 }`,
                 display: "grid",
-                gridTemplateColumns: "30px 1fr 78px 42px 28px 24px",
+                gridTemplateColumns: "44px 1fr 78px 42px 28px 24px",
                 gap: 8,
                 alignItems: "center",
               }}
             >
               <div
-                className="mc-mono"
                 style={{
-                  fontSize: 16,
-                  fontWeight: 600,
-                  color: isActive ? T.gold : T.ink2,
-                  textAlign: "center",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 1,
+                  minWidth: 0,
                 }}
               >
-                {c.initiative}
+                {/* Big roll total — click to edit. */}
+                <EditableNumber
+                  value={c.initiative}
+                  onCommit={(n) => update(c.id, { initiative: n })}
+                  placeholder="—"
+                  title="Initiative — click to edit"
+                  style={{
+                    width: "100%",
+                    background: "transparent",
+                    border: 0,
+                    outline: "none",
+                    color: isActive ? T.gold : T.ink2,
+                    fontFamily: "Geist Mono, monospace",
+                    fontSize: 16,
+                    fontWeight: 600,
+                    textAlign: "center",
+                    padding: 0,
+                    cursor: "text",
+                  }}
+                />
+                {/* Modifier chip — small, gold-soft, click to edit.
+                    Drives the "Roll all" footer button. */}
+                <EditableNumber
+                  value={c.initiativeMod ?? 0}
+                  onCommit={(n) => update(c.id, { initiativeMod: n })}
+                  signed
+                  title="Initiative modifier — added to the d20 on Roll all"
+                  style={{
+                    width: 36,
+                    minWidth: 0,
+                    background: T.bgChip,
+                    border: `1px solid ${T.rule}`,
+                    borderRadius: 4,
+                    color: T.ink3,
+                    fontFamily: "Geist Mono, monospace",
+                    fontSize: 9,
+                    fontWeight: 600,
+                    textAlign: "center",
+                    padding: "1px 2px",
+                    outline: "none",
+                    cursor: "text",
+                  }}
+                />
               </div>
               <div style={{ minWidth: 0 }}>
                 <div
@@ -424,13 +503,33 @@ export function InitiativeTracker({
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
+            gap: 8,
             fontSize: 11,
             color: T.ink3,
           }}
         >
-          <span>
+          <span style={{ flex: 1, minWidth: 0 }}>
             Click the speaker on a row to pick its turn sound.
           </span>
+          <button
+            onClick={rollAll}
+            title="Re-roll initiative for everyone (d20 + each modifier)"
+            style={{
+              padding: "4px 10px",
+              borderRadius: 6,
+              background: T.goldSoft,
+              border: `1px solid ${T.goldEdge}`,
+              color: T.gold,
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+            }}
+          >
+            <Glyph name="dice" size={12} /> Roll initiative
+          </button>
           <button
             onClick={clear}
             style={{
@@ -447,6 +546,84 @@ export function InitiativeTracker({
         </div>
       ) : null}
     </Panel>
+  );
+}
+
+/**
+ * Inline editable number cell. Shows the value as static text until
+ * focused; then becomes an input that commits on blur or Enter.
+ * `signed` formats with a leading `+`/`-` (used by the modifier chip).
+ * Reverts to the last committed value on Escape.
+ */
+function EditableNumber({
+  value,
+  onCommit,
+  signed = false,
+  placeholder,
+  title,
+  style,
+}: {
+  value: number;
+  onCommit: (n: number) => void;
+  signed?: boolean;
+  placeholder?: string;
+  title?: string;
+  style?: React.CSSProperties;
+}) {
+  const formatted = signed ? formatMod(value) : String(value);
+  const [draft, setDraft] = useState(formatted);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  // Keep the draft in sync with prop changes the user didn't cause —
+  // e.g. "Roll all" updates `value` while this cell isn't focused.
+  useEffect(() => {
+    if (document.activeElement !== inputRef.current) {
+      setDraft(formatted);
+    }
+  }, [formatted]);
+
+  function commit() {
+    const trimmed = draft.trim();
+    // Empty input on a signed chip means "set to 0"; on the big roll
+    // total it also means 0 — both treat an empty cell as a literal 0
+    // rather than leaving the previous value, which would feel
+    // unresponsive after explicit clearing.
+    if (trimmed === "" || trimmed === "+" || trimmed === "-") {
+      onCommit(0);
+      setDraft(signed ? "+0" : "0");
+      return;
+    }
+    const n = Number(trimmed);
+    if (!Number.isFinite(n)) {
+      // Bad input — restore the last committed value.
+      setDraft(formatted);
+      return;
+    }
+    const intN = Math.trunc(n);
+    onCommit(intN);
+    setDraft(signed ? formatMod(intN) : String(intN));
+  }
+
+  return (
+    <input
+      ref={inputRef}
+      value={draft}
+      onChange={(e) => setDraft(e.currentTarget.value)}
+      onFocus={(e) => e.currentTarget.select()}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.currentTarget.blur();
+        } else if (e.key === "Escape") {
+          setDraft(formatted);
+          e.currentTarget.blur();
+        }
+      }}
+      placeholder={placeholder}
+      inputMode="numeric"
+      title={title}
+      style={style}
+    />
   );
 }
 
