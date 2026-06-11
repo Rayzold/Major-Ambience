@@ -12,6 +12,33 @@ Earlier: **mobile reached full desktop parity** for the v0.x feature set — DM 
 
 ---
 
+## [0.0.31] — 2026‑06‑11 — Fix the "Converting circular structure to JSON" scan toast
+
+Pins the cryptic scan-failure toast that surfaced once in the 2026‑06‑03 session. The message read:
+
+> Scan failed: Converting circular structure to JSON ─→ starting at object with constructor 'HTMLBu...'
+
+The "HTMLBu…" truncation was `HTMLButtonElement` — i.e. the Open Folder button itself.
+
+> Desktop-only release: bumps `apps/desktop/package.json` / `tauri.conf.json` / `Cargo.toml` 0.0.30 → 0.0.31. Mobile untouched.
+
+### What was happening
+
+`Library.tsx` rendered `<DesktopHeader onOpenFolder={handleOpenFolder} … />`. Upstream, `onOpenFolder` is typed `() => void`, but `handleOpenFolder` actually takes an optional `forcedPath: string`. `DesktopHeader` then wired the prop straight onto a `<button onClick={onOpenFolder}>`, so React invoked it with the `MouseEvent` as the first argument. That event satisfied the truthy `if (forcedPath)` branch, got piped through `scanFolderToTracks` into `invoke("scan_folder", { path: forcedPath })`, and Tauri's IPC serializer crashed trying to JSON-stringify the event — `MouseEvent.currentTarget` is the `HTMLButtonElement` and carries circular refs back through the DOM tree.
+
+### Fix
+
+- **Call site** (`apps/desktop/src/Library.tsx`): wrap so the bare reference doesn't leak the event in — `onOpenFolder={() => void handleOpenFolder()}`. Matches the pattern the rescan branch was already using.
+- **Defensive guard** (`handleOpenFolder` itself): swap `if (forcedPath)` for `if (typeof forcedPath === "string" && forcedPath.length > 0)`. Any future caller that hands the function to an event handler — and any other non-string slips through — falls back to the picker dialog instead of crashing the IPC. Comment at the call site documents why.
+
+### Verification
+
+- `pnpm -r typecheck` — clean (6 of 6 projects).
+- `pnpm -r test` — 228/228 (no test deltas; one-liner behavioural fix in an event boundary the renderer doesn't expose for unit testing).
+- Manual: click the gold Folder button in the header → dialog opens correctly (used to crash before reaching the dialog if the bug fired).
+
+---
+
 ## [0.0.30 / mobile 0.0.25] — 2026‑06‑10 — Cloud sync feedback polish
 
 Closes the "Cloud Sync feedback is too subtle" follow-up from the 2026‑06‑03 handoff. Sub-second syncs used to land with only a button label flip and a corner toast that vanished after 4.5s; the modal you were looking at gave you nothing. Now there's a sticky success banner sitting *inside* the modal, plus a small pulse on the "Last synced" line so the time update is visible.
