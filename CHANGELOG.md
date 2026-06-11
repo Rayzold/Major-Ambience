@@ -12,6 +12,35 @@ Earlier: **mobile reached full desktop parity** for the v0.x feature set — DM 
 
 ---
 
+## [0.0.32] — 2026‑06‑11 — Initiative tracker: per-combatant modifier + Roll all
+
+The next-battle workflow used to mean retyping every combatant. Now you set each combatant's d20 modifier once; one click re-rolls the whole party.
+
+> Desktop-only release: bumps `apps/desktop/package.json` / `tauri.conf.json` / `Cargo.toml` 0.0.31 → 0.0.32. Mobile untouched (mobile DM Toolkit Initiative is on the same Combatant shape and inherits the new field as forward-compatible data — the UI mirror lands in a follow-up).
+
+### Added — `apps/desktop/src/layout/dm/InitiativeTracker.tsx`
+
+- New optional `initiativeMod?: number` on `Combatant`. Older persisted combatants (pre-0.0.32) simply won't have it; treated as 0 when rolling.
+- **Inline-editable initiative.** The big roll total on each row is now an `EditableNumber`: click → type → Enter (or blur) to commit. Escape reverts. Empty commits as 0 so an explicit clear feels responsive.
+- **Modifier chip** below each row's initiative number. Same edit pattern, formatted with leading `+`/`-` (`+5`, `-1`, `+0`). Persisted alongside the rest of the combatant record.
+- **"Roll initiative"** button in the footer (next to Clear all), gold-soft with a dice glyph. Re-rolls d20 + each combatant's modifier and resets the turn cursor to the new top of the order. No-op when the roster is empty.
+
+### Layout
+
+- Left column widened 30px → 44px to fit the stacked init + mod controls. The rest of the grid (`1fr 78px 42px 28px 24px`) is unchanged, so HP / AC / speaker / remove keep their existing footprint.
+
+### Verification
+
+- `pnpm -r typecheck` — clean (6 of 6 projects).
+- `pnpm -r test` — 228/228 (no test deltas; UI-only).
+- Manual smoke (Vite HMR in the running dev shell):
+  - Add two combatants with raw init numbers → click each one's mod chip, set +5 / -1 → hit Roll initiative → both rows re-roll, list re-sorts, turn cursor lands on the new top.
+  - Click an init number → type → Enter → row resorts to the right place.
+  - Escape during edit reverts to the last committed number.
+  - Empty an init field then blur → commits as 0.
+
+---
+
 ## [0.0.31] — 2026‑06‑11 — Fix the "Converting circular structure to JSON" scan toast
 
 Pins the cryptic scan-failure toast that surfaced once in the 2026‑06‑03 session. The message read:
