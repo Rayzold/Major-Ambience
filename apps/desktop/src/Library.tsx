@@ -868,10 +868,19 @@ export function Library() {
    * Scan a folder and ingest its tracks. When `forcedPath` is omitted,
    * opens a folder picker; when supplied (rescan + drag-drop), skips the
    * dialog and goes straight to scanning.
+   *
+   * The `typeof` guard is load-bearing: if a caller hands this to a DOM
+   * event handler directly (e.g. `onClick={handleOpenFolder}`), React
+   * passes the MouseEvent as the first arg. That event would otherwise
+   * fall through as a truthy `forcedPath`, hit the Tauri `invoke()`
+   * below, and crash inside the IPC serializer with the cryptic
+   * "Converting circular structure to JSON ─→ starting at object with
+   * constructor 'HTMLButtonElement'" toast. Caught one instance at
+   * the DesktopHeader call site; this guard prevents the next one.
    */
   const handleOpenFolder = useCallback(async (forcedPath?: string) => {
     let picked: string | null;
-    if (forcedPath) {
+    if (typeof forcedPath === "string" && forcedPath.length > 0) {
       picked = forcedPath;
     } else {
       setScanStatus("Picking folder…");
@@ -2002,7 +2011,12 @@ export function Library() {
         tab={tab}
         onTabChange={setTab}
         trackCount={tracks.length}
-        onOpenFolder={handleOpenFolder}
+        // Wrap so React's onClick MouseEvent doesn't leak in as
+        // `forcedPath`. `onOpenFolder` is typed `() => void` upstream
+        // but `handleOpenFolder` takes an optional string — passing
+        // the bare reference would propagate the MouseEvent into the
+        // Tauri IPC and crash the serializer.
+        onOpenFolder={() => void handleOpenFolder()}
         searchQuery={searchQuery}
         onSearchChange={(q) => {
           setSearchQuery(q);
