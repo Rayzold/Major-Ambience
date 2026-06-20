@@ -12,6 +12,32 @@ Earlier: **mobile reached full desktop parity** for the v0.x feature set — DM 
 
 ---
 
+## [0.0.33] — 2026‑06‑20 — Fix scrubber flicker — seek now actually seeks
+
+Clicking the progress bar to scrub to a different position used to make the bar flicker and snap back to where the song was — the audio never moved. Now it does, instantly.
+
+> Desktop-only release: bumps `apps/desktop/package.json` / `tauri.conf.json` / `Cargo.toml` 0.0.32 → 0.0.33. Mobile untouched.
+
+### Root cause
+
+The Web Audio backend was loading audio via `audio.src = convertFileSrc(track.uri)`, which on desktop resolves to `https://asset.localhost/<encoded-path>` — Tauri 2's asset protocol. Chromium's media stack on Windows/WebView2 doesn't accept the Range responses that custom protocol serves, so once a track was past its initial buffered window, assigning `audio.currentTime = X` was silently rejected. The `timeupdate` event then fired back with the OLD position; React snapped the bar back. That visible round-trip is the flicker.
+
+The clamp logic in `Library.handleSeek` and the click-ratio math in `DesktopTransport.handleScrubClick` were both correct — the bug was lower, in how the media element loaded its source.
+
+### Fix — `packages/core/src/audio/web-audio-backend.ts`
+
+- `loadTrack` now `fetch(uri).then(r => r.blob())` and uses `URL.createObjectURL(blob)` as the `audio.src`. Blob URLs are fully in-memory; seeks resolve against local data, instant and reliable. The asset-protocol Range issue is bypassed entirely because the media element no longer talks to the protocol — it reads the Blob directly.
+- `InternalHandle` gains `objectUrl: string`. `destroy()` revokes it so the ~5-10 MB of decoded audio doesn't sit in memory waiting for GC. Max two handles alive at a time (current + crossfade target) ≈ ~20 MB ceiling.
+- Falls back to the bare `uri` assignment if `fetch` rejects (e.g. cross-origin tests against happy-dom) — the seek bug is then back, but loading still works. Production Tauri runtime always hits the fetch path.
+
+### Verification
+
+- `pnpm -r typecheck` — clean (6 of 6 projects).
+- `pnpm -r test` — 250/250 (228 core + 22 sync). No new tests; happy-dom can't simulate the asset-protocol failure that gates this bug.
+- Manual (release-mode binary): click various positions on the progress bar during playback → song jumps to the new position, bar stays put, no flicker. Click near the end → still works.
+
+---
+
 ## [0.0.32] — 2026‑06‑11 — Initiative tracker: per-combatant modifier + Roll all
 
 The next-battle workflow used to mean retyping every combatant. Now you set each combatant's d20 modifier once; one click re-rolls the whole party.

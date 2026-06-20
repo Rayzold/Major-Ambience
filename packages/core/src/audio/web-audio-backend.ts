@@ -24,6 +24,17 @@ type InternalHandle = TrackHandle & {
   endedListeners: Set<() => void>;
   progressListeners: Set<(t: number) => void>;
   destroyed: boolean;
+  /**
+   * Object URL backing `audio.src`. Created in `loadTrack` from a Blob
+   * fetched off the source URI, revoked on `destroy`. The Blob detour
+   * exists because Tauri's `https://asset.localhost` protocol doesn't
+   * answer Range requests in a way Chromium's media stack accepts on
+   * Windows — so direct seeks silently no-op and the scrubber jumps
+   * back to the old position. With a fully-buffered Blob URL, seeks
+   * resolve instantly against in-memory data. Empty string when the
+   * uri was used directly (non-fetch-able source).
+   */
+  objectUrl: string;
 };
 
 let handleCounter = 0;
@@ -91,8 +102,35 @@ export class WebAudioBackend implements AudioBackend {
       });
     }
 
+    // Fetch the source as a Blob, then play from an Object URL. Direct
+    // `audio.src = uri` against Tauri's asset protocol leaves the media
+    // element unable to seek past whatever's already streamed (Chromium
+    // on Windows rejects the Range responses from the custom protocol),
+    // which surfaces as a scrubber that flickers and snaps back to the
+    // old position on click. A Blob URL is fully in-memory so seeks
+    // resolve against local data — instant and reliable. Local audio
+    // files are small (~5-10 MB at typical bitrates), max two handles
+    // alive at a time (current + crossfade target) ≈ ~20 MB ceiling.
+    //
+    // Falls back to the bare uri if `fetch` rejects (e.g. cross-origin
+    // tests) — the seek bug is then back, but at least loading still
+    // works. Vitest sees this path through happy-dom which lacks the
+    // asset protocol entirely.
+    let srcUrl = uri;
+    let objectUrl = "";
+    try {
+      const response = await fetch(uri);
+      if (response.ok) {
+        const blob = await response.blob();
+        objectUrl = URL.createObjectURL(blob);
+        srcUrl = objectUrl;
+      }
+    } catch {
+      /* swallow — fall back to bare uri assignment */
+    }
+
     const audio = new Audio();
-    audio.src = uri;
+    audio.src = srcUrl;
     audio.preload = "auto";
     audio.crossOrigin = "anonymous";
 
@@ -115,6 +153,7 @@ export class WebAudioBackend implements AudioBackend {
       endedListeners: new Set(),
       progressListeners: new Set(),
       destroyed: false,
+      objectUrl,
     };
 
     audio.addEventListener("ended", () => {
@@ -179,6 +218,16 @@ export class WebAudioBackend implements AudioBackend {
       h.audio.load();
     } catch {
       /* swallow */
+    }
+    // Release the Blob backing this handle so the underlying ~5-10 MB
+    // of decoded audio doesn't sit in memory until GC. Empty string
+    // means the fetch fallback path didn't allocate one.
+    if (h.objectUrl) {
+      try {
+        URL.revokeObjectURL(h.objectUrl);
+      } catch {
+        /* swallow */
+      }
     }
     try {
       h.source.disconnect();
