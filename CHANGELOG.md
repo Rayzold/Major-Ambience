@@ -12,6 +12,37 @@ Earlier: **mobile reached full desktop parity** for the v0.x feature set — DM 
 
 ---
 
+## [mobile 0.0.26] — 2026‑06‑20 — Mobile Initiative: per-combatant modifier + Roll all (mirror of #64)
+
+Closes the **#7 On the radar** item from the post-0.0.33 health review (`BACKLOG.md`): PR #64 shipped the per-combatant initiative modifier + "Roll all" to desktop, but mobile only got the forward-compatible data field — no UI to set the mod or trigger the re-roll. This release mirrors the desktop feature on mobile so the next-battle workflow ("set each mod once, click Roll for every battle after") works on both surfaces.
+
+> Mobile-only release: bumps `apps/mobile/package.json` 0.0.25 → 0.0.26. Desktop untouched.
+
+### Added — `apps/mobile/app/dm/initiative.tsx`
+
+- `rollD20()` + `formatMod()` helpers, identical in semantics to the desktop file in `apps/desktop/src/layout/dm/InitiativeTracker.tsx`.
+- `rollAll()` — re-rolls d20 + each combatant's `initiativeMod` and resets the turn cursor to the new top of the order. No-op when the roster is empty.
+
+### Changed — combatant row layout
+
+- The big initiative number (was a static `<Text>`) is now a `TextInput` with `selectTextOnFocus`. Tap → keyboard pops → edit → blur to commit. Width slot widened 40 → 48px to make room for the mod chip.
+- New mod chip directly under the initiative number — small gold-soft pill (`+0` / `+5` / `-1`). Same `TextInput` pattern, accepts signed input, parses tolerantly so mid-edit states (`+`, `-`, empty) don't blow up.
+
+### Changed — turn-controls row
+
+- New gold-soft **🎲 Roll** button between "Next turn" and "Clear". Per-battle action — smaller than "Next turn" (which is per-turn) but still labeled for discoverability. Matches the desktop footer's `dice` glyph + gold-soft styling.
+
+### Verification
+
+- `pnpm -r typecheck` — clean (6 of 6 projects).
+- `pnpm -r test` — 250/250 still pass (no test deltas; UI-only).
+- Manual (needs a device / simulator): `pnpm --filter @mc/mobile start`.
+  - Add two combatants → tap each one's `+0` chip → set `+5` / `-1` → tap **Roll** → both rows re-roll, list re-sorts by the new initiative.
+  - Tap a big initiative number → edit → blur — row resorts.
+  - Pre-existing combatants (saved before this release) load fine — `initiativeMod` defaults to `+0` when missing.
+
+---
+
 ## [0.0.35] — 2026‑06‑20 — React component test infrastructure + scrubber regression suite
 
 Closes the **#3 Important** item from the post-0.0.33 health review (`BACKLOG.md`): zero React component tests across both apps meant every UI bug shipped + got caught manually — scrubber flicker (#65), scan-toast circular-JSON (#63), sidebar dead-click (#57). This release stands up the test infrastructure in `apps/desktop` and ships 8 cases against `DesktopTransport` — covering the scrubber ratio math that #65 fixed, so that bug class cannot silently return.

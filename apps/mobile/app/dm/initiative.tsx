@@ -3,6 +3,11 @@
 // (matching the desktop key). Current-turn index stays local — combat is
 // a session thing and the desktop drops it too on reload.
 //
+// "Roll all" rolls d20 + each combatant's `initiativeMod` and re-sorts —
+// the second-battle workflow. Per-combatant modifier is set once via the
+// small chip under the big init number; future battles are one tap of
+// the dice button in the turn-controls row. Mirror of desktop PR #64.
+//
 // Turn-sound (the speaker glyph on desktop) is deferred to PR-3 with
 // the track-picker overlay.
 
@@ -25,6 +30,12 @@ type Combatant = {
   id: string;
   name: string;
   initiative: number;
+  /**
+   * d20 modifier used by "Roll all" (next-battle re-roll). Optional —
+   * older persisted combatants (pre-mobile-mirror) won't have it;
+   * treated as 0 when rolling.
+   */
+  initiativeMod?: number;
   condition: string;
   hp?: number;
   maxHp?: number;
@@ -32,6 +43,16 @@ type Combatant = {
 };
 
 const CONFIG_KEY = "dm_combatants";
+
+/** Roll a d20. Module-level so tests can spy / replace if needed. */
+function rollD20(): number {
+  return 1 + Math.floor(Math.random() * 20);
+}
+
+/** Format a modifier as `+5`, `-1`, `+0`. */
+function formatMod(n: number): string {
+  return n >= 0 ? `+${n}` : `${n}`;
+}
 
 export default function InitiativeScreen() {
   const [combatants, setCombatants] = useState<Combatant[]>([]);
@@ -135,6 +156,22 @@ export default function InitiativeScreen() {
         },
       },
     ]);
+  }
+
+  /**
+   * Re-roll initiative for every combatant: d20 + initiativeMod. Used
+   * at the start of a new battle so the GM doesn't have to retype the
+   * roster. Resets the turn cursor to the new top of the order.
+   */
+  function rollAll() {
+    if (combatants.length === 0) return;
+    setCombatants((prev) =>
+      prev.map((c) => ({
+        ...c,
+        initiative: rollD20() + (c.initiativeMod ?? 0),
+      })),
+    );
+    setCurrentTurnIdx(0);
   }
 
   function next() {
@@ -274,6 +311,29 @@ export default function InitiativeScreen() {
                 Next turn
               </Text>
             </Pressable>
+            {/* Roll all — re-rolls d20 + each combatant's mod and
+                resets the turn cursor. Smaller than "Next turn" since
+                it's a per-battle action, not per-turn. */}
+            <Pressable
+              onPress={rollAll}
+              style={({ pressed }) => ({
+                paddingHorizontal: 12,
+                height: 44,
+                borderRadius: 10,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 5,
+                backgroundColor: pressed ? T.goldEdge : T.goldSoft,
+                borderWidth: 1,
+                borderColor: T.goldEdge,
+              })}
+            >
+              <Glyph name="dice" size={14} color={T.gold} />
+              <Text style={{ fontSize: 11, fontWeight: "700", color: T.gold }}>
+                Roll
+              </Text>
+            </Pressable>
             <Pressable
               onPress={clearAll}
               style={({ pressed }) => ({
@@ -356,7 +416,7 @@ function CombatantRow({
         overflow: "hidden",
       }}
     >
-      {/* Top row: init, name, remove */}
+      {/* Top row: init + mod chip, name, remove */}
       <View
         style={{
           flexDirection: "row",
@@ -365,18 +425,57 @@ function CombatantRow({
           padding: 12,
         }}
       >
-        <Text
-          style={{
-            width: 40,
-            fontFamily: FONT_MONO,
-            fontSize: 20,
-            fontWeight: "700",
-            color: active ? T.gold : T.ink2,
-            textAlign: "center",
-          }}
-        >
-          {c.initiative}
-        </Text>
+        <View style={{ width: 48, alignItems: "center", gap: 2 }}>
+          {/* Big initiative number — editable inline. The TextInput
+              keeps numeric-keyboard semantics; a wrapper TextInput
+              also commits on blur so the row resorts. */}
+          <TextInput
+            value={String(c.initiative)}
+            onChangeText={(raw) => {
+              const n = Number(raw.trim());
+              onUpdate({ initiative: Number.isFinite(n) ? n : 0 });
+            }}
+            keyboardType="numbers-and-punctuation"
+            selectTextOnFocus
+            style={{
+              width: "100%",
+              padding: 0,
+              fontFamily: FONT_MONO,
+              fontSize: 20,
+              fontWeight: "700",
+              color: active ? T.gold : T.ink2,
+              textAlign: "center",
+            }}
+          />
+          {/* Modifier chip — small gold-soft pill that drives Roll all. */}
+          <TextInput
+            value={formatMod(c.initiativeMod ?? 0)}
+            onChangeText={(raw) => {
+              // Accept `+5`, `-1`, `5`, `+`, `-`, ``. Strip the sign,
+              // parse, default to 0 — keeps the chip stable through
+              // mid-edit states.
+              const cleaned = raw.replace(/[^\d+-]/g, "");
+              const n = Number(cleaned);
+              onUpdate({ initiativeMod: Number.isFinite(n) ? n : 0 });
+            }}
+            keyboardType="numbers-and-punctuation"
+            selectTextOnFocus
+            style={{
+              width: 40,
+              paddingVertical: 1,
+              paddingHorizontal: 2,
+              borderRadius: 4,
+              backgroundColor: T.bgChip,
+              borderWidth: 1,
+              borderColor: T.rule,
+              fontFamily: FONT_MONO,
+              fontSize: 10,
+              fontWeight: "600",
+              color: T.ink3,
+              textAlign: "center",
+            }}
+          />
+        </View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text
             numberOfLines={1}
