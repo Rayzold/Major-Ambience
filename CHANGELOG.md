@@ -12,6 +12,34 @@ Earlier: **mobile reached full desktop parity** for the v0.x feature set — DM 
 
 ---
 
+## [0.0.35] — 2026‑06‑20 — React component test infrastructure + scrubber regression suite
+
+Closes the **#3 Important** item from the post-0.0.33 health review (`BACKLOG.md`): zero React component tests across both apps meant every UI bug shipped + got caught manually — scrubber flicker (#65), scan-toast circular-JSON (#63), sidebar dead-click (#57). This release stands up the test infrastructure in `apps/desktop` and ships 8 cases against `DesktopTransport` — covering the scrubber ratio math that #65 fixed, so that bug class cannot silently return.
+
+> Desktop-only release: bumps `apps/desktop/package.json` / `tauri.conf.json` / `Cargo.toml` 0.0.34 → 0.0.35. Mobile untouched (a mobile mirror with `@testing-library/react-native` is a separate follow-up).
+
+### Added — `apps/desktop` test infrastructure
+
+- `vitest` + `@testing-library/react` + `@testing-library/jest-dom` + `@testing-library/user-event` + `happy-dom` as devDependencies. happy-dom over jsdom for speed; the renderer never needs WebGL or canvas in tests.
+- `apps/desktop/vitest.config.ts` — env: happy-dom, globals on, setup file, picks up `src/**/*.test.{ts,tsx}`. React plugin from `@vitejs/plugin-react`.
+- `apps/desktop/src/test/setup.ts` — imports jest-dom matchers, stubs `window.__TAURI__` to a no-op object so components that reach for Tauri APIs at module load don't blow up, registers RTL `cleanup()` in `afterEach`.
+- `pnpm test` / `pnpm test:watch` scripts on the desktop package. Wires straight into the workspace `pnpm -r test` pipeline that CI already runs.
+
+### Added — `apps/desktop/src/layout/DesktopTransport.test.tsx`
+
+8 cases, two themes:
+
+- **Render shape (2)**: title appears, `m:ss` time formatting both for current + duration.
+- **Scrubber click regression for #65 (4)**: with a stubbed `getBoundingClientRect` (happy-dom returns zeros), a click at x=450 on a 50–850px bar correctly resolves to `onSeek(50)` against a 100s track; out-of-bounds clamps both ends; duration=0 ignores the click entirely.
+- **Transport button wiring (2)**: loop button + prev / next / stop-all fire their respective callbacks.
+
+### Verification
+
+- `pnpm -r typecheck` — clean (6 of 6 projects).
+- `pnpm -r test` — **250/250** (220 core + 22 sync + **8 new desktop**).
+
+---
+
 ## [0.0.34] — 2026‑06‑20 — Forensic diagnostics buffer + Copy diagnostics
 
 Closes the **#1 Critical** item from the post-0.0.33 health review: the silent-exit-during-playback bug has nowhere to leave a trace, so we can never debug it from a user report. This release ships an always-on in-memory log buffer that survives process restart via `localStorage`, captures structured audio events on the playback path, and exposes a one-click "Copy diagnostics" affordance in the Help menu. Next time the host dies mid-song, the user restarts, copies the dump, and we finally have a forensic record.
