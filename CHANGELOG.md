@@ -12,6 +12,35 @@ Earlier: **mobile reached full desktop parity** for the v0.x feature set — DM 
 
 ---
 
+## [0.0.36] — 2026‑06‑20 — Report-a-bug → GitHub issue with diag dump pre-filled
+
+Closes the **#11 Strategic** item from the post-0.0.33 health review (`BACKLOG.md`): when a user hit the audio crash there was no path from "broken app" to "report it" — they'd have to find the repo, remember to copy diagnostics, and paste it manually. This release wires a one-click **Report a bug** button into the Help menu that opens a GitHub-issue URL with the diag dump pre-filled, a friendly template, and the app version in the title.
+
+Builds directly on PR #67 (diag buffer); the new button is the obvious consumer of the dump.
+
+> Desktop-only release: bumps `apps/desktop/package.json` / `tauri.conf.json` / `Cargo.toml` 0.0.35 → 0.0.36. Mobile untouched.
+
+### Added — `apps/desktop/src/lib/diag.ts`
+
+- `getBugReportUrl()` builds a GitHub-issue URL via `URL`/`URLSearchParams` (handles encoding) targeting `Rayzold/Major-Ambience`. Title is `Bug — Major Ambience v0.0.36`; body is a template with two prompts ("What were you doing?" + "Expected behaviour?") followed by the diag dump in a collapsible `<details>` block.
+- Body truncated to 5500 chars, **keeping the tail** (most recent entries — the crash signature lives there). Truncation marker explicitly notes how much was dropped. 5500 chars leaves headroom for GitHub's ~8 KB URL ceiling after percent-encoding.
+
+### Changed — `apps/desktop/src/layout/TutorialsMenu.tsx`
+
+- Help section now has two buttons side-by-side: **Report a bug** (gold-soft, primary) + **Copy diag** (renamed from "Copy diagnostics", neutral). Report-a-bug is the happy path; Copy-diag is the fallback for when the browser can't be opened or the user wants to paste somewhere else.
+
+### Wired — `apps/desktop/src/Library.tsx`
+
+- New `onReportBug` handler: `openUrl(getBugReportUrl())` via `@tauri-apps/plugin-opener` (capability already declared in `default.json`). Errors land in the status-toast surface like every other action.
+
+### Verification
+
+- `pnpm -r typecheck` — clean (6 of 6 projects).
+- `pnpm -r test` — 250/250 (no test deltas; UI + URL builder are obviously correct from inspection — render test could be added later).
+- Manual (release-mode binary): kebab menu → Report a bug → default browser opens with a new-issue form pre-filled with title + body + diag dump in a collapsible block.
+
+---
+
 ## [mobile 0.0.26] — 2026‑06‑20 — Mobile Initiative: per-combatant modifier + Roll all (mirror of #64)
 
 Closes the **#7 On the radar** item from the post-0.0.33 health review (`BACKLOG.md`): PR #64 shipped the per-combatant initiative modifier + "Roll all" to desktop, but mobile only got the forward-compatible data field — no UI to set the mod or trigger the re-roll. This release mirrors the desktop feature on mobile so the next-battle workflow ("set each mod once, click Roll for every battle after") works on both surfaces.
