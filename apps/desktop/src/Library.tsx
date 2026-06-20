@@ -95,7 +95,8 @@ import {
 } from "./lib/cloud-sync.js";
 import { SyncAuthError } from "@mc/sync";
 import { useKeyboardShortcuts } from "./lib/keyboard.js";
-import { getDiagnosticsText, logEvent } from "./lib/diag.js";
+import { getBugReportUrl, getDiagnosticsText, logEvent } from "./lib/diag.js";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   firePad,
   isPadPlaying,
@@ -2260,6 +2261,23 @@ export function Library() {
           }}
           onExportSync={() => void handleExportSync()}
           onImportSync={() => void handleImportSyncPick()}
+          onReportBug={() => {
+            // Opens a GitHub-issue URL with the recent diag dump
+            // pre-filled. URL is built off the diag buffer the user
+            // has accumulated this session; they can still edit before
+            // submitting. openUrl goes through the system browser via
+            // the opener plugin (capability is in default.json).
+            void (async () => {
+              try {
+                await openUrl(getBugReportUrl());
+              } catch (err) {
+                setScanStatus(
+                  `Report failed: ${err instanceof Error ? err.message : String(err)}`,
+                );
+              }
+              setTutorialsMenu(null);
+            })();
+          }}
           onCopyDiagnostics={() => {
             // Clipboard write is async; the await keeps the toast and
             // the actual copy in lockstep. Failure swallows to a toast

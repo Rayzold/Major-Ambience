@@ -25,7 +25,7 @@
 
 const MAX_ENTRIES = 250;
 const LS_KEY = "mc:diag:ringbuffer:v1";
-const APP_VERSION = "0.0.33"; // wire to package.json import if it ever needs lockstep
+const APP_VERSION = "0.0.36"; // wire to package.json import if it ever needs lockstep
 
 export type DiagLevel = "info" | "warn" | "error" | "event";
 
@@ -209,4 +209,59 @@ export function clearDiagnostics(): void {
   } catch {
     /* swallow */
   }
+}
+
+// ─── Bug-report URL ────────────────────────────────────────────────────
+
+const GITHUB_ISSUES_NEW =
+  "https://github.com/Rayzold/Major-Ambience/issues/new";
+/**
+ * Maximum body size (chars) we'll pack into the issue URL. GitHub's
+ * total URL limit lands around 8 KB; this leaves headroom for the
+ * title, prefix template, and percent-encoding overhead (~3x for
+ * heavily-quoted dumps). If the diag dump is longer, we keep the
+ * tail (most recent entries) since those are the most useful for
+ * debugging — the crash signature usually lives there.
+ */
+const MAX_BODY_CHARS = 5500;
+
+const BUG_REPORT_TEMPLATE = `**What were you doing when this happened?**
+
+(write here — what action triggered it, what did you see on screen?)
+
+**Expected behaviour:**
+
+(what should have happened instead?)
+
+---
+
+<details>
+<summary>Diagnostics (auto-attached — last events in the app)</summary>
+
+\`\`\`
+{{DIAG}}
+\`\`\`
+
+</details>
+`;
+
+/**
+ * Build a GitHub-issue URL with the diagnostics dump pre-filled.
+ * Returns a single URL ready to hand to the opener plugin. The user
+ * can still edit everything before submitting — we're just removing
+ * the friction of finding the repo + remembering to paste the dump.
+ */
+export function getBugReportUrl(): string {
+  const fullDiag = getDiagnosticsText();
+  // Keep the most recent entries — the crash trail lives near the end.
+  const diag =
+    fullDiag.length <= MAX_BODY_CHARS
+      ? fullDiag
+      : `[…truncated — kept last ${MAX_BODY_CHARS} chars of a ${fullDiag.length}-char dump]\n\n${fullDiag.slice(-MAX_BODY_CHARS)}`;
+  const body = BUG_REPORT_TEMPLATE.replace("{{DIAG}}", diag);
+  const title = `Bug — Major Ambience v${APP_VERSION}`;
+  const url = new URL(GITHUB_ISSUES_NEW);
+  url.searchParams.set("title", title);
+  url.searchParams.set("body", body);
+  return url.toString();
 }

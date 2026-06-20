@@ -23,6 +23,7 @@ export type TutorialsMenuProps = {
   onExportSync: () => void;
   onImportSync: () => void;
   onCopyDiagnostics: () => void;
+  onReportBug: () => void;
   onDismiss: () => void;
 };
 
@@ -40,6 +41,7 @@ export function TutorialsMenu({
   onExportSync,
   onImportSync,
   onCopyDiagnostics,
+  onReportBug,
   onDismiss,
 }: TutorialsMenuProps) {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -261,12 +263,33 @@ export function TutorialsMenu({
 
         <div style={{ height: 6 }} />
         <SectionHeader title="Help" />
-        <div style={{ padding: "0 6px 8px" }}>
+        <div style={{ display: "flex", gap: 6, padding: "0 6px 8px" }}>
+          <button
+            onClick={onReportBug}
+            title="Open a new GitHub issue with the recent in-app log pre-filled. Editable before submitting."
+            style={{
+              flex: 1,
+              padding: "8px 10px",
+              borderRadius: 8,
+              background: T.goldSoft,
+              border: `1px solid ${T.goldEdge}`,
+              color: T.gold,
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+            }}
+          >
+            <Glyph name="spark" size={12} /> Report a bug
+          </button>
           <button
             onClick={onCopyDiagnostics}
-            title="Copy the recent in-app log to the clipboard. Paste into a bug report after a crash."
+            title="Copy the recent in-app log to the clipboard. Use this if Report-a-bug won't open."
             style={{
-              width: "100%",
+              flex: 1,
               padding: "8px 10px",
               borderRadius: 8,
               background: T.bgChip,
@@ -281,7 +304,7 @@ export function TutorialsMenu({
               gap: 6,
             }}
           >
-            <Glyph name="folder" size={12} /> Copy diagnostics
+            <Glyph name="folder" size={12} /> Copy diag
           </button>
         </div>
 
