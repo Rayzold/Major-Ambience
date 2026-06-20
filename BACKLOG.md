@@ -29,4 +29,36 @@ _None currently outstanding._
 
 ---
 
+## Post-0.0.33 health review (2026‑06‑20)
+
+Snapshot of improvement areas surfaced after the v0.0.33 ship. Items already in other planning docs (IAP wiring → [`docs/CLOUD_SYNC.md`](docs/CLOUD_SYNC.md) PR-8 + [`docs/IAP.md`](docs/IAP.md); Windows code-signing → [`docs/BUILD_GUIDE.md`](docs/BUILD_GUIDE.md) § 7.3; mobile EAS dev-client → [`SESSION-HANDOFF.md`](SESSION-HANDOFF.md)) are deliberately omitted to keep the BACKLOG convention clean.
+
+### Critical
+
+- [ ] **Forensic log buffer for the silent audio exit.** Three host-process exits during playback on 2026‑06‑20, all with zero diagnostic output (empty Tauri stderr, no WebView2 Crashpad report, no Windows event-log entry, even with `RUST_LOG=debug` + `RUST_BACKTRACE=full`). No reachable `app.exit` / `window.close` in our code. Cannot debug without a record. **Action:** rotating log file in `APPDATA` capturing the last N `console.error`s + every `handlePlayTrack(track.id, uri)` with timestamps. ~50 lines. Highest-leverage single change in the codebase right now.
+
+- [ ] **`apps/desktop/src/Library.tsx` is 2,603 lines.** Owns playback + scenes + soundboard + every DM-toolkit slice + cloud sync + IAP dialog + drag-drop + the picker overlay coordinator + every dialog flag. Every PR this session that touched it had to grep for the right region. **Action:** extract `usePlayback`, `useCloudSync`, `useDMToolkit` hooks/contexts. Library.tsx becomes layout + dispatch. ~1–2 days, mechanical.
+
+### Important — quality
+
+- [ ] **Zero React component tests.** 242 vitest cases across `@mc/core` (220) + `@mc/sync` (22) — all pure-TS. No `.test.tsx` anywhere under `apps/`. Every UI bug shipped + caught manually this session would have been caught by a render-test: scrubber flicker (#65), scan-toast circular-JSON (#63), sidebar dead-click (#57). **Action:** stand up `@testing-library/react` in `apps/desktop`; ship smoke tests for `DesktopTransport`, `DesktopSidebar`, `InitiativeTracker`.
+
+- [ ] **No telemetry / error reporting.** Zero Sentry / Bugsnag / Rollbar deps in either app. The audio crash above + every future production bug exits with no record reaching anyone. **Action:** Sentry in desktop renderer + mobile, behind an opt-in "Send anonymous diagnostics" toggle in Settings.
+
+- [ ] **`window-state.json` last written 2026‑06‑04.** `tauri-plugin-window-state` is silently failing to persist across 2.5+ weeks of runs (confirmed by file mtime on 2026‑06‑20). Symptom is benign (window doesn't remember position), but a silent persistence failure is the class of bug that turns into "my scenes vanished" if it's shared infrastructure. **Action:** delete the stale file, retry on a fresh run; if still not writing, file upstream + add a startup integrity check.
+
+### On the radar — surfaced 2026‑06‑20
+
+- [ ] **Audio-engine memory ceiling, post-#65.** The Blob-loading fix in v0.0.33 loads each track fully into memory (~5–10 MB). Two handles alive at a time ≈ 20 MB ceiling — fine. Long DM sessions where dozens of tracks load/unload could fragment the heap. **Action:** add a per-session memory probe + console log of peak heap; revisit if a real user hits it.
+
+- [ ] **Mobile DM-Toolkit Initiative needs the new init-mod UI.** PR #64 shipped to desktop only. The `Combatant` shape was updated as forward-compatible — mobile reads/writes the `initiativeMod` field — but the mobile UI to set it doesn't exist. **Action:** straight port of `EditableNumber` + "Roll all" footer button to `apps/mobile/app/dm/initiative.tsx`.
+
+### Strategic
+
+- [ ] **In-app bug-report path.** No "Help → Report a bug" affordance. Users who hit the audio crash have no way to send their (currently nonexistent — see above) diag logs. Pairs with the telemetry item. **Action:** Settings → Report a bug → opens mailer with pre-filled diag dump (app version + OS + last 50 log lines).
+
+- [ ] **Landing page exists but isn't deployed.** Root `index.html` is a polished marketing page; `prototype/` is an interactive HTML mockup. Neither is on GH Pages. Free distribution channel sitting on the shelf. **Action:** GH Pages workflow that publishes root `index.html` + `prototype/` + `docs/screenshots/`. ~20 minutes.
+
+---
+
 > Convention: when one of these ships, move the detail into a `CHANGELOG.md` release entry and check the box (or delete the line) here.
