@@ -12,6 +12,44 @@ Earlier: **mobile reached full desktop parity** for the v0.x feature set — DM 
 
 ---
 
+## [0.0.34] — 2026‑06‑20 — Forensic diagnostics buffer + Copy diagnostics
+
+Closes the **#1 Critical** item from the post-0.0.33 health review: the silent-exit-during-playback bug has nowhere to leave a trace, so we can never debug it from a user report. This release ships an always-on in-memory log buffer that survives process restart via `localStorage`, captures structured audio events on the playback path, and exposes a one-click "Copy diagnostics" affordance in the Help menu. Next time the host dies mid-song, the user restarts, copies the dump, and we finally have a forensic record.
+
+> Desktop-only release: bumps `apps/desktop/package.json` / `tauri.conf.json` / `Cargo.toml` 0.0.33 → 0.0.34. Mobile untouched.
+
+### Added — `apps/desktop/src/lib/diag.ts`
+
+- Ring buffer (250 entries) with localStorage mirror keyed `mc:diag:ringbuffer:v1`. Survives a process exit, so a buffer dump after a silent crash carries the events that preceded it.
+- `installDiagnostics()` non-destructively wraps `console.error` / `console.warn` and listens on `window.error` + `window.unhandledrejection`. Originals fire untouched; we *also* record. Idempotent — safe from both the main and handout entry points.
+- `logEvent(tag, data)` for structured audio events. Tag is a short noun phrase (`audio.play.start`, `audio.seek`, `audio.loop.track.kick`, `audio.natural.end`). Data is JSON-stringified into the message column.
+- `getDiagnosticsText()` formats a paste-ready dump: ISO timestamps for lexical sort, fixed-width level + tag columns, header with app version + UA + entry count + generation timestamp.
+- Dev escape hatch: `window.MC_DIAG.entries()` / `.text()` / `.clear()` so devtools can pull the buffer without UI.
+- Each entry's `msg` is truncated to 500 chars so a runaway error loop can't blow out memory.
+
+### Wired into — `apps/desktop/src/Library.tsx`
+
+- `handlePlayTrack` logs `audio.play.start` with the track id + title + pack *before* the load even starts. Last entry in the dump after a silent exit identifies what was playing when the host died.
+- `handleSeek` logs `audio.seek` with target + duration. Pairs with the #65 scrubber fix — if the asset-protocol Range issue recurs after the Blob workaround, the seek-then-snap pattern becomes visible in the trail.
+- Track-loop self-crossfade trigger logs `audio.loop.track.kick` with the trigger window. The session-handoff flagged this region as fragile; we now have evidence whenever it fires.
+- Natural end logs `audio.natural.end` so the dump distinguishes "ended at the file boundary" from "host died mid-playback".
+
+### Added — `apps/desktop/src/main.tsx`
+
+- `installDiagnostics()` called once, before React renders, so the very first error reaches the buffer.
+
+### Added — `apps/desktop/src/layout/TutorialsMenu.tsx`
+
+- New "Help" section with **Copy diagnostics** button. Click → `navigator.clipboard.writeText(getDiagnosticsText())` → status toast confirms. Errors fall back to the same toast surface rather than throwing.
+
+### Verification
+
+- `pnpm -r typecheck` — clean (6 of 6 projects).
+- `pnpm -r test` — 250/250 still pass (no test deltas; renderer-only).
+- Manual (release-mode binary): kebab menu → Copy diagnostics → paste anywhere. Contains the boot entry, every track play since launch, any errors thrown along the way.
+
+---
+
 ## [0.0.33] — 2026‑06‑20 — Fix scrubber flicker — seek now actually seeks
 
 Clicking the progress bar to scrub to a different position used to make the bar flicker and snap back to where the song was — the audio never moved. Now it does, instantly.

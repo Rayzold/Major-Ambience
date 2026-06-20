@@ -95,6 +95,7 @@ import {
 } from "./lib/cloud-sync.js";
 import { SyncAuthError } from "@mc/sync";
 import { useKeyboardShortcuts } from "./lib/keyboard.js";
+import { getDiagnosticsText, logEvent } from "./lib/diag.js";
 import {
   firePad,
   isPadPlaying,
@@ -1076,6 +1077,15 @@ export function Library() {
     }
     const backend = getAudioBackend();
     const assetUri = convertFileSrc(track.uri);
+    // Forensic trail for the silent-exit-during-playback class of
+    // bug — every play attempt logs the track id + uri prefix before
+    // the load even starts, so the last entry in the diag dump
+    // identifies what was playing when the host died.
+    logEvent("audio.play.start", {
+      trackId: track.id,
+      title: track.title,
+      pack: track.pack,
+    });
     try {
       const next = await backend.loadTrack(assetUri);
       backend.setGain(next, 0);
@@ -1133,6 +1143,11 @@ export function Library() {
             dur - t <= fadeSec
           ) {
             loopCrossfadeKicked = true;
+            logEvent("audio.loop.track.kick", {
+              trackId: track.id,
+              dur,
+              fadeSec,
+            });
             // No queueContext — looping the same track shouldn't rewrite
             // the queue ordering the user already built up.
             void handlePlayTrack(track);
@@ -1147,6 +1162,7 @@ export function Library() {
         // this ended event run would flip isPlaying off mid-loop and
         // potentially advance the queue past the just-restarted track.
         if (loopCrossfadeKicked) return;
+        logEvent("audio.natural.end", { trackId: track.id });
         setIsPlaying(false);
         // Read loopMode + queue from refs — values captured in this
         // closure at subscription time get stale if the user changes
@@ -1276,6 +1292,7 @@ export function Library() {
   function handleSeek(sec: number) {
     if (!playback) return;
     const clamped = Math.max(0, Math.min(trackDurationSec || Infinity, sec));
+    logEvent("audio.seek", { to: clamped, dur: trackDurationSec });
     getAudioBackend().seek(playback.handle, clamped);
     setCurrentTime(clamped);
   }
@@ -2243,6 +2260,23 @@ export function Library() {
           }}
           onExportSync={() => void handleExportSync()}
           onImportSync={() => void handleImportSyncPick()}
+          onCopyDiagnostics={() => {
+            // Clipboard write is async; the await keeps the toast and
+            // the actual copy in lockstep. Failure swallows to a toast
+            // rather than throwing — older WebView2 builds gate this
+            // behind a user gesture, which menu-click satisfies.
+            void (async () => {
+              try {
+                await navigator.clipboard.writeText(getDiagnosticsText());
+                setScanStatus("Diagnostics copied to clipboard.");
+              } catch (err) {
+                setScanStatus(
+                  `Copy failed: ${err instanceof Error ? err.message : String(err)}`,
+                );
+              }
+              setTutorialsMenu(null);
+            })();
+          }}
           onDismiss={() => setTutorialsMenu(null)}
         />
       ) : null}
