@@ -22,6 +22,7 @@ export type TutorialsMenuProps = {
   onOpenCloudSync: () => void;
   onExportSync: () => void;
   onImportSync: () => void;
+  onCopyDiagnostics: () => void;
   onDismiss: () => void;
 };
 
@@ -38,6 +39,7 @@ export function TutorialsMenu({
   onOpenCloudSync,
   onExportSync,
   onImportSync,
+  onCopyDiagnostics,
   onDismiss,
 }: TutorialsMenuProps) {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -254,6 +256,32 @@ export function TutorialsMenu({
             }}
           >
             <Glyph name="folder" size={12} /> Import
+          </button>
+        </div>
+
+        <div style={{ height: 6 }} />
+        <SectionHeader title="Help" />
+        <div style={{ padding: "0 6px 8px" }}>
+          <button
+            onClick={onCopyDiagnostics}
+            title="Copy the recent in-app log to the clipboard. Paste into a bug report after a crash."
+            style={{
+              width: "100%",
+              padding: "8px 10px",
+              borderRadius: 8,
+              background: T.bgChip,
+              border: `1px solid ${T.rule}`,
+              color: T.ink2,
+              fontSize: 12,
+              fontWeight: 500,
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+            }}
+          >
+            <Glyph name="folder" size={12} /> Copy diagnostics
           </button>
         </div>
 
