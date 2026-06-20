@@ -1,0 +1,57 @@
+name: Pages
+
+# Deploys the marketing landing page (index.html + assets) to GitHub Pages.
+# The Major Ambience repo is a monorepo, so we deliberately stage only the
+# public-facing web bundle into _site/ rather than publishing the whole tree.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "index.html"
+      - "prototype/**"
+      - "docs/screenshots/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, but don't cancel in-progress runs —
+# we want the latest commit to win without losing a deploy mid-flight.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stage site
+        run: |
+          mkdir -p _site/docs/screenshots
+          cp index.html _site/
+          cp -r prototype _site/
+          cp -r docs/screenshots/. _site/docs/screenshots/
+          # Surface a no-jekyll marker so underscore-prefixed files survive.
+          touch _site/.nojekyll
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
