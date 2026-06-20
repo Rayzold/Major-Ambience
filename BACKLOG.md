@@ -55,9 +55,9 @@ Snapshot of improvement areas surfaced after the v0.0.33 ship. Items already in 
 
 ### Strategic
 
-- [ ] **In-app bug-report path.** No "Help → Report a bug" affordance. Users who hit the audio crash have no way to send their (currently nonexistent — see above) diag logs. Pairs with the telemetry item. **Action:** Settings → Report a bug → opens mailer with pre-filled diag dump (app version + OS + last 50 log lines).
+- [x] **In-app bug-report path.** No "Help → Report a bug" affordance. Users who hit the audio crash have no way to send their (currently nonexistent — see above) diag logs. Pairs with the telemetry item. **Action:** Settings → Report a bug → opens mailer with pre-filled diag dump (app version + OS + last 50 log lines). — Shipped 0.0.36 (#70): Help → Report a bug opens a GitHub-issue URL with the diag dump pre-filled.
 
-- [ ] **Landing page exists but isn't deployed.** Root `index.html` is a polished marketing page; `prototype/` is an interactive HTML mockup. Neither is on GH Pages. Free distribution channel sitting on the shelf. **Action:** GH Pages workflow that publishes root `index.html` + `prototype/` + `docs/screenshots/`. ~20 minutes.
+- [x] **Landing page exists but isn't deployed.** Root `index.html` is a polished marketing page; `prototype/` is an interactive HTML mockup. Neither is on GH Pages. Free distribution channel sitting on the shelf. **Action:** GH Pages workflow that publishes root `index.html` + `prototype/` + `docs/screenshots/`. ~20 minutes. — Shipped Unreleased: `.github/workflows/pages.yml` deploys to [rayzold.github.io/Major-Ambience](https://rayzold.github.io/Major-Ambience/).
 
 ---
 

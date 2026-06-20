@@ -1,8 +1,10 @@
 # Major Ambience
 
-[![CI](https://github.com/Rayzold/Major-Ambience/actions/workflows/ci.yml/badge.svg)](https://github.com/Rayzold/Major-Ambience/actions/workflows/ci.yml)
+[![CI](https://github.com/Rayzold/Major-Ambience/actions/workflows/ci.yml/badge.svg)](https://github.com/Rayzold/Major-Ambience/actions/workflows/ci.yml) [![Pages](https://github.com/Rayzold/Major-Ambience/actions/workflows/pages.yml/badge.svg)](https://rayzold.github.io/Major-Ambience/)
 
 > Music, ambience, and sound effects for tabletop RPGs.
+
+**Landing page:** [rayzold.github.io/Major-Ambience](https://rayzold.github.io/Major-Ambience/) · **Interactive prototype:** [/prototype](https://rayzold.github.io/Major-Ambience/prototype/)
 
 A GM's audio companion for iOS, Android, and Windows 11 — designed to score the tavern, cue the dragon, and fade to silence on command. Built around the workflow of a sitting Dungeon Master with a 4,000+ track library and zero patience for a fiddly interface.
 

@@ -8,6 +8,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Infra — Landing page deployed to GitHub Pages
+
+Closes the **#12 Strategic** item from the post-0.0.33 health review (`BACKLOG.md`): the marketing landing page (`index.html`) and interactive prototype (`prototype/`) now have a real public URL at [rayzold.github.io/Major-Ambience](https://rayzold.github.io/Major-Ambience/). Until now they only rendered locally — there was no shareable link for outreach, the press kit, or the README badge.
+
+- `.github/workflows/pages.yml` stages only the public-facing bundle (`index.html` + `prototype/` + `docs/screenshots/`) into `_site/` before upload — deliberately not the whole monorepo, since most files at root are internal planning docs. Triggers on push to `main` when those paths change, plus `workflow_dispatch`.
+- Fixed footer doc links in `index.html` that pointed at raw `.md` paths (would 404 or download as text on Pages) — now point to canonical GitHub blob URLs so they render properly when clicked from the live site.
+- README gets a Pages badge + a one-line callout linking the landing page and prototype.
+
 Earlier: **mobile reached full desktop parity** for the v0.x feature set — DM Toolkit (#35), background audio (#39), loop control (#40), grade pills (#41), removed-category (#42), Favorites + Recently played (#43), duration probe (#44), and length filter (#45). `BACKLOG.md` is empty for the mobile-parity track.
 
 ---
