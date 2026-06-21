@@ -1,6 +1,7 @@
 use serde::Serialize;
 use std::path::Path;
 use std::time::UNIX_EPOCH;
+use tauri::Manager;
 use tauri_plugin_sql::{Migration, MigrationKind};
 
 #[derive(Serialize)]
@@ -78,6 +79,49 @@ fn write_text_file(path: String, contents: String) -> Result<(), String> {
     std::fs::write(&path, contents).map_err(|e| e.to_string())
 }
 
+#[derive(Serialize)]
+pub struct WindowStateStat {
+    pub exists: bool,
+    pub size_bytes: u64,
+    pub mtime_secs: u64,
+    pub path: String,
+}
+
+// Integrity probe for tauri-plugin-window-state. The plugin persists
+// window geometry to `<app_config_dir>/.window-state.json` on close;
+// silent persistence failure is the class of bug that turns into "my
+// scenes vanished" if it ever spreads to shared infra. Renderer logs
+// the stat into the diag buffer at boot so a stale mtime across
+// successive boots is visible in any bug report dump.
+#[tauri::command]
+fn window_state_stat(app: tauri::AppHandle) -> Result<WindowStateStat, String> {
+    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    let p = dir.join(".window-state.json");
+    let path_str = p.to_string_lossy().into_owned();
+    match std::fs::metadata(&p) {
+        Ok(m) => {
+            let mtime_secs = m
+                .modified()
+                .ok()
+                .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            Ok(WindowStateStat {
+                exists: true,
+                size_bytes: m.len(),
+                mtime_secs,
+                path: path_str,
+            })
+        }
+        Err(_) => Ok(WindowStateStat {
+            exists: false,
+            size_bytes: 0,
+            mtime_secs: 0,
+            path: path_str,
+        }),
+    }
+}
+
 #[tauri::command]
 fn read_text_file(path: String) -> Result<String, String> {
     std::fs::read_to_string(&path).map_err(|e| e.to_string())
@@ -119,7 +163,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             scan_folder,
             write_text_file,
-            read_text_file
+            read_text_file,
+            window_state_stat
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

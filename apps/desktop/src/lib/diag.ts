@@ -25,7 +25,7 @@
 
 const MAX_ENTRIES = 250;
 const LS_KEY = "mc:diag:ringbuffer:v1";
-const APP_VERSION = "0.0.36"; // wire to package.json import if it ever needs lockstep
+const APP_VERSION = "0.0.37"; // wire to package.json import if it ever needs lockstep
 
 export type DiagLevel = "info" | "warn" | "error" | "event";
 
