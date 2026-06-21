@@ -20,6 +20,57 @@ Earlier: **mobile reached full desktop parity** for the v0.x feature set — DM 
 
 ---
 
+## [0.0.42] — 2026‑06‑21 — `usePlayback` extraction from Library.tsx (BACKLOG #2 closed)
+
+Final slice of the god-component extraction. The transport — `handlePlayTrack` (load + crossfade + onEnded queue advancement + loop-track self-crossfade), togglePlay, prev, next, seek, seekRelative, stopAll, cycleLoop, and the six pieces of playback state (`playback`, `isPlaying`, `currentTime`, `trackDurationSec`, `queue`, `loopMode`) — all lifted into `usePlayback`. `Library.tsx` drops to **2,067 lines** (**−588 LOC cumulative**, 22% of the original 2,655). **Closes BACKLOG #2.**
+
+This is the biggest slice — `handlePlayTrack` is the heart of the app and the closure with the most subtle reactive bugs (the `loopModeRef` / `queueRef` stale-closure mirrors live here, plus the `fadeMsRef` mirror added for the same reason). Pure refactor — no behavioural change.
+
+> Desktop-only release: bumps `apps/desktop/package.json` / `tauri.conf.json` / `Cargo.toml` 0.0.41 → 0.0.42. Mobile untouched. Pure renderer change — no Rust touched.
+
+### Added — `apps/desktop/src/hooks/usePlayback.ts`
+
+New file (511 LOC — the biggest of the four hooks). Owns:
+
+- 6 state vars + 3 ref mirrors (`loopModeRef`, `queueRef`, `fadeMsRef`) for the closure stability the onEnded / onProgress / recursive `playTrack()` calls depend on.
+- 2 ref mirrors for `tracks` + `tracksByCategory` so handleNext / handlePrev don't churn closure identity when those change.
+- `playTrack(track, queueContext?)` — the full crossfade-load-onEnded-onProgress dance, including the `loopCrossfadeKicked` latch that prevents queue-advance-during-self-loop bugs.
+- Transport primitives: `togglePlay`, `prev`, `next`, `seek`, `seekRelative`, `stopAll`, `cycleLoop`.
+- Boot effect that hydrates `loop_mode` from SQLite.
+- `reloadFromDb()` for the cloud-merge refresh path.
+- Re-exports the `PlaybackState` type (was a local in Library; now canonical here).
+
+External seams: `tracks` (read), `setTracks` (for playCount + duration enrichment writes), `fadeMs` (for crossfade timing), `tracksByCategory` (for handleNext's category-pool fallback).
+
+### Changed — `apps/desktop/src/Library.tsx`
+
+- Removes the local `PlaybackState` type def, 6 `useState` declarations, the `loopModeRef` + `queueRef` block, the `loop_mode` chunk from the boot effect, and all 8 transport handler functions (~250 lines).
+- Kept a tiny `handleStopAll` wrapper that adds the "Stopped." status toast on top of the hook's primitive — the toast is non-DM dialog UX, doesn't belong in the hook.
+- `tracksByCategory` lifted up next to the usePlayback call site (it's an input to the hook).
+- All call sites updated: `playTrack`, `togglePlay`, `cycleLoop`, `stopAll`, `seek`, `seekRelative`, `playPrev`, `playNext` (the last two aliased from the hook's `prev`/`next` to avoid shadowing the many `const next = ...` locals in composition code).
+- `refreshSyncableFromDb` now delegates the loop_mode reload to `await reloadPlaybackFromDb()`.
+- Removes 5 imports that moved into the hook: `convertFileSrc`, `bumpPlayCount`, `getAudioBackend`, `logEvent`, `stopAllPads`. The `setDuration` import stays — the background duration scanner still uses it.
+
+### Verification
+
+- `pnpm typecheck` clean.
+- `pnpm test` — 14/14 pass.
+
+### BACKLOG #2 — closed
+
+Cumulative across the four slices:
+
+| PR | Slice | LOC removed | Library.tsx |
+|---|---|---|---|
+| [#74](https://github.com/Rayzold/Major-Ambience/pull/74) | `useCloudSync` | −163 | 2,492 |
+| [#75](https://github.com/Rayzold/Major-Ambience/pull/75) | `useDMToolkit` | −112 | 2,380 |
+| [#76](https://github.com/Rayzold/Major-Ambience/pull/76) | `useAudioSettings` | −38 | 2,342 |
+| this | `usePlayback` | −275 | **2,067** |
+
+Library.tsx is now layout-and-dispatch oriented. The remaining surface is: settings/IAP state, scenes save/restore, soundboard handlers, drag-drop, the picker overlay coordinator, dialog flags, keyboard shortcuts wiring, and the JSX render tree itself. Further size reduction is possible (scenes, soundboard, picker overlay are candidates) but the original "Library owns playback + DM + sync + audio" coupling is gone.
+
+---
+
 ## [0.0.41] — 2026‑06‑21 — `useAudioSettings` extraction from Library.tsx (BACKLOG #2, slice 3a/3)
 
 Prep slice for the final `usePlayback` extraction. The three persisted audio-bus settings (`fadeMs`, `masterVolume`, `duckingPct`) and their boot-load / persisters / "apply master gain to backend" effect lifted out into `useAudioSettings`. `Library.tsx` drops to **2,342 lines** (cumulative −313 LOC vs the 2,655 starting point). Pure refactor — no behavioural change.
