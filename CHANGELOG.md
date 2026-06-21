@@ -20,6 +20,44 @@ Earlier: **mobile reached full desktop parity** for the v0.x feature set — DM 
 
 ---
 
+## [0.0.41] — 2026‑06‑21 — `useAudioSettings` extraction from Library.tsx (BACKLOG #2, slice 3a/3)
+
+Prep slice for the final `usePlayback` extraction. The three persisted audio-bus settings (`fadeMs`, `masterVolume`, `duckingPct`) and their boot-load / persisters / "apply master gain to backend" effect lifted out into `useAudioSettings`. `Library.tsx` drops to **2,342 lines** (cumulative −313 LOC vs the 2,655 starting point). Pure refactor — no behavioural change.
+
+Splitting slice 3 in two: audio settings are small + self-contained but tightly coupled to playback (read by `handlePlayTrack`, `crossfade`, the loop-track self-crossfade trigger, `handleSaveScene`, `handleRestoreScene`). Lifting them out first narrows the surface area of the upcoming `usePlayback` PR — it'll only have to own playback state + the transport, not also the bus settings.
+
+> Desktop-only release: bumps `apps/desktop/package.json` / `tauri.conf.json` / `Cargo.toml` 0.0.40 → 0.0.41. Mobile untouched. Pure renderer change — no Rust touched.
+
+### Added — `apps/desktop/src/hooks/useAudioSettings.ts`
+
+New file (118 LOC). Owns:
+
+- 3 state vars: `fadeMs`, `masterVolume`, `duckingPct` (defaults `2000ms` / `0.85` / `0.4`).
+- 3 persisters — each `setState` + SQLite `setConfig` write. `setMasterVolume` also hits `getAudioBackend().setMasterGain()` directly so changes are audible *immediately* rather than after the next render commit (belt + suspenders against the existing `useEffect` mirror). `setDuckingPct` also propagates to the pad-audio bus via `setPadDuckingPct`.
+- "Apply master volume on change" `useEffect` — was a standalone effect in Library; now scoped to the hook.
+- Boot effect + `reloadFromDb()` (called from `refreshSyncableFromDb` after a cloud merge).
+
+### Changed — `apps/desktop/src/Library.tsx`
+
+- Removes 3 `useState` declarations, the audio chunk from the boot effect, the audio chunk from `refreshSyncableFromDb`, the standalone master-volume `useEffect`, and 3 inline persisters (`handleSetFade`, `handleSetVolume`, `handleSetDucking`).
+- Removes 4 now-unused imports (`getConfigNumber`, `setDuckingPct as setPadDuckingPct`, `DEFAULT_FADE_MS`/`DEFAULT_VOLUME`/`DEFAULT_DUCKING` constants).
+- New `const audio = useAudioSettings()` next to `const dm = useDMToolkit()`.
+- All call sites updated: `audio.fadeMs` (in `handlePlayTrack`'s `setGain` + crossfade calls, the loop-track self-crossfade trigger, `handleSaveScene`, DesktopTransport, SaveSceneDialog), `audio.masterVolume`, `audio.duckingPct`, `audio.setFadeMs(ms)`, `audio.setMasterVolume(v)`, `audio.setDuckingPct(p)`.
+- `useCloudSync` is called with `fadeMs: audio.fadeMs` + `masterVolume: audio.masterVolume` + `duckingPct: audio.duckingPct` in the syncable inputs.
+- `handleRestoreScene` simplified: was reaching directly into the DB via `setConfig` after each setter; now just awaits `audio.setFadeMs(scene.fadeMs)` / `audio.setMasterVolume(sceneVol)` since each persister round-trips through SQLite.
+- `refreshSyncableFromDb` now delegates audio to `await audio.reloadFromDb()`.
+
+### Verification
+
+- `pnpm typecheck` clean.
+- `pnpm test` — 14/14 pass.
+
+### What's left in #2
+
+Final slice — **`usePlayback`** (the transport): playback state + `handlePlayTrack`'s crossfade + onended/queue advancement + seek/prev/next/togglePlay/cycleLoop. Lands as the next PR.
+
+---
+
 ## [0.0.40] — 2026‑06‑21 — `useDMToolkit` extraction from Library.tsx (BACKLOG #2, slice 2/3)
 
 Second slice of the god-component extraction. Continues from 0.0.39 (cloud sync). After slice 1 `Library.tsx` was 2,492 lines; this PR pulls every piece of DM Toolkit state out into `useDMToolkit`, dropping `Library.tsx` to **2,380 lines** (−275 LOC cumulative vs the 2,655 starting point). No behavioural change — pure refactor.

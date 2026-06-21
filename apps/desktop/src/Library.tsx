@@ -15,7 +15,6 @@ import {
   deleteScene,
   deleteTracksNotIn,
   getConfig,
-  getConfigNumber,
   getDb,
   insertTracks,
   listScenes,
@@ -72,6 +71,7 @@ import {
   getLicenseEmail,
   purchasedTier as readPurchasedTier,
 } from "./lib/entitlement.js";
+import { useAudioSettings } from "./hooks/useAudioSettings.js";
 import { useCloudSync } from "./hooks/useCloudSync.js";
 import { useDMToolkit } from "./hooks/useDMToolkit.js";
 import { useKeyboardShortcuts } from "./lib/keyboard.js";
@@ -80,16 +80,11 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   firePad,
   isPadPlaying,
-  setDuckingPct as setPadDuckingPct,
   setPadVolume,
   stopAllPads,
   stopPad,
   subscribePadState,
 } from "./lib/pad-audio.js";
-
-const DEFAULT_FADE_MS = 2000;
-const DEFAULT_VOLUME = 0.85;
-const DEFAULT_DUCKING = 0.4;
 const DEFAULT_THEME: ThemeId = "gold-dark";
 const KNOWN_THEMES: readonly ThemeId[] = ["gold-dark", "parchment", "arcane"];
 const GRADE_CYCLE: Grade[] = ["S", "A", "B", "C", "D", "F", null];
@@ -155,9 +150,8 @@ export function Library() {
    * "Scan durations" button and gates concurrent runs.
    */
   const [isScanningDurations, setIsScanningDurations] = useState(false);
-  const [fadeMs, setFadeMs] = useState(DEFAULT_FADE_MS);
-  const [masterVolume, setMasterVolume] = useState(DEFAULT_VOLUME);
-  const [duckingPct, setDuckingPctState] = useState(DEFAULT_DUCKING);
+  // Audio settings (fadeMs / masterVolume / duckingPct) + their
+  // persisters live in useAudioSettings; instantiated below.
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchResults, setSearchResults] = useState<Track[]>([]);
@@ -221,6 +215,11 @@ export function Library() {
   // history / currentTurnIdx, plus the persisters + a reloadFromDb()
   // call we hand to refreshSyncableFromDb after a cloud merge.
   const dm = useDMToolkit();
+
+  // Audio settings slice — fadeMs / masterVolume / duckingPct, their
+  // persisters, the "apply master gain to backend" side effect, and a
+  // reloadFromDb() also called from refreshSyncableFromDb.
+  const audio = useAudioSettings();
 
   // ── Derived ─────────────────────────────────────────────────────────────
   const currentTrack = useMemo(
@@ -448,14 +447,8 @@ export function Library() {
           setTracks(existing);
           setScanStatus(`${existing.length.toLocaleString()} tracks loaded from index.`);
         }
-        const fade = await getConfigNumber(db, "fade_ms", DEFAULT_FADE_MS);
-        setFadeMs(fade);
-        const vol = await getConfigNumber(db, "master_volume", DEFAULT_VOLUME);
-        setMasterVolume(vol);
-        getAudioBackend().setMasterGain(vol);
-        const duck = await getConfigNumber(db, "ducking_pct", DEFAULT_DUCKING);
-        setDuckingPctState(duck);
-        setPadDuckingPct(duck);
+        // Audio settings (fade_ms / master_volume / ducking_pct) hydrate
+        // via useAudioSettings's own boot effect.
         const root = await getConfig(db, "root_folder_name");
         setRootFolderName(root);
         const loopRaw = (await getConfig(db, "loop_mode")) as
@@ -493,11 +486,6 @@ export function Library() {
     })();
   }, []);
 
-  // Apply master volume changes to the audio bus.
-  useEffect(() => {
-    getAudioBackend().setMasterGain(masterVolume);
-  }, [masterVolume]);
-
   // Reload everything a remote merge could have touched, straight from
   // SQLite. Mirrors the manual-import refresh but also pulls the config-
   // driven UI bits (theme/fade/volume/ducking/DM mode/NPC history) since a
@@ -512,17 +500,11 @@ export function Library() {
       setTheme(themeRaw);
       applyTheme(themeRaw);
     }
-    setFadeMs(await getConfigNumber(db, "fade_ms", DEFAULT_FADE_MS));
-    const vol = await getConfigNumber(db, "master_volume", DEFAULT_VOLUME);
-    setMasterVolume(vol);
-    getAudioBackend().setMasterGain(vol);
-    const duck = await getConfigNumber(db, "ducking_pct", DEFAULT_DUCKING);
-    setDuckingPctState(duck);
-    setPadDuckingPct(duck);
-    // DM-managed slices (dm_mode + dm_name_history + others) reload
-    // through the dm hook so the SQLite plumbing lives in one place.
+    // Audio settings + DM-managed slices reload through their hooks
+    // so the SQLite plumbing lives in one place each.
+    await audio.reloadFromDb();
     await dm.reloadFromDb();
-  }, [dm]);
+  }, [audio, dm]);
 
   // Cloud sync — the hook owns boot-load, runSync, the 4s debounced
   // background push, the sync signature, and the user-facing handlers.
@@ -534,9 +516,9 @@ export function Library() {
       scenes,
       soundboard,
       theme,
-      fadeMs,
-      masterVolume,
-      duckingPct,
+      fadeMs: audio.fadeMs,
+      masterVolume: audio.masterVolume,
+      duckingPct: audio.duckingPct,
       dmMode: dm.dmMode,
       nameHistory: dm.nameHistory,
     },
@@ -954,7 +936,7 @@ export function Library() {
           // trigger window to half the duration so we don't fire at t=0
           // and chain self-loops without ever playing the body.
           const dur = r.audio.duration;
-          const fadeSec = Math.min(fadeMs / 1000, dur / 2);
+          const fadeSec = Math.min(audio.fadeMs / 1000, dur / 2);
           if (
             !loopCrossfadeKicked &&
             loopModeRef.current === "track" &&
@@ -1000,7 +982,7 @@ export function Library() {
       });
 
       backend.play(next);
-      backend.setGain(next, 1, fadeMs / 1000);
+      backend.setGain(next, 1, audio.fadeMs / 1000);
 
       const previous = playback;
       if (previous) {
@@ -1012,7 +994,7 @@ export function Library() {
         // fade-out — crossfade() destroys it when the ramp completes.
         previous.unsubProgress();
         previous.unsubEnded();
-        crossfade(previous.handle, next, fadeMs / 1000, backend);
+        crossfade(previous.handle, next, audio.fadeMs / 1000, backend);
       }
       setPlayback({
         trackId: track.id,
@@ -1383,24 +1365,7 @@ export function Library() {
     );
   }
 
-  async function handleSetFade(ms: number) {
-    setFadeMs(ms);
-    const db = await getDb();
-    await setConfig(db, "fade_ms", String(ms));
-  }
-
-  async function handleSetVolume(v: number) {
-    setMasterVolume(v);
-    const db = await getDb();
-    await setConfig(db, "master_volume", String(v));
-  }
-
-  async function handleSetDucking(pct: number) {
-    setDuckingPctState(pct);
-    setPadDuckingPct(pct);
-    const db = await getDb();
-    await setConfig(db, "ducking_pct", String(pct));
-  }
+  // Audio settings persisters live in useAudioSettings.
 
   // ── Sync ───────────────────────────────────────────────────────────────
   async function handleExportSync() {
@@ -1585,9 +1550,9 @@ export function Library() {
       accentCategories: accents,
       trackIds: queue.map((t) => t.id),
       soundboardPage: "A",
-      fadeMs,
+      fadeMs: audio.fadeMs,
       duckingPct: 40,
-      volumes: { [activeCategory]: masterVolume } as Partial<
+      volumes: { [activeCategory]: audio.masterVolume } as Partial<
         Record<CategoryId, number>
       >,
       createdAt: Date.now(),
@@ -1605,13 +1570,10 @@ export function Library() {
   async function handleRestoreScene(scene: Scene) {
     setActiveCategory(scene.primaryCategory);
     setActiveView("category");
-    setFadeMs(scene.fadeMs);
-    const db = await getDb();
-    await setConfig(db, "fade_ms", String(scene.fadeMs));
+    await audio.setFadeMs(scene.fadeMs);
     const sceneVol = scene.volumes[scene.primaryCategory];
     if (typeof sceneVol === "number") {
-      setMasterVolume(sceneVol);
-      await setConfig(db, "master_volume", String(sceneVol));
+      await audio.setMasterVolume(sceneVol);
     }
     setActiveSceneId(scene.id);
     setTab("library");
@@ -2149,8 +2111,8 @@ export function Library() {
         <SaveSceneDialog
           primaryCategory={activeCategory}
           queueLength={queue.length}
-          fadeMs={fadeMs}
-          masterVolume={masterVolume}
+          fadeMs={audio.fadeMs}
+          masterVolume={audio.masterVolume}
           onSave={(name) => void handleSaveScene(name)}
           onCancel={() => setSaveDialogOpen(false)}
         />
@@ -2322,17 +2284,17 @@ export function Library() {
         currentSec={currentTime}
         durationSec={trackDurationSec}
         playing={isPlaying}
-        fadeMs={fadeMs}
-        masterVolume={masterVolume}
-        duckingPct={duckingPct}
+        fadeMs={audio.fadeMs}
+        masterVolume={audio.masterVolume}
+        duckingPct={audio.duckingPct}
         onTogglePlay={handleTogglePlay}
         onPrev={handlePrev}
         onNext={handleNext}
         onSeek={handleSeek}
         onCycleGrade={handleCycleGrade}
-        onSetFadeMs={(ms) => void handleSetFade(ms)}
-        onSetVolume={(v) => void handleSetVolume(v)}
-        onSetDuckingPct={(p) => void handleSetDucking(p)}
+        onSetFadeMs={(ms) => void audio.setFadeMs(ms)}
+        onSetVolume={(v) => void audio.setMasterVolume(v)}
+        onSetDuckingPct={(p) => void audio.setDuckingPct(p)}
         onStopAll={handleStopAll}
         anyPlaying={anyPlaying}
         loopMode={loopMode}
