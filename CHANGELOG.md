@@ -20,6 +20,29 @@ Earlier: **mobile reached full desktop parity** for the v0.x feature set — DM 
 
 ---
 
+## [0.0.38] — 2026‑06‑21 — Audio-engine heap probe
+
+Closes the **#6 On the radar** item from the post-0.0.33 health review (`BACKLOG.md`). The Blob-loading fix in v0.0.33 (#65) keeps each track's bytes fully resident (~5–10 MB/track, two handles alive ≈ 20 MB ceiling — fine). Long DM sessions where dozens of tracks load/unload could fragment the heap; until now we'd have no signal if they did.
+
+This release piggy-backs heap sampling onto the audio events the diag buffer already records (#67), so every `audio.play.start` / `audio.seek` / `audio.loop.track.kick` / `audio.natural.end` entry now carries `heap: {used, peak, limit}` in MB. A separate `audio.heap.peak` entry is emitted whenever the session peak grows by ≥1 MB past the last emitted peak — rate-limited so a 4-hour session doesn't drown the 250-entry buffer.
+
+> Desktop-only release: bumps `apps/desktop/package.json` / `tauri.conf.json` / `Cargo.toml` 0.0.37 → 0.0.38. Mobile untouched. Pure renderer change — no Rust touched, no new Tauri capabilities.
+
+### Added — `apps/desktop/src/lib/diag.ts`
+
+- New `sampleHeapMB()` — reads `performance.memory.usedJSHeapSize` (non-standard but present in Chromium, which is what WebView2 ships) and tracks the session peak. Returns `{used, peak, limit}` in MB rounded for compact display, or `null` when the host doesn't expose the field (happy-dom in tests).
+- `logEvent()` now auto-attaches `heap` for any tag starting with `audio.` — zero new call sites. Peak emit threshold is 1 MB above the last emitted peak (`PEAK_EMIT_DELTA_BYTES = 1024 * 1024`).
+
+### Added — `apps/desktop/src/lib/diag.test.ts`
+
+- 6 vitest cases covering the null-safe path (no `performance.memory`), MB rounding, auto-attach on audio tags, no-attach on non-audio tags, peak-event emit on a new ceiling, and the rate-limit threshold. Run with `pnpm --filter @mc/desktop test`.
+
+### Operational note
+
+Heap is sampled in MB *rounded* to keep the dump compact. The peak emit uses byte-precision internally so the threshold compare is meaningful — only the display is rounded. If a real user dump ever shows `peakMB` climbing monotonically across a session (vs settling), that's the fragmentation signal the BACKLOG was watching for.
+
+---
+
 ## [0.0.37] — 2026‑06‑21 — Window-state integrity probe
 
 Closes the **#5 Important** item from the post-0.0.33 health review (`BACKLOG.md`). The audit flagged `tauri-plugin-window-state` as silently failing (`.window-state.json` mtime stale by 2.5+ weeks at the time of the snapshot). Re-inspection on 2026‑06‑21 shows the file IS being persisted — full state present, mtime today — so the original concern was a transient. The plugin's quiet "succeed-or-fail" surface remains a footgun, though: if it silently regresses, the symptom (window doesn't remember position) is benign, but the *class* of bug is what turns into "my scenes vanished" if it spreads to shared infra.
