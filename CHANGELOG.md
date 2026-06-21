@@ -20,6 +20,38 @@ Earlier: **mobile reached full desktop parity** for the v0.x feature set — DM 
 
 ---
 
+## [0.0.37] — 2026‑06‑21 — Window-state integrity probe
+
+Closes the **#5 Important** item from the post-0.0.33 health review (`BACKLOG.md`). The audit flagged `tauri-plugin-window-state` as silently failing (`.window-state.json` mtime stale by 2.5+ weeks at the time of the snapshot). Re-inspection on 2026‑06‑21 shows the file IS being persisted — full state present, mtime today — so the original concern was a transient. The plugin's quiet "succeed-or-fail" surface remains a footgun, though: if it silently regresses, the symptom (window doesn't remember position) is benign, but the *class* of bug is what turns into "my scenes vanished" if it spreads to shared infra.
+
+This release adds a startup integrity probe so any future regression leaves evidence in any bug-report dump.
+
+> Desktop-only release: bumps `apps/desktop/package.json` / `tauri.conf.json` / `Cargo.toml` 0.0.36 → 0.0.37. Mobile untouched.
+
+### Added — `apps/desktop/src-tauri/src/lib.rs`
+
+- New `window_state_stat` Tauri command — resolves `<app_config_dir>/.window-state.json` via `app.path().app_config_dir()`, returns `{exists, size_bytes, mtime_secs, path}`. ~30 lines, no new permissions needed.
+
+### Added — `apps/desktop/src/lib/window-state-probe.ts`
+
+- `probeWindowState()` invokes the new command at boot and feeds the result into the diag buffer as a `window-state` event (`{exists, size, mtime, ageSeconds, path}`). Stale mtime across successive boots is now visible in any [Report a bug](#0036--20260620--report-a-bug--github-issue-with-diag-dump-pre-filled) dump.
+
+### Changed — `apps/desktop/src/main.tsx`
+
+- Fires `probeWindowState()` after `installDiagnostics()` (fire-and-forget; failures land on the unhandledrejection handler already installed). Runs before React renders so the event sorts cleanly with the boot line in any dump.
+
+### Tickoff cleanup — `BACKLOG.md`
+
+Three items shipped earlier this session were never crossed off; this release closes them out:
+
+- **#1 Critical** — Forensic log buffer (shipped 0.0.35 / [#67](https://github.com/Rayzold/Major-Ambience/pull/67))
+- **#3 Important** — React component tests (shipped 0.0.34 / [#68](https://github.com/Rayzold/Major-Ambience/pull/68))
+- **#7 On the radar** — Mobile DM-Toolkit init-mod UI (shipped mobile 0.0.26 / [#69](https://github.com/Rayzold/Major-Ambience/pull/69))
+
+Remaining open items in the post-0.0.33 health review are **#2** (Library.tsx god-component extraction), **#4** (Sentry telemetry), and **#6** (audio-engine memory ceiling probe).
+
+---
+
 ## [0.0.36] — 2026‑06‑20 — Report-a-bug → GitHub issue with diag dump pre-filled
 
 Closes the **#11 Strategic** item from the post-0.0.33 health review (`BACKLOG.md`): when a user hit the audio crash there was no path from "broken app" to "report it" — they'd have to find the repo, remember to copy diagnostics, and paste it manually. This release wires a one-click **Report a bug** button into the Help menu that opens a GitHub-issue URL with the diag dump pre-filled, a friendly template, and the app version in the title.
