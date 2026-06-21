@@ -20,6 +20,43 @@ Earlier: **mobile reached full desktop parity** for the v0.x feature set — DM 
 
 ---
 
+## [0.0.40] — 2026‑06‑21 — `useDMToolkit` extraction from Library.tsx (BACKLOG #2, slice 2/3)
+
+Second slice of the god-component extraction. Continues from 0.0.39 (cloud sync). After slice 1 `Library.tsx` was 2,492 lines; this PR pulls every piece of DM Toolkit state out into `useDMToolkit`, dropping `Library.tsx` to **2,380 lines** (−275 LOC cumulative vs the 2,655 starting point). No behavioural change — pure refactor.
+
+DM state has a wider footprint than cloud-sync: it has cross-cutting consumers (`dmMode` + `nameHistory` are also syncable inputs for `useCloudSync`), and two of its handlers (`handleTurnChange`, `handleToggleDmMode`) compose with non-DM state (playback, dialog flags). The split: the hook owns persistent state + its persisters + a single `reloadFromDb()`; Library keeps the cross-cutting composers.
+
+> Desktop-only release: bumps `apps/desktop/package.json` / `tauri.conf.json` / `Cargo.toml` 0.0.39 → 0.0.40. Mobile untouched. Pure renderer change — no Rust touched.
+
+### Added — `apps/desktop/src/hooks/useDMToolkit.ts`
+
+New file (242 LOC). Owns:
+
+- 10 state vars: `dmTool`, `dmMode`, `nameHistory`, `rollHistory`, `combatants`, `encounterTables`, `countdownTimers`, `xpLedger`, `recapMoments`, `currentTurnIdx`.
+- 8 persisters (`setDmMode`, `setNameHistory`, `setRollHistory`, `setCombatants`, `setEncounterTables`, `setCountdownTimers`, `setXpLedger`, `setRecapMoments`) — each wraps a `setState` with a `setConfig()` write to SQLite.
+- Boot effect that hydrates every persisted slice from SQLite via a single `reloadFromDb()` call.
+- `reloadFromDb()` exposed for `refreshSyncableFromDb` (cloud-merge reload) to call — single source of truth for the SQLite plumbing.
+
+### Changed — `apps/desktop/src/Library.tsx`
+
+- Removes 10 DM `useState` declarations, the 7 DM-key blocks from the boot effect (≈55 lines), the 7 inline `handle*Change` persisters, and 8 now-unused type imports (`Combatant`, `RolledName`, `EncounterTable`, `CountdownTimer`, `RecapMoment`, `RollResult`, `DmTool`, `EMPTY_LEDGER`/`XpLedgerState`).
+- New `const dm = useDMToolkit()` near the top of the body.
+- `refreshSyncableFromDb` now delegates DM portions to `await dm.reloadFromDb()`.
+- `useCloudSync` is called with `dmMode: dm.dmMode` + `nameHistory: dm.nameHistory` in the syncable inputs.
+- Kept in Library (deliberately): `handleTurnChange` (uses `tracks` + `firePad`) and the `handleToggleDmMode` wrapper (closes non-DM dialog flags when entering DM mode). Both call into `dm.*` for state.
+- All JSX call sites updated: `dm.combatants`, `dm.encounterTables`, `dm.countdownTimers`, `dm.xpLedger`, `dm.recapMoments`, `dm.nameHistory`, `dm.rollHistory`, `dm.currentTurnIdx`, `dm.dmMode`, `dm.dmTool`, `dm.setDmTool`, `dm.setCombatants(next)`, etc.
+
+### Verification
+
+- `pnpm typecheck` clean.
+- `pnpm test` — 14/14 pass (no regression in the captured transport / scrubber / diag surface).
+
+### What's left in #2
+
+Last slice — **`usePlayback`** — the biggest and most coupled (audio backend wiring, queue, scenes, playback state, cross-cutting with the scenes view + soundboard ducking). Lands as PR 3/3.
+
+---
+
 ## [0.0.39] — 2026‑06‑21 — `useCloudSync` extraction from Library.tsx (BACKLOG #2, slice 1/3)
 
 First slice of the **#2 Critical** god-component extraction. `Library.tsx` was 2,655 lines; this PR pulls all cloud-sync concerns out into a dedicated `useCloudSync` hook, dropping `Library.tsx` by ~205 lines (now 2,492). No behavioural change — pure refactor.
