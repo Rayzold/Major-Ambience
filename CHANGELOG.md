@@ -20,6 +20,46 @@ Earlier: **mobile reached full desktop parity** for the v0.x feature set — DM 
 
 ---
 
+## [0.0.39] — 2026‑06‑21 — `useCloudSync` extraction from Library.tsx (BACKLOG #2, slice 1/3)
+
+First slice of the **#2 Critical** god-component extraction. `Library.tsx` was 2,655 lines; this PR pulls all cloud-sync concerns out into a dedicated `useCloudSync` hook, dropping `Library.tsx` by ~205 lines (now 2,492). No behavioural change — pure refactor.
+
+The cloud-sync slice was the cleanest first target: well-fenced state, dedicated effects, an already-sibling glue file in `lib/cloud-sync.ts`. Subsequent slices (`useDMToolkit`, `usePlayback`) get more entangled with the wider library state — extracting the easy one first proves the seam pattern.
+
+> Desktop-only release: bumps `apps/desktop/package.json` / `tauri.conf.json` / `Cargo.toml` 0.0.38 → 0.0.39. Mobile untouched. Pure renderer change — no Rust touched.
+
+### Added — `apps/desktop/src/hooks/useCloudSync.ts`
+
+New file (294 LOC). Owns:
+
+- 10 pieces of cloud state (`signedIn`, `accountEmail`, `deviceLabel`, `baseUrl`, `lastSyncedAt`, `syncing`, `error`, `syncResult`, `cloudSyncOpen`, plus internal refs for the bg-sync timer + last-pushed signature).
+- Boot effect that loads persisted state from `lib/cloud-sync.ts`.
+- `runCloudSync(manual)` — one round-trip; refires `refreshSyncableFromDb` on merge.
+- The `syncSignature` memo (id + grade + note + scenes + soundboard + config + name history; deliberately narrow on Track so playback-only changes don't trip a sync).
+- The 4s debounced background-push effect.
+- Five user-facing handlers: `handleRequestLink`, `handleVerify`, `handleSignOut`, `handleSetBaseUrl`, `handleSetDeviceLabel`.
+
+External seams the hook needs from Library: `syncable` (raw inputs the signature is built from), `refreshSyncableFromDb` (post-merge DB rehydrator — stays in Library because it sets a dozen pieces of wider state), and `setScanStatus` (shared toast banner).
+
+### Changed — `apps/desktop/src/Library.tsx`
+
+- −205 / +42 net lines. Removes the entire cloud-sync section + the 5 inline handler functions + the 11 imports from `lib/cloud-sync.ts` + the `SyncAuthError` import + the `cloudSyncResult` / `bgSyncTimer` / `lastSyncSig` refs.
+- New `const cloud = useCloudSync({...})` near the top of the body, after `refreshSyncableFromDb` is defined (which the hook needs).
+- All JSX call sites updated: `cloud.cloudSyncOpen`, `cloud.signedIn`, `cloud.handleRequestLink(...)`, `cloud.runCloudSync(true)`, `cloud.closeCloudSync()`, etc.
+- Escape handler updated to call `cloud.closeCloudSync()`.
+
+### Verification
+
+- `pnpm typecheck` clean.
+- `pnpm test` — 14/14 pass (8 transport + 6 diag); no regression in the captured scrubber + sidebar smoke surface.
+- Manual smoke covered by typing — extraction is mechanical, every call site has a direct one-to-one mapping.
+
+### What's left in #2
+
+Open: `useDMToolkit` (DM Toolkit state — combatants, encounter tables, XP ledger, recap moments, name/roll history — also fairly fenced) and `usePlayback` (the biggest + most coupled slice — playback state, audio backend wiring, queue, scenes). Each will land as a separate PR for reviewability.
+
+---
+
 ## [0.0.38] — 2026‑06‑21 — Audio-engine heap probe
 
 Closes the **#6 On the radar** item from the post-0.0.33 health review (`BACKLOG.md`). The Blob-loading fix in v0.0.33 (#65) keeps each track's bytes fully resident (~5–10 MB/track, two handles alive ≈ 20 MB ceiling — fine). Long DM sessions where dozens of tracks load/unload could fragment the heap; until now we'd have no signal if they did.

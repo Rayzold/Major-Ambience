@@ -80,20 +80,7 @@ import {
   getLicenseEmail,
   purchasedTier as readPurchasedTier,
 } from "./lib/entitlement.js";
-import {
-  getAccountEmail,
-  getAuthStatus,
-  getBaseUrl,
-  getDeviceLabel,
-  getLastSyncedAt,
-  requestMagicLink,
-  runSync,
-  setBaseUrl as persistBaseUrl,
-  setDeviceLabel as persistDeviceLabel,
-  signOutCloud,
-  verifyMagicCode,
-} from "./lib/cloud-sync.js";
-import { SyncAuthError } from "@mc/sync";
+import { useCloudSync } from "./hooks/useCloudSync.js";
 import { useKeyboardShortcuts } from "./lib/keyboard.js";
 import { getBugReportUrl, getDiagnosticsText, logEvent } from "./lib/diag.js";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -205,20 +192,8 @@ export function Library() {
   const [pendingImport, setPendingImport] = useState<
     { blob: AnySyncBlob; path: string } | null
   >(null);
-  // ── Cloud sync (PR-5) ──
-  const [cloudSyncOpen, setCloudSyncOpen] = useState(false);
-  const [cloudSignedIn, setCloudSignedIn] = useState(false);
-  const [cloudAccountEmail, setCloudAccountEmail] = useState<string | undefined>(undefined);
-  const [cloudDeviceLabel, setCloudDeviceLabel] = useState<string | undefined>(undefined);
-  const [cloudBaseUrl, setCloudBaseUrl] = useState<string>("");
-  const [cloudLastSyncedAt, setCloudLastSyncedAt] = useState<number | undefined>(undefined);
-  const [cloudSyncing, setCloudSyncing] = useState(false);
-  const [cloudError, setCloudError] = useState<string | undefined>(undefined);
-  // Sticky in-modal success line — set on every resolved sync, cleared
-  // when a new sync starts. Read separately from the corner toast
-  // (`scanStatus`) so the modal banner doesn't disappear after 4.5s.
-  const [cloudSyncResult, setCloudSyncResult] = useState<string | undefined>(undefined);
-  const bgSyncTimer = useRef<number | null>(null);
+  // Cloud sync (PR-5) — state + handlers extracted to useCloudSync; the
+  // hook is instantiated below once the syncable inputs are in scope.
   // ── Plan / license (PR-8) ──
   const [licenseOpen, setLicenseOpen] = useState(false);
   const [licenseEffective, setLicenseEffective] = useState<Tier>("demo");
@@ -590,21 +565,6 @@ export function Library() {
     getAudioBackend().setMasterGain(masterVolume);
   }, [masterVolume]);
 
-  // ── Cloud sync: load persisted state on boot ────────────────────────────
-  useEffect(() => {
-    void (async () => {
-      try {
-        setCloudSignedIn((await getAuthStatus()) === "signed-in");
-        setCloudAccountEmail(await getAccountEmail());
-        setCloudDeviceLabel(await getDeviceLabel());
-        setCloudBaseUrl(await getBaseUrl());
-        setCloudLastSyncedAt(await getLastSyncedAt());
-      } catch (err) {
-        console.error("[cloud-sync] init failed:", err);
-      }
-    })();
-  }, []);
-
   // Reload everything a remote merge could have touched, straight from
   // SQLite. Mirrors the manual-import refresh but also pulls the config-
   // driven UI bits (theme/fade/volume/ducking/DM mode/NPC history) since a
@@ -637,93 +597,25 @@ export function Library() {
     }
   }, []);
 
-  // One full sync round-trip. `manual` only affects the status copy — the
-  // debounced background path passes false.
-  const runCloudSync = useCallback(
-    async (manual: boolean) => {
-      if (cloudSyncing) return;
-      setCloudSyncing(true);
-      setCloudError(undefined);
-      setCloudSyncResult(undefined);
-      if (manual) setScanStatus("Syncing…");
-      try {
-        const res = await runSync();
-        setCloudLastSyncedAt(res.updatedAt);
-        if (res.merged) await refreshSyncableFromDb();
-        const msg = res.merged
-          ? "Synced — merged cloud changes."
-          : "Synced to cloud.";
-        setCloudSyncResult(msg);
-        setScanStatus(msg);
-      } catch (err) {
-        if (err instanceof SyncAuthError) {
-          setCloudSignedIn(false);
-          setCloudError("Session expired — sign in again.");
-          setScanStatus("Cloud session expired. Sign in again.");
-        } else {
-          const msg = err instanceof Error ? err.message : String(err);
-          setCloudError(msg);
-          setScanStatus(`Sync failed: ${msg}`);
-        }
-      } finally {
-        setCloudSyncing(false);
-      }
+  // Cloud sync — the hook owns boot-load, runSync, the 4s debounced
+  // background push, the sync signature, and the user-facing handlers.
+  // Library passes the syncable inputs plus the DB refresh callback so
+  // the wider library state can re-hydrate after a remote merge.
+  const cloud = useCloudSync({
+    syncable: {
+      tracks,
+      scenes,
+      soundboard,
+      theme,
+      fadeMs,
+      masterVolume,
+      duckingPct,
+      dmMode,
+      nameHistory,
     },
-    [cloudSyncing, refreshSyncableFromDb],
-  );
-
-  // Mirror the latest runCloudSync into a ref so the debounce effect can
-  // fire it without re-subscribing every time its deps change.
-  const runCloudSyncRef = useRef(runCloudSync);
-  useEffect(() => {
-    runCloudSyncRef.current = runCloudSync;
-  }, [runCloudSync]);
-
-  // Signature of everything that syncs. Deliberately built from id + grade +
-  // note (not the whole Track) so playback-only changes — playCount,
-  // lastPlayedAt, durationMs — don't trip a sync. Empty while signed out.
-  const syncSignature = useMemo(() => {
-    if (!cloudSignedIn) return "";
-    return JSON.stringify({
-      g: tracks.map((t) => [t.id, t.grade ?? "", t.note ?? ""]),
-      s: scenes,
-      b: soundboard,
-      cfg: [theme, fadeMs, masterVolume, duckingPct, dmMode],
-      n: nameHistory,
-    });
-  }, [
-    cloudSignedIn,
-    tracks,
-    scenes,
-    soundboard,
-    theme,
-    fadeMs,
-    masterVolume,
-    duckingPct,
-    dmMode,
-    nameHistory,
-  ]);
-
-  // Debounced background push: 4s after the last syncable edit (per
-  // docs/CLOUD_SYNC.md PR-5). The first run after sign-in only captures the
-  // baseline signature — sign-in already triggers an explicit sync.
-  const lastSyncSig = useRef<string | null>(null);
-  useEffect(() => {
-    if (!cloudSignedIn) return undefined;
-    if (lastSyncSig.current === null) {
-      lastSyncSig.current = syncSignature;
-      return undefined;
-    }
-    if (syncSignature === lastSyncSig.current) return undefined;
-    lastSyncSig.current = syncSignature;
-    if (bgSyncTimer.current) window.clearTimeout(bgSyncTimer.current);
-    bgSyncTimer.current = window.setTimeout(() => {
-      void runCloudSyncRef.current(false);
-    }, 4000);
-    return () => {
-      if (bgSyncTimer.current) window.clearTimeout(bgSyncTimer.current);
-    };
-  }, [syncSignature, cloudSignedIn]);
+    refreshSyncableFromDb,
+    setScanStatus,
+  });
 
   // Re-render pads when any pad's playback state changes.
   useEffect(() => {
@@ -756,7 +648,7 @@ export function Library() {
     saveDialogOpen ||
     editingScene !== null ||
     pendingImport !== null ||
-    cloudSyncOpen ||
+    cloud.cloudSyncOpen ||
     licenseOpen ||
     activeTutorialId !== null ||
     helpOpen ||
@@ -771,8 +663,8 @@ export function Library() {
       finishTutorial(false);
     } else if (pendingImport) {
       setPendingImport(null);
-    } else if (cloudSyncOpen) {
-      setCloudSyncOpen(false);
+    } else if (cloud.cloudSyncOpen) {
+      cloud.closeCloudSync();
     } else if (licenseOpen) {
       setLicenseOpen(false);
     } else if (saveDialogOpen) {
@@ -1637,55 +1529,7 @@ export function Library() {
     }
   }
 
-  // ── Cloud sync handlers ──────────────────────────────────────────────────
-  async function handleCloudRequestLink(email: string) {
-    setCloudError(undefined);
-    try {
-      await requestMagicLink(email);
-      setCloudAccountEmail(email.trim().toLowerCase());
-      setScanStatus(`Sign-in link sent to ${email.trim()}.`);
-    } catch (err) {
-      setCloudError(err instanceof Error ? err.message : String(err));
-    }
-  }
-
-  async function handleCloudVerify(code: string) {
-    setCloudError(undefined);
-    try {
-      await verifyMagicCode(code);
-      setCloudSignedIn(true);
-      setScanStatus("Signed in to cloud sync.");
-      void runCloudSync(true);
-    } catch (err) {
-      setCloudError(err instanceof Error ? err.message : String(err));
-    }
-  }
-
-  async function handleCloudSignOut() {
-    try {
-      await signOutCloud();
-    } catch (err) {
-      console.error("[cloud-sync] sign out failed:", err);
-    }
-    setCloudSignedIn(false);
-    setCloudAccountEmail(undefined);
-    setCloudLastSyncedAt(undefined);
-    lastSyncSig.current = null;
-    setScanStatus("Signed out of cloud sync.");
-  }
-
-  async function handleCloudSetBaseUrl(url: string) {
-    setCloudError(undefined);
-    await persistBaseUrl(url);
-    setCloudBaseUrl(await getBaseUrl());
-    // A different server means a different session — re-check auth state.
-    setCloudSignedIn((await getAuthStatus()) === "signed-in");
-  }
-
-  async function handleCloudSetDeviceLabel(label: string) {
-    await persistDeviceLabel(label);
-    setCloudDeviceLabel(label.trim() || undefined);
-  }
+  // Cloud sync handlers — extracted to useCloudSync.
 
   // ── Plan / license handlers ──────────────────────────────────────────────
   async function openLicense() {
@@ -2257,7 +2101,7 @@ export function Library() {
           onOpenLicense={() => void openLicense()}
           onOpenCloudSync={() => {
             setTutorialsMenu(null);
-            setCloudSyncOpen(true);
+            cloud.openCloudSync();
           }}
           onExportSync={() => void handleExportSync()}
           onImportSync={() => void handleImportSyncPick()}
@@ -2308,30 +2152,23 @@ export function Library() {
         />
       ) : null}
 
-      {cloudSyncOpen ? (
+      {cloud.cloudSyncOpen ? (
         <SyncSettings
-          signedIn={cloudSignedIn}
-          {...(cloudAccountEmail ? { accountEmail: cloudAccountEmail } : {})}
-          {...(cloudDeviceLabel ? { deviceLabel: cloudDeviceLabel } : {})}
-          baseUrl={cloudBaseUrl}
-          {...(cloudLastSyncedAt !== undefined ? { lastSyncedAt: cloudLastSyncedAt } : {})}
-          syncing={cloudSyncing}
-          {...(cloudError ? { error: cloudError } : {})}
-          {...(cloudSyncResult ? { syncResult: cloudSyncResult } : {})}
-          onRequestLink={(email) => void handleCloudRequestLink(email)}
-          onVerify={(code) => void handleCloudVerify(code)}
-          onSyncNow={() => void runCloudSync(true)}
-          onSignOut={() => void handleCloudSignOut()}
-          onSetBaseUrl={(url) => void handleCloudSetBaseUrl(url)}
-          onSetDeviceLabel={(label) => void handleCloudSetDeviceLabel(label)}
-          onClose={() => {
-            setCloudSyncOpen(false);
-            // Drop the success banner so reopening the modal later
-            // doesn't show a stale "Synced to cloud." next to a
-            // "Last synced 38 mins ago" — the latter is the
-            // authoritative state.
-            setCloudSyncResult(undefined);
-          }}
+          signedIn={cloud.signedIn}
+          {...(cloud.accountEmail ? { accountEmail: cloud.accountEmail } : {})}
+          {...(cloud.deviceLabel ? { deviceLabel: cloud.deviceLabel } : {})}
+          baseUrl={cloud.baseUrl}
+          {...(cloud.lastSyncedAt !== undefined ? { lastSyncedAt: cloud.lastSyncedAt } : {})}
+          syncing={cloud.syncing}
+          {...(cloud.error ? { error: cloud.error } : {})}
+          {...(cloud.syncResult ? { syncResult: cloud.syncResult } : {})}
+          onRequestLink={(email) => void cloud.handleRequestLink(email)}
+          onVerify={(code) => void cloud.handleVerify(code)}
+          onSyncNow={() => void cloud.runCloudSync(true)}
+          onSignOut={() => void cloud.handleSignOut()}
+          onSetBaseUrl={(url) => void cloud.handleSetBaseUrl(url)}
+          onSetDeviceLabel={(label) => void cloud.handleSetDeviceLabel(label)}
+          onClose={() => cloud.closeCloudSync()}
         />
       ) : null}
 
