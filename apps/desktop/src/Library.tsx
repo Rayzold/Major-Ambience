@@ -39,7 +39,6 @@ import { DesktopDmToolkit } from "./layout/DesktopDmToolkit.js";
 import { DesktopHeader } from "./layout/DesktopHeader.js";
 import { DesktopSidebar } from "./layout/DesktopSidebar.js";
 import { DesktopDmSidebar } from "./layout/DesktopDmSidebar.js";
-import type { DmTool } from "./layout/DesktopDmToolkit.js";
 import { DesktopScenesSidebar } from "./layout/DesktopScenesSidebar.js";
 import { DesktopSoundboardSidebar } from "./layout/DesktopSoundboardSidebar.js";
 import { DesktopLibraryView } from "./layout/DesktopLibraryView.js";
@@ -47,18 +46,11 @@ import { DesktopRightRail } from "./layout/DesktopRightRail.js";
 import { DesktopScenesView } from "./layout/DesktopScenesView.js";
 import { DesktopSoundboardView } from "./layout/DesktopSoundboardView.js";
 import { DesktopTransport } from "./layout/DesktopTransport.js";
-import type { Combatant } from "./layout/dm/InitiativeTracker.js";
-import type { RolledName } from "./layout/dm/NameGenerator.js";
-import type { EncounterTable } from "./layout/dm/EncounterTables.js";
-import type { CountdownTimer } from "./layout/dm/TensionCountdown.js";
-import { EMPTY_LEDGER, type XpLedgerState } from "./layout/dm/XpLedger.js";
-import type { RecapMoment } from "./layout/dm/RecapComposer.js";
 import {
   HANDOUT_EVENT,
   HANDOUT_READY_EVENT,
   type HandoutPayload,
 } from "./layout/HandoutView.js";
-import type { RollResult } from "@mc/core/dm";
 import { KeyboardHelpOverlay } from "./layout/KeyboardHelpOverlay.js";
 import { PinToSlotMenu } from "./layout/PinToSlotMenu.js";
 import { SaveSceneDialog } from "./layout/SaveSceneDialog.js";
@@ -81,6 +73,7 @@ import {
   purchasedTier as readPurchasedTier,
 } from "./lib/entitlement.js";
 import { useCloudSync } from "./hooks/useCloudSync.js";
+import { useDMToolkit } from "./hooks/useDMToolkit.js";
 import { useKeyboardShortcuts } from "./lib/keyboard.js";
 import { getBugReportUrl, getDiagnosticsText, logEvent } from "./lib/diag.js";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -177,9 +170,9 @@ export function Library() {
   const [editingScene, setEditingScene] = useState<Scene | null>(null);
   const [soundboard, setSoundboard] = useState<SoundboardSlot[]>([]);
   const [soundboardPage, setSoundboardPage] = useState<"A" | "B" | "C">("A");
-  // DM Toolkit's active sub-tool is lifted up here so the mode-aware
-  // sidebar can read + write it from the DM Toolkit tab.
-  const [dmTool, setDmTool] = useState<DmTool>("initiative");
+  // DM Toolkit state (dmTool, dmMode, combatants, encounter tables,
+  // countdown timers, XP ledger, recap, name/roll history, currentTurnIdx)
+  // and its SQLite persisters live in useDMToolkit; instantiated below.
   const [padPlayingTick, setPadPlayingTick] = useState(0);
   const [pinMenu, setPinMenu] = useState<
     { track: Track; x: number; y: number } | null
@@ -222,15 +215,12 @@ export function Library() {
     | null
   >(null);
   const [theme, setTheme] = useState<ThemeId>(DEFAULT_THEME);
-  const [dmMode, setDmMode] = useState(false);
-  const [nameHistory, setNameHistory] = useState<RolledName[]>([]);
-  const [rollHistory, setRollHistory] = useState<RollResult[]>([]);
-  const [combatants, setCombatants] = useState<Combatant[]>([]);
-  const [encounterTables, setEncounterTables] = useState<EncounterTable[]>([]);
-  const [countdownTimers, setCountdownTimers] = useState<CountdownTimer[]>([]);
-  const [xpLedger, setXpLedger] = useState<XpLedgerState>(EMPTY_LEDGER);
-  const [recapMoments, setRecapMoments] = useState<RecapMoment[]>([]);
-  const [currentTurnIdx, setCurrentTurnIdx] = useState(0);
+
+  // DM Toolkit slice — owns dmMode / dmTool / combatants / encounter
+  // tables / countdown timers / XP ledger / recap moments / name + roll
+  // history / currentTurnIdx, plus the persisters + a reloadFromDb()
+  // call we hand to refreshSyncableFromDb after a cloud merge.
+  const dm = useDMToolkit();
 
   // ── Derived ─────────────────────────────────────────────────────────────
   const currentTrack = useMemo(
@@ -496,64 +486,7 @@ export function Library() {
         } else {
           applyTheme(DEFAULT_THEME);
         }
-        const dmRaw = await getConfig(db, "dm_mode");
-        if (dmRaw === "true") setDmMode(true);
-        const namesRaw = await getConfig(db, "dm_name_history");
-        if (namesRaw) {
-          try {
-            setNameHistory(JSON.parse(namesRaw) as RolledName[]);
-          } catch {
-            /* swallow */
-          }
-        }
-        const rollsRaw = await getConfig(db, "dm_roll_history");
-        if (rollsRaw) {
-          try {
-            setRollHistory(JSON.parse(rollsRaw) as RollResult[]);
-          } catch {
-            /* swallow */
-          }
-        }
-        const combRaw = await getConfig(db, "dm_combatants");
-        if (combRaw) {
-          try {
-            setCombatants(JSON.parse(combRaw) as Combatant[]);
-          } catch {
-            /* swallow */
-          }
-        }
-        const encRaw = await getConfig(db, "dm_encounter_tables");
-        if (encRaw) {
-          try {
-            setEncounterTables(JSON.parse(encRaw) as EncounterTable[]);
-          } catch {
-            /* swallow */
-          }
-        }
-        const timersRaw = await getConfig(db, "dm_countdown_timers");
-        if (timersRaw) {
-          try {
-            setCountdownTimers(JSON.parse(timersRaw) as CountdownTimer[]);
-          } catch {
-            /* swallow */
-          }
-        }
-        const ledgerRaw = await getConfig(db, "dm_xp_ledger");
-        if (ledgerRaw) {
-          try {
-            setXpLedger({ ...EMPTY_LEDGER, ...(JSON.parse(ledgerRaw) as XpLedgerState) });
-          } catch {
-            /* swallow */
-          }
-        }
-        const recapRaw = await getConfig(db, "dm_recap");
-        if (recapRaw) {
-          try {
-            setRecapMoments(JSON.parse(recapRaw) as RecapMoment[]);
-          } catch {
-            /* swallow */
-          }
-        }
+        // DM Toolkit state hydrates via useDMToolkit's own boot effect.
       } catch (err) {
         console.error("[library] init failed:", err);
       }
@@ -586,16 +519,10 @@ export function Library() {
     const duck = await getConfigNumber(db, "ducking_pct", DEFAULT_DUCKING);
     setDuckingPctState(duck);
     setPadDuckingPct(duck);
-    setDmMode((await getConfig(db, "dm_mode")) === "true");
-    const namesRaw = await getConfig(db, "dm_name_history");
-    if (namesRaw) {
-      try {
-        setNameHistory(JSON.parse(namesRaw) as RolledName[]);
-      } catch {
-        /* swallow */
-      }
-    }
-  }, []);
+    // DM-managed slices (dm_mode + dm_name_history + others) reload
+    // through the dm hook so the SQLite plumbing lives in one place.
+    await dm.reloadFromDb();
+  }, [dm]);
 
   // Cloud sync — the hook owns boot-load, runSync, the 4s debounced
   // background push, the sync signature, and the user-facing handlers.
@@ -610,8 +537,8 @@ export function Library() {
       fadeMs,
       masterVolume,
       duckingPct,
-      dmMode,
-      nameHistory,
+      dmMode: dm.dmMode,
+      nameHistory: dm.nameHistory,
     },
     refreshSyncableFromDb,
     setScanStatus,
@@ -1580,53 +1507,14 @@ export function Library() {
     await setConfig(db, "theme", id);
   }
 
-  // ── DM Toolkit ─────────────────────────────────────────────────────────
-  async function handleNameHistoryChange(next: RolledName[]) {
-    setNameHistory(next);
-    const db = await getDb();
-    await setConfig(db, "dm_name_history", JSON.stringify(next));
-  }
-
-  async function handleRollHistoryChange(next: RollResult[]) {
-    setRollHistory(next);
-    const db = await getDb();
-    await setConfig(db, "dm_roll_history", JSON.stringify(next));
-  }
-
-  async function handleCombatantsChange(next: Combatant[]) {
-    setCombatants(next);
-    const db = await getDb();
-    await setConfig(db, "dm_combatants", JSON.stringify(next));
-  }
-
-  async function handleEncounterTablesChange(next: EncounterTable[]) {
-    setEncounterTables(next);
-    const db = await getDb();
-    await setConfig(db, "dm_encounter_tables", JSON.stringify(next));
-  }
-
-  async function handleCountdownTimersChange(next: CountdownTimer[]) {
-    setCountdownTimers(next);
-    const db = await getDb();
-    await setConfig(db, "dm_countdown_timers", JSON.stringify(next));
-  }
-
-  async function handleXpLedgerChange(next: XpLedgerState) {
-    setXpLedger(next);
-    const db = await getDb();
-    await setConfig(db, "dm_xp_ledger", JSON.stringify(next));
-  }
-
-  async function handleRecapMomentsChange(next: RecapMoment[]) {
-    setRecapMoments(next);
-    const db = await getDb();
-    await setConfig(db, "dm_recap", JSON.stringify(next));
-  }
+  // DM Toolkit persisters live in useDMToolkit.
 
   function handleTurnChange(newIdx: number) {
-    setCurrentTurnIdx(newIdx);
+    dm.setCurrentTurnIdx(newIdx);
     // Fire turn sound through soundboard bus (auto-ducks music).
-    const sorted = [...combatants].sort((a, b) => b.initiative - a.initiative);
+    const sorted = [...dm.combatants].sort(
+      (a, b) => b.initiative - a.initiative,
+    );
     const next = sorted[newIdx];
     if (next?.turnSoundTrackId) {
       const track = tracks.find((t) => t.id === next.turnSoundTrackId);
@@ -1640,16 +1528,16 @@ export function Library() {
 
   // ── DM Mode ────────────────────────────────────────────────────────────
   async function handleToggleDmMode() {
-    const next = !dmMode;
-    setDmMode(next);
-    // Close any open popovers/menus that are no longer reachable.
+    const next = !dm.dmMode;
+    // Close any open popovers/menus that are no longer reachable when
+    // entering DM mode — kept here (not in the hook) since these are
+    // non-DM dialog flags.
     if (next) {
       setPinMenu(null);
       setTutorialsMenu(null);
       setSaveDialogOpen(false);
     }
-    const db = await getDb();
-    await setConfig(db, "dm_mode", next ? "true" : "false");
+    await dm.setDmMode(next);
   }
 
   // ── Tutorials ──────────────────────────────────────────────────────────
@@ -1888,7 +1776,7 @@ export function Library() {
         searchInputRef={searchInputRef}
         hasUnseenTutorials={hasUnseenTutorials}
         onOpenTutorials={(anchor) => setTutorialsMenu(anchor)}
-        dmMode={dmMode}
+        dmMode={dm.dmMode}
         onToggleDmMode={() => void handleToggleDmMode()}
         playerViewOpen={playerViewOpen}
         onTogglePlayerView={handleTogglePlayerView}
@@ -1918,9 +1806,9 @@ export function Library() {
           />
         ) : tab === "dm" ? (
           <DesktopDmSidebar
-            tool={dmTool}
-            onToolChange={setDmTool}
-            combatantsCount={combatants.length}
+            tool={dm.dmTool}
+            onToolChange={dm.setDmTool}
+            combatantsCount={dm.combatants.length}
           />
         ) : (
           <DesktopSidebar
@@ -1953,7 +1841,7 @@ export function Library() {
             lastScannedAt={lastScannedAt}
             isScanning={isScanning}
             onRescan={
-              rootFolderPath && !dmMode
+              rootFolderPath && !dm.dmMode
                 ? () => void handleOpenFolder(rootFolderPath)
                 : undefined
             }
@@ -1970,11 +1858,11 @@ export function Library() {
             onSelectRow={handleSelectRow}
             onShuffleCategory={() => void handleShuffleCategory()}
             onTrackContextMenu={(t, x, y) =>
-              dmMode ? undefined : setPinMenu({ track: t, x, y })
+              dm.dmMode ? undefined : setPinMenu({ track: t, x, y })
             }
             onRemoveTrack={(t) => void handleRemoveTrack(t)}
             onRestoreTrack={(t) => void handleRestoreTrack(t)}
-            dmMode={dmMode}
+            dmMode={dm.dmMode}
           />
         ) : tab === "scenes" ? (
           <DesktopScenesView
@@ -1985,7 +1873,7 @@ export function Library() {
             onRestore={(s) => void handleRestoreScene(s)}
             onDelete={(s) => void handleDeleteScene(s)}
             onEdit={(s) => setEditingScene(s)}
-            dmMode={dmMode}
+            dmMode={dm.dmMode}
           />
         ) : tab === "soundboard" ? (
           <DesktopSoundboardView
@@ -2004,25 +1892,25 @@ export function Library() {
             onClear={(p, s) => void handlePadClear(p, s)}
             onSetLoop={(p, s, l) => void handlePadSetLoop(p, s, l)}
             onSetVolume={(p, s, v) => void handlePadSetVolume(p, s, v)}
-            dmMode={dmMode}
+            dmMode={dm.dmMode}
           />
         ) : (
           <DesktopDmToolkit
-            tool={dmTool}
-            nameHistory={nameHistory}
-            onNameHistory={(next) => void handleNameHistoryChange(next)}
-            rollHistory={rollHistory}
-            onRollHistory={(next) => void handleRollHistoryChange(next)}
-            combatants={combatants}
-            currentTurnIdx={currentTurnIdx}
+            tool={dm.dmTool}
+            nameHistory={dm.nameHistory}
+            onNameHistory={(next) => void dm.setNameHistory(next)}
+            rollHistory={dm.rollHistory}
+            onRollHistory={(next) => void dm.setRollHistory(next)}
+            combatants={dm.combatants}
+            currentTurnIdx={dm.currentTurnIdx}
             tracksById={tracksById}
-            onCombatantsChange={(next) => void handleCombatantsChange(next)}
+            onCombatantsChange={(next) => void dm.setCombatants(next)}
             onTurnChange={handleTurnChange}
             onPickTurnSound={(combatantId, x, y) =>
               setPickerOverlay({ x, y, target: { kind: "turnSound", combatantId } })
             }
-            encounterTables={encounterTables}
-            onEncounterTables={(next) => void handleEncounterTablesChange(next)}
+            encounterTables={dm.encounterTables}
+            onEncounterTables={(next) => void dm.setEncounterTables(next)}
             onPickEntryTrack={(tableId, entryId, x, y) =>
               setPickerOverlay({ x, y, target: { kind: "encounterEntry", tableId, entryId } })
             }
@@ -2031,8 +1919,8 @@ export function Library() {
               if (t) void handlePlayTrack(t);
             }}
             onPlayCategory={(categoryId) => void handlePlayRandomFromCategory(categoryId)}
-            countdownTimers={countdownTimers}
-            onCountdownTimers={(next) => void handleCountdownTimersChange(next)}
+            countdownTimers={dm.countdownTimers}
+            onCountdownTimers={(next) => void dm.setCountdownTimers(next)}
             onPickStinger={(timerId, x, y) =>
               setPickerOverlay({ x, y, target: { kind: "timerStinger", timerId } })
             }
@@ -2042,10 +1930,10 @@ export function Library() {
               // stinger auto-ducks the music, same mechanism as turn sounds.
               if (t) void firePad("A", 90, t, { loop: false, volume: 0.95 });
             }}
-            xpLedger={xpLedger}
-            onXpLedger={(next) => void handleXpLedgerChange(next)}
-            recapMoments={recapMoments}
-            onRecapMoments={(next) => void handleRecapMomentsChange(next)}
+            xpLedger={dm.xpLedger}
+            onXpLedger={(next) => void dm.setXpLedger(next)}
+            recapMoments={dm.recapMoments}
+            onRecapMoments={(next) => void dm.setRecapMoments(next)}
             {...(currentTrack ? { nowPlayingLabel: currentTrack.title } : {})}
           />
         )}
@@ -2058,7 +1946,7 @@ export function Library() {
           onCycleGrade={handleCycleGrade}
           onSetGrade={handleSetGrade}
           upNext={upNext}
-          dmMode={dmMode}
+          dmMode={dm.dmMode}
         />
       </div>
 
@@ -2205,7 +2093,7 @@ export function Library() {
           track={pinMenu.track}
           slots={soundboard}
           tracksById={tracksById}
-          combatants={combatants}
+          combatants={dm.combatants}
           onPin={(page, slot) => {
             void handlePadAssign(page, slot, pinMenu.track.id);
             setPinMenu(null);
@@ -2214,13 +2102,13 @@ export function Library() {
             );
           }}
           onSetTurnSound={(combatantId) => {
-            const target = combatants.find((c) => c.id === combatantId);
+            const target = dm.combatants.find((c) => c.id === combatantId);
             if (!target) {
               setPinMenu(null);
               return;
             }
-            void handleCombatantsChange(
-              combatants.map((c) =>
+            void dm.setCombatants(
+              dm.combatants.map((c) =>
                 c.id === combatantId
                   ? { ...c, turnSoundTrackId: pinMenu.track.id }
                   : c,
@@ -2304,7 +2192,7 @@ export function Library() {
                   : (() => {
                       const t = pickerOverlay.target;
                       if (t.kind !== "turnSound") return "";
-                      const target = combatants.find((c) => c.id === t.combatantId);
+                      const target = dm.combatants.find((c) => c.id === t.combatantId);
                       return target
                         ? `Fires automatically when it's ${target.name}'s turn.`
                         : "Fires automatically on this combatant's turn.";
@@ -2318,7 +2206,7 @@ export function Library() {
                 `Pinned "${track.title}" to ${target.page}·${target.slot}.`,
               );
             } else if (target.kind === "encounterEntry") {
-              const next = encounterTables.map((tbl) =>
+              const next = dm.encounterTables.map((tbl) =>
                 tbl.id === target.tableId
                   ? {
                       ...tbl,
@@ -2335,23 +2223,23 @@ export function Library() {
                     }
                   : tbl,
               );
-              void handleEncounterTablesChange(next);
+              void dm.setEncounterTables(next);
               setScanStatus(`Bound "${track.title}" to an encounter entry.`);
             } else if (target.kind === "timerStinger") {
-              const next = countdownTimers.map((tm) =>
+              const next = dm.countdownTimers.map((tm) =>
                 tm.id === target.timerId ? { ...tm, stingerTrackId: track.id } : tm,
               );
-              void handleCountdownTimersChange(next);
+              void dm.setCountdownTimers(next);
               setScanStatus(`Set "${track.title}" as a timer stinger.`);
             } else {
-              const next = combatants.map((c) =>
+              const next = dm.combatants.map((c) =>
                 c.id === target.combatantId
                   ? { ...c, turnSoundTrackId: track.id }
                   : c,
               );
-              void handleCombatantsChange(next);
+              void dm.setCombatants(next);
               const target_name =
-                combatants.find((c) => c.id === target.combatantId)?.name ?? "combatant";
+                dm.combatants.find((c) => c.id === target.combatantId)?.name ?? "combatant";
               setScanStatus(
                 `Set "${track.title}" as turn sound for ${target_name}.`,
               );
@@ -2408,7 +2296,7 @@ export function Library() {
             // same results.
             setSearchOpen(false);
             searchInputRef.current?.blur();
-            if (!dmMode) setPinMenu({ track: t, x, y });
+            if (!dm.dmMode) setPinMenu({ track: t, x, y });
           }}
           onDismiss={() => {
             setSearchOpen(false);
@@ -2417,7 +2305,7 @@ export function Library() {
         />
       ) : null}
 
-      {selectedIds.size > 0 && tab === "library" && !dmMode ? (
+      {selectedIds.size > 0 && tab === "library" && !dm.dmMode ? (
         <SelectionBar
           count={selectedIds.size}
           onSetGrade={(g) => void handleBulkGrade(g)}
@@ -2449,7 +2337,7 @@ export function Library() {
         anyPlaying={anyPlaying}
         loopMode={loopMode}
         onCycleLoop={() => void handleCycleLoop()}
-        dmMode={dmMode}
+        dmMode={dm.dmMode}
       />
     </div>
   );
