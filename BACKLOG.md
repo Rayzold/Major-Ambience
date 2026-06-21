@@ -49,7 +49,7 @@ Snapshot of improvement areas surfaced after the v0.0.33 ship. Items already in 
 
 ### On the radar — surfaced 2026‑06‑20
 
-- [ ] **Audio-engine memory ceiling, post-#65.** The Blob-loading fix in v0.0.33 loads each track fully into memory (~5–10 MB). Two handles alive at a time ≈ 20 MB ceiling — fine. Long DM sessions where dozens of tracks load/unload could fragment the heap. **Action:** add a per-session memory probe + console log of peak heap; revisit if a real user hits it.
+- [x] **Audio-engine memory ceiling, post-#65.** The Blob-loading fix in v0.0.33 loads each track fully into memory (~5–10 MB). Two handles alive at a time ≈ 20 MB ceiling — fine. Long DM sessions where dozens of tracks load/unload could fragment the heap. **Action:** add a per-session memory probe + console log of peak heap; revisit if a real user hits it. — Shipped 0.0.38: every `audio.*` diag event auto-attaches `heap: {used, peak, limit}` in MB; a separate `audio.heap.peak` entry fires whenever the session peak grows by ≥1 MB past the last emit (rate-limited).
 
 - [x] **Mobile DM-Toolkit Initiative needs the new init-mod UI.** PR #64 shipped to desktop only. The `Combatant` shape was updated as forward-compatible — mobile reads/writes the `initiativeMod` field — but the mobile UI to set it doesn't exist. **Action:** straight port of `EditableNumber` + "Roll all" footer button to `apps/mobile/app/dm/initiative.tsx`. — Shipped mobile 0.0.26 (#69): editable init field per combatant, mod chip, "🎲 Roll" footer button.
 

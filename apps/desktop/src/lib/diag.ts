@@ -25,7 +25,7 @@
 
 const MAX_ENTRIES = 250;
 const LS_KEY = "mc:diag:ringbuffer:v1";
-const APP_VERSION = "0.0.37"; // wire to package.json import if it ever needs lockstep
+const APP_VERSION = "0.0.38"; // wire to package.json import if it ever needs lockstep
 
 export type DiagLevel = "info" | "warn" | "error" | "event";
 
@@ -41,6 +41,55 @@ export type DiagEntry = {
 
 let _buffer: DiagEntry[] = [];
 let _installed = false;
+
+// Peak-heap tracker for the audio-engine memory ceiling probe (BACKLOG #6).
+// The Blob-loading fix in v0.0.33 keeps each track fully resident
+// (~5–10 MB/track, two handles alive ≈ 20 MB ceiling). Long sessions
+// where dozens of tracks load/unload could fragment the heap; this
+// tracker exists so we'd see it in a bug-report dump rather than
+// guessing. Reset across boots so the value is per-session.
+let _peakHeapUsed = 0;
+let _lastPeakEmit = 0;
+/** Minimum bytes a new peak must beat the last *emitted* peak by before
+ *  we add another `audio.heap.peak` entry. 1 MB keeps the buffer from
+ *  filling with sub-noise increments during normal play. */
+const PEAK_EMIT_DELTA_BYTES = 1024 * 1024;
+
+type HeapSample = { used: number; total: number; limit: number };
+
+/** Read the renderer's JS heap usage. Returns null when the host doesn't
+ *  expose `performance.memory` (non-standard but present in Chromium,
+ *  which is what WebView2 ships). happy-dom in tests returns null. */
+function readHeap(): HeapSample | null {
+  const perf = performance as unknown as {
+    memory?: {
+      usedJSHeapSize?: number;
+      totalJSHeapSize?: number;
+      jsHeapSizeLimit?: number;
+    };
+  };
+  const m = perf.memory;
+  if (!m || typeof m.usedJSHeapSize !== "number") return null;
+  return {
+    used: m.usedJSHeapSize,
+    total: m.totalJSHeapSize ?? 0,
+    limit: m.jsHeapSizeLimit ?? 0,
+  };
+}
+
+/** Sample current heap and update the session peak. Returns the values
+ *  in MB (rounded) for compact display in dumps; nulls when unavailable. */
+export function sampleHeapMB(): {
+  used: number;
+  peak: number;
+  limit: number;
+} | null {
+  const s = readHeap();
+  if (!s) return null;
+  if (s.used > _peakHeapUsed) _peakHeapUsed = s.used;
+  const toMB = (b: number) => Math.round(b / (1024 * 1024));
+  return { used: toMB(s.used), peak: toMB(_peakHeapUsed), limit: toMB(s.limit) };
+}
 
 function loadFromStorage(): DiagEntry[] {
   try {
@@ -112,12 +161,34 @@ function stringifyArgs(args: unknown[]): string {
  * use a short noun phrase like "audio.play", "sync.push.start",
  * "scan.complete". Data is stringified into the message so it can be
  * scanned by eye in the dump.
+ *
+ * Side-effect: any `audio.*` event auto-includes a `heap` reading (MB)
+ * so the dump shows how the JS heap moved alongside each playback
+ * transition. When a new session peak grows past the last emitted peak
+ * by ≥1 MB, a separate `audio.heap.peak` entry is appended so the
+ * ceiling is greppable. The peak event is rate-limited; the auto-include
+ * is free because we'd already be calling `push()` for the audio event.
  */
 export function logEvent(
   tag: string,
   data?: Record<string, unknown>,
 ): void {
-  const msg = data ? stringifyArgs([data]) : "";
+  let payload = data;
+  if (tag.startsWith("audio.")) {
+    const heap = sampleHeapMB();
+    if (heap) {
+      payload = { ...(data ?? {}), heap };
+      if (heap.peak * 1024 * 1024 >= _lastPeakEmit + PEAK_EMIT_DELTA_BYTES) {
+        _lastPeakEmit = heap.peak * 1024 * 1024;
+        push(
+          "event",
+          "audio.heap.peak",
+          stringifyArgs([{ peakMB: heap.peak, limitMB: heap.limit }]),
+        );
+      }
+    }
+  }
+  const msg = payload ? stringifyArgs([payload]) : "";
   push("event", tag, msg);
 }
 
