@@ -20,6 +20,54 @@ Earlier: **mobile reached full desktop parity** for the v0.x feature set — DM 
 
 ---
 
+## [0.0.43] — 2026‑06‑21 — Sentry scaffold + opt-in toggle (BACKLOG #4 — desktop done, mobile deferred)
+
+Closes the desktop half of BACKLOG **#4 Important** — Sentry error reporting. The full integration is scaffolded but **inert until a Sentry DSN is configured at build time** (`VITE_SENTRY_DSN`). Dev shells and unconfigured deploys produce zero traffic. Even with a DSN, **the toggle is off by default** — users must explicitly opt in via the new Help → "Send anonymous diagnostics" checkbox.
+
+This pairs with the diag ring buffer (#67) and the Report-a-bug path (#70). The three layers cover:
+
+- **Local always-on** — diag buffer captures every session for the user to inspect via Copy diag / Report-a-bug.
+- **Remote opt-in** — Sentry sends *errors only* (not progress, not session replay) to a remote sink so we hear about crashes the user didn't report.
+- **Forensic continuity** — Sentry's `beforeSend` attaches the diag buffer's tail (last 50 entries) as breadcrumbs, so a remote crash report has the same per-session trail a Copy-diag dump would.
+
+> Desktop-only release: bumps `apps/desktop/package.json` / `tauri.conf.json` / `Cargo.toml` 0.0.42 → 0.0.43. Mobile parity deferred to a separate PR — App Store specifically scrutinizes telemetry frameworks even when opt-in, so bundling Sentry there warrants its own conversation + privacy disclosure flow.
+
+### Added — `apps/desktop/src/lib/telemetry.ts`
+
+New module. Owns:
+
+- `initTelemetry()` — fire-and-forget from `main.tsx`. No-ops if no DSN is configured. Otherwise constructs the Sentry client with the persisted opt-in flag as `enabled` and a `beforeSend` hook that injects the diag buffer's tail.
+- `readTelemetryEnabled()` / `setTelemetryEnabled()` — opt-in persistence, with `setTelemetryEnabled` also flipping the live client's `enabled` flag so toggles take effect without a relaunch.
+- Default Sentry browser integrations that fingerprint the user (`BrowserApiErrors`, etc.) are deliberately filtered out. Only `GlobalHandlers` + `InboundFilters` remain.
+
+### Added — `apps/desktop/src/main.tsx`
+
+`initTelemetry()` fires after `installDiagnostics()` so the diag buffer's `unhandledrejection` handler catches any telemetry-init errors.
+
+### Added — `apps/desktop/src/layout/TutorialsMenu.tsx`
+
+New "Send anonymous diagnostics" checkbox at the bottom of the Help section. Two new props: `telemetryEnabled` + `onSetTelemetryEnabled`.
+
+### Added — `docs/TELEMETRY.md`
+
+What's collected, the privacy posture, how to wire a DSN at build time (`$env:VITE_SENTRY_DSN = "..." ; pnpm --filter @mc/desktop tauri build`), and the relationship between the diag buffer and Sentry.
+
+### Added dep
+
+`@sentry/react ^10.59.0` to `apps/desktop`.
+
+### Verification
+
+- `pnpm typecheck` clean.
+- `pnpm test` — 14/14 pass.
+- Build path: bundle stays inert without a DSN (dev shells log `telemetry.disabled.no-dsn` once into the diag buffer and skip Sentry init entirely).
+
+### What's left in #4
+
+Mobile parity. The desktop scaffold is the pattern mobile would mirror once we work out the App Store / Play Store privacy disclosure story.
+
+---
+
 ## [0.0.42] — 2026‑06‑21 — `usePlayback` extraction from Library.tsx (BACKLOG #2 closed)
 
 Final slice of the god-component extraction. The transport — `handlePlayTrack` (load + crossfade + onEnded queue advancement + loop-track self-crossfade), togglePlay, prev, next, seek, seekRelative, stopAll, cycleLoop, and the six pieces of playback state (`playback`, `isPlaying`, `currentTime`, `trackDurationSec`, `queue`, `loopMode`) — all lifted into `usePlayback`. `Library.tsx` drops to **2,067 lines** (**−588 LOC cumulative**, 22% of the original 2,655). **Closes BACKLOG #2.**
