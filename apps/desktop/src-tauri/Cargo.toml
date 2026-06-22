@@ -1,6 +1,6 @@
 [package]
 name = "major_ambience_desktop"
-version = "0.0.42"
+version = "0.0.43"
 description = "Major Ambience — desktop shell"
 authors = ["Major Ambience"]
 edition = "2021"

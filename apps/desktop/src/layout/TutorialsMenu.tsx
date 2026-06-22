@@ -24,6 +24,9 @@ export type TutorialsMenuProps = {
   onImportSync: () => void;
   onCopyDiagnostics: () => void;
   onReportBug: () => void;
+  /** Current opt-in for sending anonymous error reports to Sentry. */
+  telemetryEnabled: boolean;
+  onSetTelemetryEnabled: (enabled: boolean) => void;
   onDismiss: () => void;
 };
 
@@ -42,6 +45,8 @@ export function TutorialsMenu({
   onImportSync,
   onCopyDiagnostics,
   onReportBug,
+  telemetryEnabled,
+  onSetTelemetryEnabled,
   onDismiss,
 }: TutorialsMenuProps) {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -307,6 +312,32 @@ export function TutorialsMenu({
             <Glyph name="folder" size={12} /> Copy diag
           </button>
         </div>
+        <label
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 8,
+            padding: "6px 12px 8px",
+            cursor: "pointer",
+            fontSize: 11,
+            color: T.ink2,
+            lineHeight: 1.4,
+          }}
+          title="When on, crashes are reported anonymously so they can be fixed. Off by default. No personal data; the diag dump's tail is attached as breadcrumbs."
+        >
+          <input
+            type="checkbox"
+            checked={telemetryEnabled}
+            onChange={(e) => onSetTelemetryEnabled(e.target.checked)}
+            style={{ marginTop: 2, accentColor: T.gold }}
+          />
+          <span>
+            Send anonymous diagnostics
+            <span style={{ color: T.ink3, display: "block", marginTop: 2 }}>
+              Off by default. Helps find crashes you didn&rsquo;t report.
+            </span>
+          </span>
+        </label>
 
         <div style={{ height: 6 }} />
         <SectionHeader title="Tutorials" />

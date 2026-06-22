@@ -74,6 +74,10 @@ import { useDMToolkit } from "./hooks/useDMToolkit.js";
 import { usePlayback } from "./hooks/usePlayback.js";
 import { useKeyboardShortcuts } from "./lib/keyboard.js";
 import { getBugReportUrl, getDiagnosticsText } from "./lib/diag.js";
+import {
+  readTelemetryEnabled,
+  setTelemetryEnabled,
+} from "./lib/telemetry.js";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   firePad,
@@ -153,6 +157,10 @@ export function Library() {
   >(null);
   // Cloud sync (PR-5) — state + handlers extracted to useCloudSync; the
   // hook is instantiated below once the syncable inputs are in scope.
+  // Mirror of the persisted Sentry opt-in so the Help toggle reflects
+  // the saved state. Source of truth lives in lib/telemetry.ts; this
+  // is just the render-side mirror.
+  const [telemetryEnabled, setTelemetryEnabledState] = useState(false);
   // ── Plan / license (PR-8) ──
   const [licenseOpen, setLicenseOpen] = useState(false);
   const [licenseEffective, setLicenseEffective] = useState<Tier>("demo");
@@ -469,6 +477,11 @@ export function Library() {
           applyTheme(DEFAULT_THEME);
         }
         // DM Toolkit state hydrates via useDMToolkit's own boot effect.
+        // Mirror the persisted Sentry opt-in into UI state so the
+        // Help toggle shows the right initial position. initTelemetry
+        // (in main.tsx) reads the same flag and starts the client
+        // with `enabled` matching it.
+        setTelemetryEnabledState(await readTelemetryEnabled());
       } catch (err) {
         console.error("[library] init failed:", err);
       }
@@ -1713,6 +1726,20 @@ export function Library() {
               }
               setTutorialsMenu(null);
             })();
+          }}
+          telemetryEnabled={telemetryEnabled}
+          onSetTelemetryEnabled={(enabled) => {
+            // Fire-and-forget — the persister handles its own errors and
+            // flips the live Sentry client immediately so the user can
+            // toggle on/off without relaunching.
+            void setTelemetryEnabled(enabled).then(() => {
+              setTelemetryEnabledState(enabled);
+              setScanStatus(
+                enabled
+                  ? "Anonymous diagnostics enabled."
+                  : "Anonymous diagnostics disabled.",
+              );
+            });
           }}
           onDismiss={() => setTutorialsMenu(null)}
         />
