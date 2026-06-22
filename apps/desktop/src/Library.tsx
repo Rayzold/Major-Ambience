@@ -3,14 +3,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import { convertFileSrc } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { emit, listen } from "@tauri-apps/api/event";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
-import type { CategoryId, Grade, Scene, SoundboardSlot, Track, TrackHandle } from "@mc/core";
-import { categorize, crossfade, currentTier, weightedShuffle, type Tier } from "@mc/core";
+import type { CategoryId, Grade, Scene, SoundboardSlot, Track } from "@mc/core";
+import { categorize, currentTier, weightedShuffle, type Tier } from "@mc/core";
 import {
-  bumpPlayCount,
   clearSlot,
   deleteScene,
   deleteTracksNotIn,
@@ -33,7 +31,6 @@ import {
 import { applyTheme, CATEGORIES, findCategory, type ThemeId } from "@mc/ui";
 import { scanFolderToTracks } from "./lib/scan.js";
 import { scanDurations, tracksMissingDuration } from "./lib/duration-scan.js";
-import { getAudioBackend } from "./lib/audio.js";
 import { DesktopDmToolkit } from "./layout/DesktopDmToolkit.js";
 import { DesktopHeader } from "./layout/DesktopHeader.js";
 import { DesktopSidebar } from "./layout/DesktopSidebar.js";
@@ -74,35 +71,20 @@ import {
 import { useAudioSettings } from "./hooks/useAudioSettings.js";
 import { useCloudSync } from "./hooks/useCloudSync.js";
 import { useDMToolkit } from "./hooks/useDMToolkit.js";
+import { usePlayback } from "./hooks/usePlayback.js";
 import { useKeyboardShortcuts } from "./lib/keyboard.js";
-import { getBugReportUrl, getDiagnosticsText, logEvent } from "./lib/diag.js";
+import { getBugReportUrl, getDiagnosticsText } from "./lib/diag.js";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   firePad,
   isPadPlaying,
   setPadVolume,
-  stopAllPads,
   stopPad,
   subscribePadState,
 } from "./lib/pad-audio.js";
 const DEFAULT_THEME: ThemeId = "gold-dark";
 const KNOWN_THEMES: readonly ThemeId[] = ["gold-dark", "parchment", "arcane"];
 const GRADE_CYCLE: Grade[] = ["S", "A", "B", "C", "D", "F", null];
-
-type PlaybackState = {
-  trackId: string;
-  handle: TrackHandle;
-  startedAt: number;
-  /**
-   * Detachers for the onProgress + onEnded subscriptions wired to this
-   * handle. When a new handlePlayTrack starts, we call these *before*
-   * the crossfade so the outgoing handle stops fighting the incoming
-   * one for setCurrentTime — otherwise the scrubber visibly oscillates
-   * between the two positions during the fade-out tail.
-   */
-  unsubProgress: () => void;
-  unsubEnded: () => void;
-};
 
 export function Library() {
   // ── State ───────────────────────────────────────────────────────────────
@@ -113,15 +95,8 @@ export function Library() {
   const [isScanning, setIsScanning] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [dropHover, setDropHover] = useState(false);
-  /**
-   * "off" — track ends, next-in-queue plays (default).
-   * "track" — current track loops natively via HTMLAudioElement.loop.
-   *           onEnded never fires while this is set, so the queue
-   *           doesn't advance until the user changes the mode.
-   * "queue" — track ends, advance; when the last queue track ends,
-   *           wrap to the first.
-   */
-  const [loopMode, setLoopMode] = useState<"off" | "track" | "queue">("off");
+  // loopMode + the transport state live in usePlayback; instantiated
+  // below once tracks + audio + tracksByCategory are in scope.
   const [activeCategory, setActiveCategory] = useState<CategoryId>("combat");
   /**
    * Multi-selected track ids for batch operations (bulk-grade today;
@@ -138,11 +113,8 @@ export function Library() {
    */
   const [activeView, setActiveView] = useState<"category" | "favorites" | "recent">("category");
   const [tab, setTab] = useState<"library" | "scenes" | "soundboard" | "dm">("library");
-  const [playback, setPlayback] = useState<PlaybackState | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [trackDurationSec, setTrackDurationSec] = useState(0);
-  const [queue, setQueue] = useState<Track[]>([]);
+  // playback / isPlaying / currentTime / trackDurationSec / queue all
+  // live in usePlayback — instantiated below.
   const [scanStatus, setScanStatus] = useState<string>("");
   /**
    * True while the background duration scanner is filling in missing
@@ -221,6 +193,47 @@ export function Library() {
   // reloadFromDb() also called from refreshSyncableFromDb.
   const audio = useAudioSettings();
 
+  // Tracks-by-category map, lifted above usePlayback so playNext's
+  // category-pool fallback (queue exhausted → shuffle current track's
+  // category) can read it without a circular dep.
+  const tracksByCategory = useMemo(() => {
+    const map = new Map<CategoryId, Track[]>();
+    for (const t of tracks) {
+      const list = map.get(t.category) ?? [];
+      list.push(t);
+      map.set(t.category, list);
+    }
+    return map;
+  }, [tracks]);
+
+  // Playback / transport slice — owns playback state, the playTrack
+  // closure (crossfade + onEnded queue advancement + loop self-crossfade),
+  // togglePlay / prev / next / seek / seekRelative / stopAll / cycleLoop,
+  // plus the loopMode + queue refs that fix the stale-closure bug.
+  const {
+    playback,
+    isPlaying,
+    currentTime,
+    trackDurationSec,
+    queue,
+    loopMode,
+    setQueue,
+    playTrack,
+    togglePlay,
+    prev: playPrev,
+    next: playNext,
+    seek,
+    seekRelative,
+    stopAll,
+    cycleLoop,
+    reloadFromDb: reloadPlaybackFromDb,
+  } = usePlayback({
+    tracks,
+    setTracks,
+    fadeMs: audio.fadeMs,
+    tracksByCategory,
+  });
+
   // ── Derived ─────────────────────────────────────────────────────────────
   const currentTrack = useMemo(
     () => tracks.find((t) => t.id === playback?.trackId),
@@ -291,16 +304,8 @@ export function Library() {
     });
   }
 
-  const tracksByCategory = useMemo(() => {
-    const map = new Map<CategoryId, Track[]>();
-    for (const t of tracks) {
-      const list = map.get(t.category) ?? [];
-      list.push(t);
-      map.set(t.category, list);
-    }
-    return map;
-  }, [tracks]);
-
+  // tracksByCategory is lifted up next to the usePlayback call site
+  // (playNext's fallback needs it).
   const countByCategory = useMemo(() => {
     const map = new Map<CategoryId, number>();
     for (const c of CATEGORIES) map.set(c.id, tracksByCategory.get(c.id)?.length ?? 0);
@@ -382,19 +387,8 @@ export function Library() {
     return findCategory(activeCategory) ?? CATEGORIES[0]!;
   }, [activeView, activeCategory]);
 
-  // Mirror reactive state into refs so `handlePlayTrack`'s onEnded
-  // callback (which closes over the value at subscription time) can
-  // read the *current* loop mode / queue when the track actually ends.
-  // Otherwise enabling "loop queue" mid-playback never wraps because
-  // the original closure still sees loopMode = "off".
-  const loopModeRef = useRef(loopMode);
-  const queueRef = useRef(queue);
-  useEffect(() => {
-    loopModeRef.current = loopMode;
-  }, [loopMode]);
-  useEffect(() => {
-    queueRef.current = queue;
-  }, [queue]);
+  // The loopMode + queue mirrors that fix playTrack's stale-
+  // closure bug live inside usePlayback now.
 
   // Toast-style auto-dismiss for the scan / status pill. Each new message
   // resets the timer; clearing the message immediately on unmount keeps
@@ -451,12 +445,7 @@ export function Library() {
         // via useAudioSettings's own boot effect.
         const root = await getConfig(db, "root_folder_name");
         setRootFolderName(root);
-        const loopRaw = (await getConfig(db, "loop_mode")) as
-          | "off"
-          | "track"
-          | "queue"
-          | undefined;
-        if (loopRaw === "track" || loopRaw === "queue") setLoopMode(loopRaw);
+        // loop_mode hydrates via usePlayback's own boot effect.
         const rootPath = await getConfig(db, "root_folder_path");
         setRootFolderPath(rootPath);
         const lastScanRaw = await getConfig(db, "last_scanned_at");
@@ -500,11 +489,12 @@ export function Library() {
       setTheme(themeRaw);
       applyTheme(themeRaw);
     }
-    // Audio settings + DM-managed slices reload through their hooks
-    // so the SQLite plumbing lives in one place each.
+    // Audio settings + DM-managed slices + playback's loop_mode reload
+    // through their hooks so the SQLite plumbing lives in one place each.
     await audio.reloadFromDb();
     await dm.reloadFromDb();
-  }, [audio, dm]);
+    await reloadPlaybackFromDb();
+  }, [audio, dm, reloadPlaybackFromDb]);
 
   // Cloud sync — the hook owns boot-load, runSync, the 4s debounced
   // background push, the sync signature, and the user-facing handlers.
@@ -598,11 +588,11 @@ export function Library() {
 
   useKeyboardShortcuts(
     {
-      onTogglePlay: handleTogglePlay,
-      onPrev: handlePrev,
-      onNext: handleNext,
-      onSeekBack: () => handleSeekRelative(-5),
-      onSeekForward: () => handleSeekRelative(5),
+      onTogglePlay: togglePlay,
+      onPrev: playPrev,
+      onNext: playNext,
+      onSeekBack: () => seekRelative(-5),
+      onSeekForward: () => seekRelative(5),
       onCycleGrade: handleCycleGrade,
       onShuffleCategory: () => void handleShuffleCategory(),
       onToggleDmMode: () => void handleToggleDmMode(),
@@ -621,7 +611,7 @@ export function Library() {
       onPlayCategoryRandom: (id) => void handlePlayRandomFromCategory(id),
       onPlayBoss: () => void handlePlayBoss(),
       onStopAll: handleStopAll,
-      onCycleLoop: () => void handleCycleLoop(),
+      onCycleLoop: () => void cycleLoop(),
     },
     { overlayOpen },
   );
@@ -865,278 +855,13 @@ export function Library() {
    * single-shot plays like the Shuffle button which manages the queue
    * separately).
    */
-  async function handlePlayTrack(track: Track, queueContext: Track[] = []) {
-    if (queueContext.length > 0) {
-      const idx = queueContext.findIndex((t) => t.id === track.id);
-      const built =
-        idx === -1
-          ? [track, ...queueContext]
-          : [
-              ...queueContext.slice(idx),
-              ...queueContext.slice(0, idx),
-            ];
-      setQueue(built);
-    }
-    const backend = getAudioBackend();
-    const assetUri = convertFileSrc(track.uri);
-    // Forensic trail for the silent-exit-during-playback class of
-    // bug — every play attempt logs the track id + uri prefix before
-    // the load even starts, so the last entry in the diag dump
-    // identifies what was playing when the host died.
-    logEvent("audio.play.start", {
-      trackId: track.id,
-      title: track.title,
-      pack: track.pack,
-    });
-    try {
-      const next = await backend.loadTrack(assetUri);
-      backend.setGain(next, 0);
-
-      // Capture and persist real duration on first load.
-      const raw = backend.getRawHandle(next);
-      const realDurSec = raw?.audio.duration;
-      if (raw && Number.isFinite(realDurSec) && realDurSec! > 0) {
-        const durMs = Math.round(realDurSec! * 1000);
-        if (durMs !== track.durationMs) {
-          void setDuration(await getDb(), track.id, durMs);
-          setTracks((prev) =>
-            prev.map((t) => (t.id === track.id ? { ...t, durationMs: durMs } : t)),
-          );
-        }
-        setTrackDurationSec(realDurSec!);
-      }
-
-      // Native loop stays off — both loop modes are handled in JS so the
-      // crossfade ramp can apply (HTMLAudioElement.loop is a hard cut).
-      // "track" loops via the self-crossfade trigger in onProgress below;
-      // "queue" loops via the onEnded handler wrapping to the queue head.
-      if (raw) raw.audio.loop = false;
-
-      // Latch — onProgress fires several times per second, but we only
-      // want to kick the self-crossfade once per playback. Reset on each
-      // fresh handlePlayTrack call by virtue of being a new closure.
-      let loopCrossfadeKicked = false;
-
-      const subProgress = backend.onProgress(next, (t) => {
-        setCurrentTime(t);
-        const r = backend.getRawHandle(next);
-        if (r && Number.isFinite(r.audio.duration)) {
-          setTrackDurationSec(r.audio.duration);
-
-          // Self-crossfade loop for "track" mode. When we enter the last
-          // `fadeSec` of playback, start a fresh playback of the same
-          // track. handlePlayTrack's existing crossfade ramps the new
-          // handle in while the old handle ramps out, so the loop point
-          // sounds like a smooth blend instead of the hard cut you'd get
-          // from HTMLAudioElement.loop. fadeMs comes from the captured
-          // closure so a mid-track slider change applies on the NEXT
-          // iteration, not the one currently fading.
-          //
-          // For tracks shorter than the configured fade we clamp the
-          // trigger window to half the duration so we don't fire at t=0
-          // and chain self-loops without ever playing the body.
-          const dur = r.audio.duration;
-          const fadeSec = Math.min(audio.fadeMs / 1000, dur / 2);
-          if (
-            !loopCrossfadeKicked &&
-            loopModeRef.current === "track" &&
-            dur > 0 &&
-            fadeSec > 0 &&
-            dur - t <= fadeSec
-          ) {
-            loopCrossfadeKicked = true;
-            logEvent("audio.loop.track.kick", {
-              trackId: track.id,
-              dur,
-              fadeSec,
-            });
-            // No queueContext — looping the same track shouldn't rewrite
-            // the queue ordering the user already built up.
-            void handlePlayTrack(track);
-          }
-        }
-      });
-      const subEnded = backend.onEnded(next, () => {
-        subProgress();
-        subEnded();
-        // When the self-crossfade already kicked off a fresh playback of
-        // the same track, the new handle is now the live one — letting
-        // this ended event run would flip isPlaying off mid-loop and
-        // potentially advance the queue past the just-restarted track.
-        if (loopCrossfadeKicked) return;
-        logEvent("audio.natural.end", { trackId: track.id });
-        setIsPlaying(false);
-        // Read loopMode + queue from refs — values captured in this
-        // closure at subscription time get stale if the user changes
-        // loop mode (or the queue) before the track ends.
-        const liveQueue = queueRef.current;
-        const liveLoopMode = loopModeRef.current;
-        const idx = liveQueue.findIndex((t) => t.id === track.id);
-        if (idx !== -1 && idx + 1 < liveQueue.length) {
-          const upcoming = liveQueue[idx + 1];
-          if (upcoming) void handlePlayTrack(upcoming);
-        } else if (liveLoopMode === "queue" && liveQueue.length > 0) {
-          const first = liveQueue[0];
-          if (first) void handlePlayTrack(first);
-        }
-      });
-
-      backend.play(next);
-      backend.setGain(next, 1, audio.fadeMs / 1000);
-
-      const previous = playback;
-      if (previous) {
-        // Detach the previous handle's onProgress + onEnded BEFORE the
-        // crossfade starts. Otherwise both handles fire setCurrentTime
-        // for the full fade duration and the scrubber visibly jitters
-        // between the outgoing position (near end) and the incoming
-        // position (near 0). The old handle keeps playing for the
-        // fade-out — crossfade() destroys it when the ramp completes.
-        previous.unsubProgress();
-        previous.unsubEnded();
-        crossfade(previous.handle, next, audio.fadeMs / 1000, backend);
-      }
-      setPlayback({
-        trackId: track.id,
-        handle: next,
-        startedAt: performance.now(),
-        unsubProgress: subProgress,
-        unsubEnded: subEnded,
-      });
-      setIsPlaying(true);
-      setCurrentTime(0);
-
-      const db = await getDb();
-      await bumpPlayCount(db, track.id, Math.floor(Date.now() / 1000));
-      setTracks((prev) =>
-        prev.map((t) =>
-          t.id === track.id
-            ? { ...t, playCount: t.playCount + 1, lastPlayedAt: Math.floor(Date.now() / 1000) }
-            : t,
-        ),
-      );
-    } catch (err) {
-      console.error("[library] play failed:", err);
-      // Keep the previous playback state coherent — if the new track
-      // failed to load, the old handle (if any) is still in `playback`
-      // and may still be playing. The user sees the error and the
-      // existing track keeps going.
-      if (!playback) {
-        setIsPlaying(false);
-        setCurrentTime(0);
-        setTrackDurationSec(0);
-      }
-      setScanStatus(`Play failed: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  }
-
-  function handleTogglePlay() {
-    if (!playback) return;
-    const backend = getAudioBackend();
-    if (isPlaying) {
-      backend.pause(playback.handle);
-      setIsPlaying(false);
-    } else {
-      backend.play(playback.handle);
-      setIsPlaying(true);
-    }
-  }
-
-  /**
-   * Cycle loop mode: off → track → queue → off. Persists to config.
-   * The actual loop behavior is driven by `loopModeRef` reads inside
-   * the active handlePlayTrack closures, so flipping the mode mid-track
-   * takes effect on the next loop trigger (track loop) or natural end
-   * (queue loop) — no need to poke the live HTMLAudioElement here.
-   *
-   * Mode semantics:
-   *   - off    onEnded advances the queue or stops.
-   *   - track  onProgress kicks a fresh playback of the same track when
-   *            remaining ≤ fadeSec, so the loop point crossfades.
-   *   - queue  onEnded wraps queue → first when the last track ends.
-   */
-  async function handleCycleLoop() {
-    const next: "off" | "track" | "queue" =
-      loopMode === "off" ? "track" : loopMode === "track" ? "queue" : "off";
-    setLoopMode(next);
-    const db = await getDb();
-    await setConfig(db, "loop_mode", next);
-  }
-
-  /**
-   * Hard stop. Tears down the current music playback handle, halts every
-   * soundboard pad (including the turn-sound pseudo-slots), and resets
-   * the transport UI to the no-playback baseline.
-   *
-   * Distinct from togglePlay/pause because pause leaves the track loaded
-   * and resumable; this drops the handle entirely. Used for the Z hotkey
-   * and the red Stop button next to Next in the transport.
-   */
+  // Transport handlers live in usePlayback (playTrack, togglePlay,
+  // cycleLoop, stopAll, seek, seekRelative, prev, next). The local
+  // wrapper handleStopAll exists to add the "Stopped." status toast on
+  // top of the hook's primitive.
   function handleStopAll() {
-    const backend = getAudioBackend();
-    if (playback) {
-      // Detach subscriptions first so the trailing onEnded that fires
-      // when we destroy() doesn't try to advance the queue or flip
-      // isPlaying back on.
-      playback.unsubProgress();
-      playback.unsubEnded();
-      backend.pause(playback.handle);
-      backend.destroy(playback.handle);
-    }
-    stopAllPads();
-    setPlayback(null);
-    setIsPlaying(false);
-    setCurrentTime(0);
-    setTrackDurationSec(0);
+    stopAll();
     setScanStatus("Stopped.");
-  }
-
-  function handleSeek(sec: number) {
-    if (!playback) return;
-    const clamped = Math.max(0, Math.min(trackDurationSec || Infinity, sec));
-    logEvent("audio.seek", { to: clamped, dur: trackDurationSec });
-    getAudioBackend().seek(playback.handle, clamped);
-    setCurrentTime(clamped);
-  }
-
-  function handleSeekRelative(deltaSec: number) {
-    if (!playback) return;
-    handleSeek(currentTime + deltaSec);
-  }
-
-  function handlePrev() {
-    if (!playback || queue.length === 0) return;
-    const idx = queue.findIndex((t) => t.id === playback.trackId);
-    if (idx > 0) {
-      const t = queue[idx - 1];
-      if (t) void handlePlayTrack(t);
-    }
-  }
-
-  function handleNext() {
-    if (!playback) return;
-    const idx = queue.findIndex((t) => t.id === playback.trackId);
-    if (idx !== -1 && idx + 1 < queue.length) {
-      const t = queue[idx + 1];
-      if (t) void handlePlayTrack(t);
-      return;
-    }
-    // Queue exhausted (or never built) — fall back to the playing track's
-    // category. Weighted-shuffle the rest, set as new queue, play the head.
-    // Without this, the Next button silently no-ops whenever the user got
-    // here via a search row, Recently Played, or any other entry point
-    // that didn't seed a queue.
-    const current = tracks.find((t) => t.id === playback.trackId);
-    if (!current) return;
-    const pool = (tracksByCategory.get(current.category) ?? []).filter(
-      (t) => t.id !== current.id,
-    );
-    if (pool.length === 0) return;
-    const shuffled = weightedShuffle(pool);
-    if (shuffled.length === 0) return;
-    setQueue([current, ...shuffled]);
-    const first = shuffled[0];
-    if (first) void handlePlayTrack(first);
   }
 
   async function handleShuffleCategory() {
@@ -1145,7 +870,7 @@ export function Library() {
     if (shuffled.length === 0) return;
     setQueue(shuffled);
     const first = shuffled[0];
-    if (first) await handlePlayTrack(first);
+    if (first) await playTrack(first);
   }
 
   /**
@@ -1175,7 +900,7 @@ export function Library() {
     }
     setQueue(shuffled);
     const first = shuffled[0];
-    if (first) await handlePlayTrack(first);
+    if (first) await playTrack(first);
   }
 
   /**
@@ -1203,7 +928,7 @@ export function Library() {
     }
     setQueue(shuffled);
     const first = shuffled[0];
-    if (first) await handlePlayTrack(first);
+    if (first) await playTrack(first);
   }
 
   function handleCycleGrade() {
@@ -1593,7 +1318,7 @@ export function Library() {
     setQueue(restoredQueue);
     const first = restoredQueue[0];
     if (first) {
-      await handlePlayTrack(first);
+      await playTrack(first);
     }
     setScanStatus(`Restored scene "${scene.name}".`);
   }
@@ -1815,7 +1540,7 @@ export function Library() {
             meta={viewMeta}
             categoryTracks={categoryTracks}
             playingTrackId={playback?.trackId}
-            onPlayTrack={(t, ctx) => void handlePlayTrack(t, ctx)}
+            onPlayTrack={(t, ctx) => void playTrack(t, ctx)}
             selectedIds={selectedIds}
             onSelectRow={handleSelectRow}
             onShuffleCategory={() => void handleShuffleCategory()}
@@ -1878,7 +1603,7 @@ export function Library() {
             }
             onPlayTrack={(trackId) => {
               const t = tracks.find((tk) => tk.id === trackId);
-              if (t) void handlePlayTrack(t);
+              if (t) void playTrack(t);
             }}
             onPlayCategory={(categoryId) => void handlePlayRandomFromCategory(categoryId)}
             countdownTimers={dm.countdownTimers}
@@ -2247,7 +1972,7 @@ export function Library() {
           loading={searchLoading}
           playingTrackId={playback?.trackId}
           onPlay={(t) => {
-            void handlePlayTrack(t);
+            void playTrack(t);
             setSearchOpen(false);
             setSearchQuery("");
             searchInputRef.current?.blur();
@@ -2287,10 +2012,10 @@ export function Library() {
         fadeMs={audio.fadeMs}
         masterVolume={audio.masterVolume}
         duckingPct={audio.duckingPct}
-        onTogglePlay={handleTogglePlay}
-        onPrev={handlePrev}
-        onNext={handleNext}
-        onSeek={handleSeek}
+        onTogglePlay={togglePlay}
+        onPrev={playPrev}
+        onNext={playNext}
+        onSeek={seek}
         onCycleGrade={handleCycleGrade}
         onSetFadeMs={(ms) => void audio.setFadeMs(ms)}
         onSetVolume={(v) => void audio.setMasterVolume(v)}
@@ -2298,7 +2023,7 @@ export function Library() {
         onStopAll={handleStopAll}
         anyPlaying={anyPlaying}
         loopMode={loopMode}
-        onCycleLoop={() => void handleCycleLoop()}
+        onCycleLoop={() => void cycleLoop()}
         dmMode={dm.dmMode}
       />
     </div>
