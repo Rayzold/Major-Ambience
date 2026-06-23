@@ -21,6 +21,7 @@ const TOOLS: readonly ToolMeta[] = [
   { id: "generators", label: "Generators", glyph: "note" },
   { id: "ledger", label: "Ledger", glyph: "star" },
   { id: "recap", label: "Recap", glyph: "theatre" },
+  { id: "references", label: "References", glyph: "spark" },
 ];
 
 export type DesktopDmSidebarProps = {

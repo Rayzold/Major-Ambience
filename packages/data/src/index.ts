@@ -5,3 +5,4 @@ export * from "./config-repo.js";
 export * from "./scenes-repo.js";
 export * from "./soundboard-repo.js";
 export * from "./sync-repo.js";
+export * from "./references-repo.js";

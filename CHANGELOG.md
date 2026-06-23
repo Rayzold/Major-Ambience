@@ -20,6 +20,63 @@ Earlier: **mobile reached full desktop parity** for the v0.x feature set — DM 
 
 ---
 
+## [0.0.44] — 2026‑06‑21 — References panel — external-songs wishlist + DnD guide importer
+
+New DM Toolkit tab: **References**. Bookmark songs the user discovers elsewhere (YouTube, Spotify, curated guides) as a wishlist. **Not playable in-app** — these are reference rows the user follows externally and optionally marks "owned" once they've added the local file to their library. One-click bulk-imports the 70-track [DnD Music Guide](https://rayzold.github.io/crystalforge/DND_MUSIC_GUIDE.html) across 9 mood categories (Boss Battle, Suspense, Mystery, Horror, Tavern & City, Weather & Ambience, Combat, Sorrow & Loss, Triumph & Celebration).
+
+The panel is the 9th DM Toolkit tab. Adding from scratch (paste a YouTube/Spotify URL + optional title/artist/category) and bulk-importing the guide both flow through the same SQLite repo. The guide import is **idempotent** — re-running it after the user has edited rows is a no-op (per-row `INSERT OR IGNORE` on the stable `dnd-guide-NNN` ids).
+
+> Desktop-only release: bumps `apps/desktop/package.json` / `tauri.conf.json` / `Cargo.toml` 0.0.43 → 0.0.44. **Has Rust changes** (new migration). Mobile untouched — this surface is too discoverability-driven for mobile's tighter form factor; revisit if there's demand.
+
+### Added — `apps/desktop/src-tauri/migrations/0002_track_references.sql`
+
+New `track_references` table with primary URL + per-platform YouTube / Spotify URLs + freeform `category` (not constrained to our internal CategoryId — external sources have their own taxonomies) + `notes` + `source` provenance (`"manual"` / `"dnd-music-guide"`) + `added_at` + `owned` flag. Indexes on `category`, `source`, `owned` so filters stay snappy at scale.
+
+### Added — `packages/data/src/references-repo.ts`
+
+`TrackReference` type + `listReferences` / `upsertReference` / `seedReferences` (bulk, idempotent via `INSERT OR IGNORE`) / `deleteReference` / `setReferenceOwned`. Exported from `@mc/data`.
+
+### Added — `apps/desktop/src/lib/reference-url.ts`
+
+`parseReferenceUrl(input)` — best-effort classifier returning `{kind, suggestedTitle}`. Recognizes YouTube (`youtube.com/watch`, `youtu.be`, `youtube.com/results?search_query=`) and Spotify (`open.spotify.com/track`, `/playlist`, `/album`, `/search/<query>`). Pure parsing, no network calls. Pretty-prints search queries (`One+Winged+Angel` → `One Winged Angel`) as title hints.
+
+### Added — `apps/desktop/src/lib/dnd-music-guide.ts`
+
+Vendored snapshot of the 70 guide entries (dated 2026-06-21). Vendored rather than fetched at runtime so the panel works offline, the data shape is locked in source, and re-importing is a deliberate code update rather than a silent overwrite. Stable per-row ids (`dnd-guide-001` … `dnd-guide-070`) make the seed idempotent.
+
+### Added — `apps/desktop/src/layout/dm/References.tsx`
+
+The panel. Top: add-form with URL paste (auto-fills title from the URL hint when blank) + title / artist / mood inputs. Middle: filter pills per category with counts, "Hide owned" checkbox, sort by Recently added / Title / Category, "Import DnD guide" button. Bottom: scrollable list with per-row YouTube / Spotify link chips, "owned" checkbox (mutes + strikethroughs the row), trash to delete. Empty state offers the bulk import inline.
+
+### Changed — `apps/desktop/src-tauri/src/lib.rs`
+
+Migration vec gains a second entry for `0002_track_references.sql`.
+
+### Changed — `apps/desktop/src/layout/DesktopDmSidebar.tsx`, `DesktopDmToolkit.tsx`
+
+New `"references"` `DmTool` variant. Sidebar row uses the `spark` glyph (no dedicated bookmark/list glyph yet — fine for the first cut). Toolkit renderer threads 5 new props down (`references`, `onAddReference`, `onDeleteReference`, `onToggleReferenceOwned`, `onOpenReferenceUrl`, `onImportDndGuide`).
+
+### Changed — `apps/desktop/src/Library.tsx`
+
+- New `references` `useState`, boot-loaded via `listReferences(db)`.
+- Four inline handlers (add / delete / toggleOwned / importDndGuide) — kept here rather than in a hook while the surface is small. Each re-lists after the mutation.
+- `onOpenReferenceUrl` goes through the existing `openUrl` opener plugin (capability already granted).
+
+### Verification
+
+- `pnpm -r typecheck` clean across all 7 workspace projects.
+- `pnpm test` (apps/desktop) — 14/14 pass.
+- `cargo check` in `src-tauri` — clean.
+- Migration is forward-only and idempotent (`CREATE TABLE IF NOT EXISTS`).
+
+### Known follow-ups (not blocking)
+
+- A dedicated `bookmark` or `list` glyph would read better than `spark` in the sidebar.
+- A "Re-import DnD guide" affordance for when the vendored snapshot is updated upstream.
+- Mobile parity if the wishlist surface proves useful on desktop.
+
+---
+
 ## [0.0.43] — 2026‑06‑21 — Sentry scaffold + opt-in toggle (BACKLOG #4 — desktop done, mobile deferred)
 
 Closes the desktop half of BACKLOG **#4 Important** — Sentry error reporting. The full integration is scaffolded but **inert until a Sentry DSN is configured at build time** (`VITE_SENTRY_DSN`). Dev shells and unconfigured deploys produce zero traffic. Even with a DSN, **the toggle is off by default** — users must explicitly opt in via the new Help → "Send anonymous diagnostics" checkbox.
