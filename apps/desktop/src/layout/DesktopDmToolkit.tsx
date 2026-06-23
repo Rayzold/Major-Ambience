@@ -13,12 +13,14 @@ import { TensionCountdown } from "./dm/TensionCountdown.js";
 import { Generators } from "./dm/Generators.js";
 import { XpLedger } from "./dm/XpLedger.js";
 import { RecapComposer } from "./dm/RecapComposer.js";
+import { References } from "./dm/References.js";
 import type { Combatant } from "./dm/InitiativeTracker.js";
 import type { RolledName } from "./dm/NameGenerator.js";
 import type { EncounterTable } from "./dm/EncounterTables.js";
 import type { CountdownTimer } from "./dm/TensionCountdown.js";
 import type { XpLedgerState } from "./dm/XpLedger.js";
 import type { RecapMoment } from "./dm/RecapComposer.js";
+import type { TrackReference } from "@mc/data";
 import type { RollResult } from "@mc/core/dm";
 
 export type DmTool =
@@ -29,7 +31,8 @@ export type DmTool =
   | "timers"
   | "generators"
   | "ledger"
-  | "recap";
+  | "recap"
+  | "references";
 
 export type DesktopDmToolkitProps = {
   /** Active sub-tool. Sidebar owns the write side; this component renders. */
@@ -65,6 +68,12 @@ export type DesktopDmToolkitProps = {
   onRecapMoments: (next: RecapMoment[]) => void;
   /** Title of the currently-playing track, captured when a moment is pinned. */
   nowPlayingLabel?: string;
+  references: TrackReference[];
+  onAddReference: (ref: TrackReference) => void;
+  onDeleteReference: (id: string) => void;
+  onToggleReferenceOwned: (id: string, owned: boolean) => void;
+  onOpenReferenceUrl: (url: string) => void;
+  onImportDndGuide: () => void;
 };
 
 export function DesktopDmToolkit({
@@ -93,6 +102,12 @@ export function DesktopDmToolkit({
   recapMoments,
   onRecapMoments,
   nowPlayingLabel,
+  references,
+  onAddReference,
+  onDeleteReference,
+  onToggleReferenceOwned,
+  onOpenReferenceUrl,
+  onImportDndGuide,
 }: DesktopDmToolkitProps) {
   return (
     <div
@@ -169,6 +184,15 @@ export function DesktopDmToolkit({
           <Generators />
         ) : tool === "ledger" ? (
           <XpLedger ledger={xpLedger} onLedger={onXpLedger} />
+        ) : tool === "references" ? (
+          <References
+            references={references}
+            onAdd={onAddReference}
+            onDelete={onDeleteReference}
+            onToggleOwned={onToggleReferenceOwned}
+            onOpenUrl={onOpenReferenceUrl}
+            onImportDndGuide={onImportDndGuide}
+          />
         ) : (
           <RecapComposer
             moments={recapMoments}

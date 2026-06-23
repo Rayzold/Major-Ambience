@@ -10,22 +10,28 @@ import type { CategoryId, Grade, Scene, SoundboardSlot, Track } from "@mc/core";
 import { categorize, currentTier, weightedShuffle, type Tier } from "@mc/core";
 import {
   clearSlot,
+  deleteReference,
   deleteScene,
   deleteTracksNotIn,
   getConfig,
   getDb,
   insertTracks,
+  listReferences,
   listScenes,
   listSoundboard,
   listTracks,
   saveScene,
   searchTracks,
+  seedReferences,
   setConfig,
   setCategory as persistCategory,
   setDuration,
   setGrade as persistGrade,
   setGrades as persistGrades,
   setNote as persistNote,
+  setReferenceOwned,
+  type TrackReference,
+  upsertReference,
   upsertSlot,
 } from "@mc/data";
 import { applyTheme, CATEGORIES, findCategory, type ThemeId } from "@mc/ui";
@@ -74,6 +80,7 @@ import { useDMToolkit } from "./hooks/useDMToolkit.js";
 import { usePlayback } from "./hooks/usePlayback.js";
 import { useKeyboardShortcuts } from "./lib/keyboard.js";
 import { getBugReportUrl, getDiagnosticsText } from "./lib/diag.js";
+import { DND_MUSIC_GUIDE_SEEDS } from "./lib/dnd-music-guide.js";
 import {
   readTelemetryEnabled,
   setTelemetryEnabled,
@@ -161,6 +168,9 @@ export function Library() {
   // the saved state. Source of truth lives in lib/telemetry.ts; this
   // is just the render-side mirror.
   const [telemetryEnabled, setTelemetryEnabledState] = useState(false);
+  // References (DM Toolkit wishlist) — wishlist rows persisted to
+  // SQLite. Loaded once at boot; handlers re-list after every mutation.
+  const [references, setReferences] = useState<TrackReference[]>([]);
   // ── Plan / license (PR-8) ──
   const [licenseOpen, setLicenseOpen] = useState(false);
   const [licenseEffective, setLicenseEffective] = useState<Tier>("demo");
@@ -482,6 +492,7 @@ export function Library() {
         // (in main.tsx) reads the same flag and starts the client
         // with `enabled` matching it.
         setTelemetryEnabledState(await readTelemetryEnabled());
+        setReferences(await listReferences(db));
       } catch (err) {
         console.error("[library] init failed:", err);
       }
@@ -1243,6 +1254,44 @@ export function Library() {
     await dm.setDmMode(next);
   }
 
+  // ── References (DM Toolkit wishlist) ──────────────────────────────────
+  // Not extracted to a hook yet — keep here while the surface is small.
+  // Promote to useReferences if it grows beyond CRUD + import.
+  async function handleAddReference(ref: TrackReference) {
+    const db = await getDb();
+    await upsertReference(db, ref);
+    setReferences(await listReferences(db));
+  }
+
+  async function handleDeleteReference(id: string) {
+    const db = await getDb();
+    await deleteReference(db, id);
+    setReferences(await listReferences(db));
+  }
+
+  async function handleToggleReferenceOwned(id: string, owned: boolean) {
+    const db = await getDb();
+    await setReferenceOwned(db, id, owned);
+    setReferences(await listReferences(db));
+  }
+
+  async function handleImportDndGuide() {
+    const db = await getDb();
+    const now = Math.floor(Date.now() / 1000);
+    const seeds = DND_MUSIC_GUIDE_SEEDS.map((s) => ({
+      ...s,
+      addedAt: now,
+      owned: false,
+    }));
+    const inserted = await seedReferences(db, seeds);
+    setReferences(await listReferences(db));
+    setScanStatus(
+      inserted > 0
+        ? `Imported ${inserted} reference${inserted === 1 ? "" : "s"} from the DnD guide.`
+        : "DnD guide already imported — no new entries.",
+    );
+  }
+
   // ── Tutorials ──────────────────────────────────────────────────────────
   const hasUnseenTutorials =
     TUTORIALS.some((t) => !seenTutorials.has(t.id));
@@ -1635,6 +1684,20 @@ export function Library() {
             recapMoments={dm.recapMoments}
             onRecapMoments={(next) => void dm.setRecapMoments(next)}
             {...(currentTrack ? { nowPlayingLabel: currentTrack.title } : {})}
+            references={references}
+            onAddReference={(ref) => void handleAddReference(ref)}
+            onDeleteReference={(id) => void handleDeleteReference(id)}
+            onToggleReferenceOwned={(id, owned) =>
+              void handleToggleReferenceOwned(id, owned)
+            }
+            onOpenReferenceUrl={(url) => {
+              void openUrl(url).catch((err) => {
+                setScanStatus(
+                  `Open failed: ${err instanceof Error ? err.message : String(err)}`,
+                );
+              });
+            }}
+            onImportDndGuide={() => void handleImportDndGuide()}
           />
         )}
 
