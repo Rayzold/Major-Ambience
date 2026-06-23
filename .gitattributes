@@ -1,0 +1,14 @@
+# Default: let Git handle line endings normally for text files.
+* text=auto
+
+# Migration SQL must stay LF on every platform — the Tauri SQL plugin
+# (sqlx underneath) hashes each migration's bytes when it's first
+# applied and refuses to start if the bytes shift later. Windows
+# checkouts auto-converting LF → CRLF was previously enough to
+# trip "migration N was previously applied but has been modified"
+# on a clean `git pull`.
+apps/desktop/src-tauri/migrations/*.sql text eol=lf
+
+# Same logic — Cargo.toml auto-CRLF on Windows kept showing up as
+# spurious diffs every time `cargo` touched the crate. Lock it.
+apps/desktop/src-tauri/Cargo.toml text eol=lf

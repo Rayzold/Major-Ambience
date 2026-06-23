@@ -8,6 +8,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Infra — `.gitattributes` lock LF for Tauri SQL migrations
+
+After #79 shipped migration 2, a subsequent `git pull` on Windows auto-converted the migration file LF → CRLF in the working tree. Cargo's `include_str!` then inlined the CRLF bytes, the Tauri SQL plugin (sqlx underneath) re-hashed them, and on the next `tauri dev` the plugin panicked:
+
+```
+thread 'main' panicked at src\lib.rs:178:10:
+error while running tauri application:
+  PluginInitialization("sql", "migration 2 was previously applied but has been modified")
+```
+
+Fix:
+- New `.gitattributes` pins `apps/desktop/src-tauri/migrations/*.sql` (and `Cargo.toml`) to `text eol=lf` regardless of OS — Git won't auto-CRLF them on Windows checkouts anymore.
+- Re-saved `0002_track_references.sql` with LF endings so the in-tree bytes match what `.gitattributes` enforces.
+- Affected users whose local DB already recorded the CRLF checksum need a one-time reset: `DELETE FROM _sqlx_migrations WHERE version = 2;` against their app DB at `%APPDATA%/com.rayzold.majorambience/major-ambience.db`. The migration re-applies harmlessly on next launch (`CREATE TABLE IF NOT EXISTS`) and records the new LF hash. **Track data is preserved** — only the migration-tracking row goes.
+
+No version bump — pure build hygiene with no runtime behavior change.
+
 ### Infra — Landing page deployed to GitHub Pages
 
 Closes the **#12 Strategic** item from the post-0.0.33 health review (`BACKLOG.md`): the marketing landing page (`index.html`) and interactive prototype (`prototype/`) now have a real public URL at [rayzold.github.io/Major-Ambience](https://rayzold.github.io/Major-Ambience/). Until now they only rendered locally — there was no shareable link for outreach, the press kit, or the README badge.
