@@ -158,6 +158,11 @@ export const GLYPHS: Record<string, GlyphDef> = {
     sp("M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"),
   ],
   monitor: [sr(3, 4, 18, 12, 2), sp("M9 20h6 M12 16v4")],
+  // Bookmark — classic saved-item shape: tall rectangle with a
+  // triangular notch cut from the bottom. Used by the DM Toolkit
+  // References tab; reads as "saved for later" vs `spark` which is
+  // reserved for the discover/import affordances inside that panel.
+  bookmark: [sp("M7 3h10v18l-5-4-5 4z")],
 };
 
 export const FALLBACK_GLYPH: GlyphDef = [sc(12, 12, 6)];

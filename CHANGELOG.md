@@ -20,6 +20,31 @@ Earlier: **mobile reached full desktop parity** for the v0.x feature set — DM 
 
 ---
 
+## [0.0.45] — 2026‑06‑21 — References panel polish — bookmark glyph + URL-parser tests
+
+Two follow-ups to #79 — both pure quality and zero behavioural change.
+
+> Desktop-only release: bumps `apps/desktop/package.json` / `tauri.conf.json` / `Cargo.toml` 0.0.44 → 0.0.45. No Rust touched. No DB migration.
+
+### Added — `packages/ui/src/glyph-data.ts`
+
+New `bookmark` glyph (classic tall-rectangle-with-triangular-notch shape). Used by the DM Toolkit References tab. `spark` stays in the panel's empty state + import button — those are discover/import affordances; the sidebar row is a saved-item affordance. Splitting the two semantics is a small readability win next to the other tool icons (swords, mask, dice, etc.).
+
+### Changed — `apps/desktop/src/layout/DesktopDmSidebar.tsx`
+
+References row now uses `bookmark`. Closes the placeholder note from #79.
+
+### Added — `apps/desktop/src/lib/reference-url.test.ts`
+
+16 new vitest cases covering `parseReferenceUrl(input)`: empty/malformed inputs, YouTube classic / short / `m.` host variants, the DnD-guide search-query form (with percent-encoding decode), Spotify track / playlist / album / search-path forms, fall-through for unknown hosts (SoundCloud), and the malformed-percent-encoding fallback. Run via `pnpm --filter @mc/desktop test` — total test count goes 14 → **30**.
+
+### Verification
+
+- `pnpm -r typecheck` clean.
+- `pnpm test` (apps/desktop) — 30/30 pass (3 files: transport + diag + reference-url).
+
+---
+
 ## [0.0.44] — 2026‑06‑21 — References panel — external-songs wishlist + DnD guide importer
 
 New DM Toolkit tab: **References**. Bookmark songs the user discovers elsewhere (YouTube, Spotify, curated guides) as a wishlist. **Not playable in-app** — these are reference rows the user follows externally and optionally marks "owned" once they've added the local file to their library. One-click bulk-imports the 70-track [DnD Music Guide](https://rayzold.github.io/crystalforge/DND_MUSIC_GUIDE.html) across 9 mood categories (Boss Battle, Suspense, Mystery, Horror, Tavern & City, Weather & Ambience, Combat, Sorrow & Loss, Triumph & Celebration).
