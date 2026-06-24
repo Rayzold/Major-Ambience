@@ -37,6 +37,33 @@ Earlier: **mobile reached full desktop parity** for the v0.x feature set — DM 
 
 ---
 
+## [0.0.46] — 2026‑06‑21 — Kill the pale Mica bleed at the window edges
+
+The Tauri window has `windowEffects: { effects: ["mica"], state: "active" }` — Mica paints a translucent system-themed background BEHIND the webview, then the React app paints on top. But `apps/desktop/index.html`'s `<body>` had no margin reset, so browser-default `body { margin: 8px }` left an 8px strip on every edge where the system theme's Mica color showed through. On a Windows machine with the system in light mode, that read as a thin **pale frame** around the dark app.
+
+Reset added in `packages/ui/src/global.ts`:
+
+```css
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--mc-bg);
+}
+```
+
+Sets all three to the theme background so even if anything ever doesn't fully fill the viewport, you don't get a flash of system chrome. Also kills the brief "white flash" on launch before React mounts — `html` already paints the theme bg.
+
+> Desktop-only release: bumps `apps/desktop/package.json` / `tauri.conf.json` / `Cargo.toml` 0.0.45 → 0.0.46. No Rust touched, no migration, no behavioral change beyond the visual fix.
+
+### Verification
+
+- `pnpm -r typecheck` clean.
+- `pnpm test` (apps/desktop) — 30/30 pass.
+- Verified in dev shell — the pale frame around the window edges is gone.
+
+---
+
 ## [0.0.45] — 2026‑06‑21 — References panel polish — bookmark glyph + URL-parser tests
 
 Two follow-ups to #79 — both pure quality and zero behavioural change.

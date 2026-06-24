@@ -44,6 +44,16 @@ function buildCss(): string {
     :root.mc-theme-arcane {
       ${paletteToVars(THEMES.arcane)}
     }
+    /* Kill the browser-default body margin + paint the theme bg right on
+       html/body so the Tauri window's Mica effect doesn't bleed the
+       system theme through at the edges. Also covers the initial paint
+       before React mounts — no white flash on launch. */
+    html, body, #root {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: var(--mc-bg);
+    }
     .mc-app * { box-sizing: border-box; }
     .mc-app {
       font-family: ${FONT_UI};

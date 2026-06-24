@@ -24,7 +24,7 @@ import * as Sentry from "@sentry/react";
 import { getDb, getConfig, setConfig } from "@mc/data";
 import { getDiagnostics, logEvent } from "./diag";
 
-const APP_VERSION = "0.0.45"; // mirror diag.ts; bumps in lockstep
+const APP_VERSION = "0.0.46"; // mirror diag.ts; bumps in lockstep
 const CONFIG_KEY = "telemetry_enabled";
 
 let _initialized = false;
